@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.ag-theme-alpine .ag-cell {
+  border-right: 1px solid #e5e7eb;
+}
+
+.ag-theme-alpine .ag-header-cell {
+  border-right: 1px solid #d1d5db;
+}
+
+.ag-theme-alpine .ag-pinned-left-header .ag-header-cell:last-child,
+.ag-theme-alpine .ag-pinned-left-cols-container .ag-cell:last-child {
+  border-right: 2px solid #9ca3af;
+}
