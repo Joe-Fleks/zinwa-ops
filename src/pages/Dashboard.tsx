@@ -8,9 +8,9 @@ import { THRESHOLDS, CHEMICAL_PROD_FIELDS, CHEMICAL_TYPES } from '../lib/metrics
 import { computeReceiptTotal, computeChemicalBalance, computeAvgUsagePerDay, computeDaysRemaining, isChemicalLowStock, isChemicalCriticalStock, computeTotalClients, computeDowntime, isStationNonFunctional } from '../lib/metrics';
 import { fetchDailyDemandByStationId } from '../lib/metrics/demandMetrics';
 import ProductionTrendChart from '../components/dashboard/ProductionTrendChart';
-import { fetchPendingWeeklyReports, markReportDownloaded, type WeeklyReportRecord } from '../lib/weeklyReportService';
+import { fetchPendingWeeklyReports, markReportDownloaded, checkAndTriggerWeeklyReport, type WeeklyReportRecord } from '../lib/weeklyReportService';
 import { downloadWeeklyReport } from '../lib/weeklyReportDocument';
-import { fetchPendingMonthlyReports, markMonthlyReportDownloaded, type MonthlyReportRecord } from '../lib/monthlyReportService';
+import { fetchPendingMonthlyReports, markMonthlyReportDownloaded, checkAndTriggerMonthlyReport, type MonthlyReportRecord } from '../lib/monthlyReportService';
 import { downloadMonthlyReport } from '../lib/monthlyReportDocument';
 
 interface Alert {
@@ -113,11 +113,27 @@ export default function Dashboard() {
   useEffect(() => {
     loadData();
     loadCustomAlerts();
-    if (serviceCentreId) {
-      loadWeeklyReports(serviceCentreId);
-      loadMonthlyReports(serviceCentreId);
+    if (serviceCentreId && accessContext) {
+      triggerAndLoadReports(serviceCentreId);
     }
   }, [serviceCentreId]);
+
+  const triggerAndLoadReports = async (scId: string) => {
+    if (!accessContext) return;
+    const scope = { isSCScoped: accessContext.isSCScoped, scopeId: accessContext.scopeId };
+    const scName = accessContext.serviceCentre?.name ?? '';
+    try {
+      await Promise.allSettled([
+        checkAndTriggerWeeklyReport(scope, scId, scName),
+        checkAndTriggerMonthlyReport(scope, scId, scName),
+      ]);
+    } catch {
+    }
+    await Promise.all([
+      loadWeeklyReports(scId),
+      loadMonthlyReports(scId),
+    ]);
+  };
 
   const loadWeeklyReports = async (scId: string) => {
     try {
