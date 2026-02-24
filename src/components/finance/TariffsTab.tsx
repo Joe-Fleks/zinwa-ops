@@ -388,29 +388,20 @@ function RWTariffDisplay({ rows }: { rows: TariffRow[] }) {
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase">
             <th className="px-5 py-2.5 text-left font-semibold">Category</th>
-            <th className="px-5 py-2.5 text-right font-semibold">USD / ML</th>
-            <th className="px-5 py-2.5 text-right font-semibold">USD / m³</th>
+            <th className="px-5 py-2.5 text-right font-semibold">Tariff (USD / ML)</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {rows.map((row, idx) => (
             <tr key={row.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
               <td className="px-5 py-2.5 font-medium text-gray-800">{row.category || row.band_label}</td>
-              <td className="px-5 py-2.5 text-right tabular-nums text-gray-700">
-                ${(row.tariff_usd_per_m3 * 1000).toFixed(2)}
-              </td>
               <td className="px-5 py-2.5 text-right tabular-nums font-semibold text-gray-900">
-                ${row.tariff_usd_per_m3.toFixed(5)}
+                ${(row.tariff_usd_per_m3 * 1000).toFixed(2)}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      <div className="px-5 py-2.5 bg-gray-50 border-t border-gray-100">
-        <p className="text-xs text-gray-400">
-          1 ML = 1,000 m³. USD/m³ = USD/ML ÷ 1,000. Applied to metered raw water abstraction volumes.
-        </p>
-      </div>
     </div>
   );
 }
