@@ -745,17 +745,17 @@ export default function Dashboard() {
                 <div className="space-y-3">
                   {/* Due-tomorrow notifications */}
                   {dueTomorrowAlerts.map(a => (
-                    <div key={`due-${a.id}`} className="bg-amber-50 border-2 border-amber-400 rounded-lg px-3 py-2.5">
+                    <div key={`due-${a.id}`} className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-2.5">
                       <div className="flex items-start gap-2">
-                        <Bell className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+                        <Bell className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-amber-900 uppercase" style={{ fontSize: '11px' }}>Deadline Tomorrow</p>
-                          <p className="text-sm font-semibold text-amber-800 mt-0.5">{a.subtitle || 'Follow-up'}</p>
-                          {a.body && <p className="text-xs text-amber-700 mt-0.5 line-clamp-2">{a.body}</p>}
+                          <p className="font-bold text-gray-800 uppercase" style={{ fontSize: '11px' }}>Deadline Tomorrow</p>
+                          <p className="text-sm font-semibold text-gray-700 mt-0.5">{a.subtitle || 'Follow-up'}</p>
+                          {a.body && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{a.body}</p>}
                         </div>
                         <button
                           onClick={() => { setAlertsTab('followups'); startEdit(a); }}
-                          className="text-xs text-amber-700 hover:text-amber-900 font-medium whitespace-nowrap underline"
+                          className="text-xs font-semibold px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors whitespace-nowrap"
                         >
                           View
                         </button>
@@ -840,7 +840,7 @@ export default function Dashboard() {
                             <p className="text-sm font-bold text-gray-700">{nonFunctionalStats.nonFunctionalCount} out of {nonFunctionalStats.savedRecordsCount} stations not producing</p>
                             <div className="flex items-center justify-between gap-3 mt-0.5">
                               <p className="text-sm text-red-700">{nonFunctionalStats.unmetDemandPct}% of daily demand</p>
-                              <Link to={`/sc/${scId}/maintenance?tab=non-functional`} className="px-2.5 py-1 bg-red-700 text-white text-xs font-medium rounded hover:bg-red-800 transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                              <Link to={`/sc/${scId}/maintenance?tab=non-functional`} className="px-2.5 py-1 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700 transition-colors flex items-center gap-1.5 whitespace-nowrap">
                                 More Details<ExternalLink className="w-3.5 h-3.5" />
                               </Link>
                             </div>
@@ -864,7 +864,7 @@ export default function Dashboard() {
                               {fuelBalances.diesel !== null ? `${fuelBalances.diesel.toFixed(1)} L` : 'N/A'}
                             </span>
                           </div>
-                          <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=diesel`} className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 whitespace-nowrap">
+                          <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=diesel`} className="text-xs font-semibold px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-1 whitespace-nowrap">
                             See control card<ExternalLink className="w-3 h-3" />
                           </Link>
                         </div>
@@ -876,7 +876,7 @@ export default function Dashboard() {
                               {fuelBalances.petrol !== null ? `${fuelBalances.petrol.toFixed(1)} L` : 'N/A'}
                             </span>
                           </div>
-                          <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=petrol`} className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 whitespace-nowrap">
+                          <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=petrol`} className="text-xs font-semibold px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-1 whitespace-nowrap">
                             See control card<ExternalLink className="w-3 h-3" />
                           </Link>
                         </div>
@@ -901,7 +901,7 @@ export default function Dashboard() {
                                 <span className="text-sm font-bold text-gray-800">{section.label}</span>
                                 <Link
                                   to={`/sc/${scId}/stock-control?tab=chemicals&chemical=${section.chemParam}`}
-                                  className={`text-xs font-medium rounded px-2 py-0.5 flex items-center gap-1 whitespace-nowrap transition-colors ${hasCritical ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-600 text-white hover:bg-gray-700'}`}
+                                  className="text-xs font-semibold rounded px-2.5 py-1 flex items-center gap-1 whitespace-nowrap transition-colors bg-blue-600 text-white hover:bg-blue-700"
                                 >
                                   View Balances<ExternalLink className="w-3 h-3" />
                                 </Link>
@@ -1018,7 +1018,7 @@ export default function Dashboard() {
                           <span className="text-amber-700">{pendingSummarySheets.pendingCount}/{pendingSummarySheets.totalCount} stations</span>
                           {' '}<span className="text-gray-500 text-xs">— {pendingSummarySheets.totalClientWeight > 0 ? Math.round((pendingSummarySheets.pendingClientWeight / pendingSummarySheets.totalClientWeight) * 100) : Math.round((pendingSummarySheets.pendingCount / pendingSummarySheets.totalCount) * 100)}% outstanding</span>
                         </p>
-                        <Link to={`/sc/${scId}/clearwater?tab=sales&filter=pending`} className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 whitespace-nowrap font-medium">
+                        <Link to={`/sc/${scId}/clearwater?tab=sales&filter=pending`} className="text-xs font-semibold px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-1 whitespace-nowrap">
                           See Details<ExternalLink className="w-3 h-3" />
                         </Link>
                       </div>
