@@ -272,6 +272,33 @@ export interface NRWMonthResult {
   nrwPct: number | null;
 }
 
+export function aggregateNRWByQuarter(
+  monthResults: Map<string, NRWMonthResult>,
+  year: number
+): Map<string, number | null> {
+  const quarterMap = new Map<string, number | null>();
+  const quarterLabels = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+  for (let q = 0; q < 4; q++) {
+    let totalDenom = 0;
+    let totalLoss = 0;
+    for (let m = q * 3; m < q * 3 + 3; m++) {
+      const key = `${year}-${String(m + 1).padStart(2, '0')}`;
+      const res = monthResults.get(key);
+      if (res) {
+        totalDenom += res.prodVolume;
+        totalLoss += res.lossVolume;
+      }
+    }
+    quarterMap.set(
+      quarterLabels[q],
+      totalDenom > 0 ? roundTo((totalLoss / totalDenom) * 100, 1) : null
+    );
+  }
+
+  return quarterMap;
+}
+
 export async function fetchNRWByMonth(
   stationIds: string[],
   year: number,

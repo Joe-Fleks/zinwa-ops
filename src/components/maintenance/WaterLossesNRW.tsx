@@ -8,6 +8,7 @@ import {
   getPreviousMonth,
 } from '../../lib/nrwCalculations';
 import type { TariffBand, StationClients } from '../../lib/nrwCalculations';
+import { computeNRWLosses } from '../../lib/metrics';
 import { THRESHOLDS } from '../../lib/metricsConfig';
 
 const MONTHS = [
@@ -288,19 +289,9 @@ export default function WaterLossesNRW() {
         const clientData: StationClients = (monthlyClients && monthlyTotal > 0) ? monthlyClients : station;
         const totalClients = getStationTotalClients(clientData);
         const isBorehole = station.station_type === 'Borehole';
+        const losses = computeNRWLosses(prod.rw, prod.cw, salesVol, isBorehole);
 
-        const stationLossVol = isBorehole ? 0 : Math.max(0, prod.rw - prod.cw);
-        const stationLossPct = isBorehole ? 0 : (prod.rw > 0 ? (stationLossVol / prod.rw) * 100 : 0);
-
-        const distLossVol = Math.max(0, prod.cw - salesVol);
-        const distLossPct = prod.cw > 0 ? (distLossVol / prod.cw) * 100 : 0;
-
-        const totalLossVol = isBorehole ? distLossVol : Math.max(0, prod.rw - salesVol);
-        const totalLossPct = isBorehole
-          ? (prod.cw > 0 ? (totalLossVol / prod.cw) * 100 : 0)
-          : (prod.rw > 0 ? (totalLossVol / prod.rw) * 100 : 0);
-
-        const estLoss = estimateFinancialLoss(totalLossVol, clientData, tariffBands);
+        const estLoss = estimateFinancialLoss(losses.totalLossVol, clientData, tariffBands);
 
         const comment = commentMap.get(station.id);
 
@@ -311,12 +302,12 @@ export default function WaterLossesNRW() {
           rw_volume: prod.rw,
           cw_volume: prod.cw,
           sales_volume: salesVol,
-          station_loss_vol: stationLossVol,
-          station_loss_pct: stationLossPct,
-          distribution_loss_vol: distLossVol,
-          distribution_loss_pct: distLossPct,
-          total_loss_vol: totalLossVol,
-          total_loss_pct: totalLossPct,
+          station_loss_vol: losses.stationLossVol,
+          station_loss_pct: losses.stationLossPct,
+          distribution_loss_vol: losses.distributionLossVol,
+          distribution_loss_pct: losses.distributionLossPct,
+          total_loss_vol: losses.totalLossVol,
+          total_loss_pct: losses.totalLossPct,
           est_financial_loss: estLoss,
           station_loss_comment: comment?.station_loss_comment || '',
           distribution_loss_comment: comment?.distribution_loss_comment || '',
