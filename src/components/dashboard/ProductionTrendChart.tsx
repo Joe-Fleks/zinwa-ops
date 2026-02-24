@@ -27,6 +27,7 @@ interface DualBar {
   sublabel?: string;
   production: number;
   sales: number;
+  monthKey?: string;
 }
 
 interface Station {
@@ -85,11 +86,11 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       setNrwMap(new Map());
     } else if (trendType === 'production-vs-sales') {
       setViewMode('year');
-      setNrwMap(new Map());
     } else {
       if (viewMode === 'week' || viewMode === 'month') {
         setViewMode(productionViewMode);
       }
+      setNrwMap(new Map());
     }
   }, [trendType]);
 
@@ -259,30 +260,15 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       switch (viewMode) {
         case 'week':
           await loadWeekData(getMonthTarget);
-          if (trendType === 'production') {
-            const weekDates = getWeekDateRangeForWeekNumber(selectedWeek, selectedYear);
-            const startM = parseInt(weekDates.start.split('-')[1]) - 1;
-            const endM = parseInt(weekDates.end.split('-')[1]) - 1;
-            const months = startM === endM ? [startM] : [startM, endM];
-            await loadNRWForMonths(months);
-          }
           break;
         case 'month':
           await loadMonthData(getMonthTarget);
-          if (trendType === 'production') await loadNRWForMonths([selectedMonth]);
           break;
         case 'quarter':
           await loadQuarterData(getMonthTarget);
-          if (trendType === 'production') {
-            const sm = selectedQuarter * 3;
-            await loadNRWForMonths([sm, sm + 1, sm + 2]);
-          }
           break;
         case 'year':
           await loadYearData(getMonthTarget);
-          if (trendType === 'production') {
-            await loadNRWForMonths([0,1,2,3,4,5,6,7,8,9,10,11]);
-          }
           break;
       }
     } catch (err) {
@@ -336,11 +322,40 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         sublabel: `${salesYear} | Prod: ${prodLabel}`,
         production: Math.round(prodMonthMap.get(prodKey) || 0),
         sales: Math.round(salesMonthMap.get(salesMonthIdx) || 0),
+        monthKey: prodKey,
       });
     }
 
     setDualData(bars);
     setChartData([]);
+
+    const allProdMonthKeys = bars.map(b => b.monthKey).filter(Boolean) as string[];
+    const uniqueKeys = [...new Set(allProdMonthKeys)];
+    const stationIds = await getStationIds();
+    const monthIndices = uniqueKeys.map(k => parseInt(k.split('-')[1]) - 1);
+    const nrwYear = (mk: string) => parseInt(mk.split('-')[0]);
+
+    const map = new Map<string, number | null>();
+    for (const mk of uniqueKeys) {
+      const yr = nrwYear(mk);
+      const mIdx = parseInt(mk.split('-')[1]) - 1;
+      const daysInMonth = new Date(yr, mIdx + 1, 0).getDate();
+      const startDate = `${yr}-${String(mIdx + 1).padStart(2, '0')}-01`;
+      const endDate = `${yr}-${String(mIdx + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+      const [{ data: pd }, { data: sd }] = await Promise.all([
+        supabase.from('production_logs').select('cw_volume_m3').in('station_id', stationIds).gte('date', startDate).lte('date', endDate),
+        supabase.from('sales_records').select('sage_sales_volume_m3, returns_volume_m3').in('station_id', stationIds).eq('year', yr).eq('month', mIdx + 1),
+      ]);
+      const cwVol = (pd || []).reduce((s: number, r: any) => s + (Number(r.cw_volume_m3) || 0), 0);
+      const salesVol = (sd || []).reduce((s: number, r: any) => {
+        const sage = Number(r.sage_sales_volume_m3) || 0;
+        const ret = Number(r.returns_volume_m3) || 0;
+        return s + (sage > 0 ? sage : ret);
+      }, 0);
+      map.set(mk, cwVol > 0 ? Math.round(((cwVol - salesVol) / cwVol) * 1000) / 10 : null);
+    }
+    void monthIndices;
+    setNrwMap(map);
   };
 
   const getSalesVolumeForMonth = async (year: number, monthIdx: number): Promise<number> => {
@@ -1099,6 +1114,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                   const prodPct = dualMaxVal > 0 ? (item.production / dualMaxVal) * 100 : 0;
                   const salesPct = dualMaxVal > 0 ? (item.sales / dualMaxVal) * 100 : 0;
                   const ratio = item.production > 0 ? (item.sales / item.production) * 100 : null;
+                  const dualNrwPct = item.monthKey ? (nrwMap.get(item.monthKey) ?? null) : null;
 
                   return (
                     <div
@@ -1124,6 +1140,11 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                             <div className="w-36 flex-shrink-0">
                               <span className="text-[11px] font-bold text-green-600 tabular-nums leading-none whitespace-nowrap">
                                 {item.production.toLocaleString()} m³
+                                {dualNrwPct !== null && (
+                                  <span className="text-[10px] font-medium ml-1 opacity-75">
+                                    (NRW = {dualNrwPct.toFixed(1)}%)
+                                  </span>
+                                )}
                               </span>
                             </div>
                           </div>
@@ -1213,9 +1234,6 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                   const actualPct = maxVal > 0 ? (item.actual / maxVal) * 100 : 0;
                   const targetPct = maxVal > 0 ? (item.target / maxVal) * 100 : 0;
                   const barAchievement = item.target > 0 ? (item.actual / item.target) * 100 : null;
-                  const itemNrwPct = trendType === 'production' && item.monthKey
-                    ? nrwMap.get(item.monthKey) ?? null
-                    : null;
 
                   return (
                     <div
@@ -1258,12 +1276,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                                 item.actual >= item.target ? actualMetTextColor : actualNotMetTextColor
                               }`}>
                                 {item.actual.toLocaleString()} m³
-                                {trendType === 'production' && itemNrwPct !== null && (
-                                  <span className="text-[10px] font-medium ml-1 opacity-75">
-                                    (NRW = {itemNrwPct.toFixed(1)}%)
-                                  </span>
-                                )}
-                                {trendType === 'sales' && barAchievement !== null && (
+                                {barAchievement !== null && (
                                   <span className="text-[10px] font-medium ml-1 opacity-75">
                                     ({barAchievement.toFixed(0)}%)
                                   </span>
