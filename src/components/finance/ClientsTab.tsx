@@ -81,9 +81,6 @@ export default function ClientsTab({ clientType }: ClientsTabProps) {
   }, [loadData]);
 
   const loadCWClients = async () => {
-    const BASE_YEAR = 2026;
-    const BASE_MONTH = 1;
-
     let stationsQuery = supabase
       .from('stations')
       .select('id, station_name, clients_domestic, clients_school, clients_business, clients_industry, clients_church, clients_parastatal, clients_government, clients_other')
@@ -100,45 +97,15 @@ export default function ClientsTab({ clientType }: ClientsTabProps) {
       return;
     }
 
-    const stationIds = stations.map(s => s.id);
-
-    const isBeforeBase = selectedYear < BASE_YEAR || (selectedYear === BASE_YEAR && selectedMonth < BASE_MONTH);
-
-    let newConnMap = new Map<string, Record<string, number>>();
-    if (!isBeforeBase) {
-      const cumulativeStartDate = `${BASE_YEAR}-${String(BASE_MONTH).padStart(2, '0')}-01`;
-      const endDate = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0];
-
-      const { data: prodLogs, error: plErr } = await supabase
-        .from('production_logs')
-        .select('station_id, new_connections, new_connection_category')
-        .in('station_id', stationIds)
-        .gte('date', cumulativeStartDate)
-        .lte('date', endDate)
-        .gt('new_connections', 0);
-
-      if (plErr) throw plErr;
-
-      for (const log of (prodLogs || [])) {
-        if (!log.new_connections || log.new_connections <= 0) continue;
-        const cat = mapCategoryToField(log.new_connection_category || '');
-        if (!cat) continue;
-        const existing = newConnMap.get(log.station_id) || {};
-        existing[cat] = (existing[cat] || 0) + log.new_connections;
-        newConnMap.set(log.station_id, existing);
-      }
-    }
-
     const rows: CWRow[] = stations.map(s => {
-      const newConn = newConnMap.get(s.id) || {};
-      const domestic   = (s.clients_domestic   || 0) + (newConn.clients_domestic   || 0);
-      const school     = (s.clients_school     || 0) + (newConn.clients_school     || 0);
-      const business   = (s.clients_business   || 0) + (newConn.clients_business   || 0);
-      const industry   = (s.clients_industry   || 0) + (newConn.clients_industry   || 0);
-      const church     = (s.clients_church     || 0) + (newConn.clients_church     || 0);
-      const parastatal = (s.clients_parastatal || 0) + (newConn.clients_parastatal || 0);
-      const government = (s.clients_government || 0) + (newConn.clients_government || 0);
-      const other      = (s.clients_other      || 0) + (newConn.clients_other      || 0);
+      const domestic   = s.clients_domestic   || 0;
+      const school     = s.clients_school     || 0;
+      const business   = s.clients_business   || 0;
+      const industry   = s.clients_industry   || 0;
+      const church     = s.clients_church     || 0;
+      const parastatal = s.clients_parastatal || 0;
+      const government = s.clients_government || 0;
+      const other      = s.clients_other      || 0;
 
       return {
         station_id: s.id,
