@@ -91,6 +91,7 @@ export default function Dashboard() {
   const [alertsTab, setAlertsTab] = useState<'alerts' | 'followups'>('alerts');
   const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis' | 'reports'>('cw');
   const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'alerts' | 'followups'>('cw');
+  const [reportSection, setReportSection] = useState<'midweek' | 'endofweek' | 'monthly' | 'quarterly' | 'yearly'>('endofweek');
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 1024);
   const narrowRef = useRef(isNarrow);
 
@@ -1098,78 +1099,165 @@ export default function Dashboard() {
 
   const MONTH_NAMES_FULL = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-  const renderReportsContent = () => (
-    <div className="space-y-4 px-4 py-4">
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Weekly Reports</p>
-        {allWeeklyReports.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">No weekly reports generated yet</p>
-        ) : (
-          <div className="space-y-2">
-            {allWeeklyReports.map(report => {
-              const reportTypeLbl = report.report_type === 'friday' ? 'Friday' : 'Tuesday';
-              const periodStart = new Date(report.period_start + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-              const periodEnd = new Date(report.period_end + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-              const isDownloading = downloadingReportId === report.id;
-              const isReady = report.status === 'ready';
-              return (
-                <div key={report.id} className={`rounded-lg px-3 py-2.5 border ${isReady ? 'bg-sky-50 border-sky-300' : 'bg-gray-50 border-gray-200'}`}>
-                  <div className="flex items-start gap-2">
-                    <FileText className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isReady ? 'text-sky-700' : 'text-gray-400'}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className={`text-xs font-bold uppercase ${isReady ? 'text-sky-800' : 'text-gray-600'}`}>{reportTypeLbl} — Week {report.week_number}, {report.year}</p>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isReady ? 'bg-sky-200 text-sky-800' : 'bg-gray-200 text-gray-500'}`}>{isReady ? 'Ready' : 'Downloaded'}</span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-0.5">{periodStart} – {periodEnd}</p>
-                    </div>
-                    <button
-                      onClick={() => handleDownloadReport(report)}
-                      disabled={isDownloading}
-                      className="flex items-center gap-1 px-2 py-1 bg-sky-700 hover:bg-sky-800 disabled:bg-sky-400 text-white text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0"
-                    >
-                      {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
-                      {isDownloading ? '' : 'Download'}
-                    </button>
+  const midweekReports = allWeeklyReports.filter(r => r.report_type === 'tuesday');
+  const endOfWeekReports = allWeeklyReports.filter(r => r.report_type === 'friday');
+
+  const REPORT_SECTIONS: { key: typeof reportSection; label: string; count?: number }[] = [
+    { key: 'midweek', label: 'Mid-week Reports', count: midweekReports.length },
+    { key: 'endofweek', label: 'End of Week Reports', count: endOfWeekReports.length },
+    { key: 'monthly', label: 'Monthly Reports', count: allMonthlyReports.length },
+    { key: 'quarterly', label: 'Quarterly Reports', count: 0 },
+    { key: 'yearly', label: 'Yearly Reports', count: 0 },
+  ];
+
+  const renderWeeklyReportList = (reports: WeeklyReportRecord[], accentColor: { bg: string; border: string; readyBg: string; readyText: string; badgeBg: string; badgeText: string; btnBg: string; btnHover: string; btnDisabled: string; iconColor: string }) => {
+    if (reports.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <FileText className="w-10 h-10 text-gray-200 mb-3" />
+          <p className="text-sm font-medium text-gray-400">No reports available</p>
+          <p className="text-xs text-gray-300 mt-1">Reports are generated automatically</p>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-2">
+        {reports.map(report => {
+          const periodStart = new Date(report.period_start + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+          const periodEnd = new Date(report.period_end + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+          const isDownloading = downloadingReportId === report.id;
+          const isReady = report.status === 'ready';
+          return (
+            <div key={report.id} className={`rounded-lg px-3 py-2.5 border ${isReady ? `${accentColor.readyBg} ${accentColor.border}` : 'bg-gray-50 border-gray-200'}`}>
+              <div className="flex items-start gap-2">
+                <FileText className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isReady ? accentColor.iconColor : 'text-gray-400'}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className={`text-xs font-bold uppercase ${isReady ? accentColor.readyText : 'text-gray-600'}`}>Week {report.week_number}, {report.year}</p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isReady ? `${accentColor.badgeBg} ${accentColor.badgeText}` : 'bg-gray-200 text-gray-500'}`}>{isReady ? 'Ready' : 'Downloaded'}</span>
                   </div>
+                  <p className="text-xs text-gray-500 mt-0.5">{periodStart} – {periodEnd}</p>
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <button
+                  onClick={() => handleDownloadReport(report)}
+                  disabled={isDownloading}
+                  className={`flex items-center gap-1 px-2 py-1 ${accentColor.btnBg} ${accentColor.btnHover} ${accentColor.btnDisabled} text-white text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0`}
+                >
+                  {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
+                  {isDownloading ? '' : 'Download'}
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
-      <div className="border-t border-gray-200 pt-4">
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Monthly Reports</p>
-        {allMonthlyReports.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">No monthly reports generated yet</p>
-        ) : (
-          <div className="space-y-2">
-            {allMonthlyReports.map(report => {
-              const isDownloading = downloadingReportId === report.id;
-              const isReady = report.status === 'ready';
-              return (
-                <div key={report.id} className={`rounded-lg px-3 py-2.5 border ${isReady ? 'bg-teal-50 border-teal-300' : 'bg-gray-50 border-gray-200'}`}>
-                  <div className="flex items-start gap-2">
-                    <FileText className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isReady ? 'text-teal-700' : 'text-gray-400'}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className={`text-xs font-bold uppercase ${isReady ? 'text-teal-800' : 'text-gray-600'}`}>{MONTH_NAMES_FULL[report.month]} {report.year}</p>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isReady ? 'bg-teal-200 text-teal-800' : 'bg-gray-200 text-gray-500'}`}>{isReady ? 'Ready' : 'Downloaded'}</span>
+    );
+  };
+
+  const renderReportsContent = () => (
+    <div className="flex h-full min-h-[400px]">
+      <div className="w-44 flex-shrink-0 border-r border-gray-200 bg-gray-50 py-3">
+        {REPORT_SECTIONS.map(section => {
+          const isActive = reportSection === section.key;
+          const hasReady = section.key === 'midweek'
+            ? midweekReports.some(r => r.status === 'ready')
+            : section.key === 'endofweek'
+            ? endOfWeekReports.some(r => r.status === 'ready')
+            : section.key === 'monthly'
+            ? allMonthlyReports.some(r => r.status === 'ready')
+            : false;
+          return (
+            <button
+              key={section.key}
+              onClick={() => setReportSection(section.key)}
+              className={`w-full text-left px-3 py-2.5 transition-colors flex items-center justify-between gap-1 ${
+                isActive
+                  ? 'bg-white border-r-2 border-blue-600 text-blue-700 font-semibold'
+                  : 'text-gray-600 hover:bg-white hover:text-gray-800'
+              }`}
+            >
+              <span className="text-xs leading-tight">{section.label}</span>
+              {hasReady && (
+                <span className="w-2 h-2 rounded-full bg-sky-500 flex-shrink-0" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex-1 overflow-y-auto thin-scrollbar px-4 py-4">
+        {reportSection === 'midweek' && renderWeeklyReportList(midweekReports, {
+          bg: 'bg-blue-50',
+          border: 'border-blue-300',
+          readyBg: 'bg-blue-50',
+          readyText: 'text-blue-800',
+          badgeBg: 'bg-blue-200',
+          badgeText: 'text-blue-800',
+          btnBg: 'bg-blue-700',
+          btnHover: 'hover:bg-blue-800',
+          btnDisabled: 'disabled:bg-blue-400',
+          iconColor: 'text-blue-600',
+        })}
+
+        {reportSection === 'endofweek' && renderWeeklyReportList(endOfWeekReports, {
+          bg: 'bg-sky-50',
+          border: 'border-sky-300',
+          readyBg: 'bg-sky-50',
+          readyText: 'text-sky-800',
+          badgeBg: 'bg-sky-200',
+          badgeText: 'text-sky-800',
+          btnBg: 'bg-sky-700',
+          btnHover: 'hover:bg-sky-800',
+          btnDisabled: 'disabled:bg-sky-400',
+          iconColor: 'text-sky-600',
+        })}
+
+        {reportSection === 'monthly' && (
+          allMonthlyReports.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <FileText className="w-10 h-10 text-gray-200 mb-3" />
+              <p className="text-sm font-medium text-gray-400">No reports available</p>
+              <p className="text-xs text-gray-300 mt-1">Reports are generated on the 2nd of each month</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {allMonthlyReports.map(report => {
+                const isDownloading = downloadingReportId === report.id;
+                const isReady = report.status === 'ready';
+                return (
+                  <div key={report.id} className={`rounded-lg px-3 py-2.5 border ${isReady ? 'bg-teal-50 border-teal-300' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex items-start gap-2">
+                      <FileText className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isReady ? 'text-teal-600' : 'text-gray-400'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={`text-xs font-bold uppercase ${isReady ? 'text-teal-800' : 'text-gray-600'}`}>{MONTH_NAMES_FULL[report.month]} {report.year}</p>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isReady ? 'bg-teal-200 text-teal-800' : 'bg-gray-200 text-gray-500'}`}>{isReady ? 'Ready' : 'Downloaded'}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">{report.report_data?.production?.stationCount ?? 0} stations · {report.report_data?.completionPct ?? 0}% coverage</p>
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">{report.report_data?.production?.stationCount ?? 0} stations · {report.report_data?.completionPct ?? 0}% coverage</p>
+                      <button
+                        onClick={() => handleDownloadMonthlyReport(report)}
+                        disabled={isDownloading}
+                        className="flex items-center gap-1 px-2 py-1 bg-teal-700 hover:bg-teal-800 disabled:bg-teal-400 text-white text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0"
+                      >
+                        {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
+                        {isDownloading ? '' : 'Download'}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleDownloadMonthlyReport(report)}
-                      disabled={isDownloading}
-                      className="flex items-center gap-1 px-2 py-1 bg-teal-700 hover:bg-teal-800 disabled:bg-teal-400 text-white text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0"
-                    >
-                      {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
-                      {isDownloading ? '' : 'Download'}
-                    </button>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          )
+        )}
+
+        {(reportSection === 'quarterly' || reportSection === 'yearly') && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <FileText className="w-10 h-10 text-gray-200 mb-3" />
+            <p className="text-sm font-medium text-gray-400">Coming soon</p>
+            <p className="text-xs text-gray-300 mt-1">
+              {reportSection === 'quarterly' ? 'Quarterly' : 'Yearly'} reports will be available in a future update
+            </p>
           </div>
         )}
       </div>
