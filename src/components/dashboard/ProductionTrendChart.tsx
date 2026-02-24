@@ -351,29 +351,61 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     setDualData(bars);
     setChartData([]);
 
-    const allSalesMonthKeys = bars.map(b => b.salesMonthKey).filter(Boolean) as string[];
-    const uniqueSalesKeys = [...new Set(allSalesMonthKeys)];
     const stationIds = await getStationIds();
 
+    const { data: stationTypes } = await supabase
+      .from('stations')
+      .select('id, station_type')
+      .in('id', stationIds);
+    const boreholeIds = new Set((stationTypes || []).filter((s: any) => s.station_type === 'Borehole').map((s: any) => s.id));
+    const surfaceIds = new Set((stationTypes || []).filter((s: any) => s.station_type !== 'Borehole').map((s: any) => s.id));
+    const boreholeArr = [...boreholeIds] as string[];
+    const surfaceArr = [...surfaceIds] as string[];
+
     const map = new Map<string, number | null>();
-    for (const mk of uniqueSalesKeys) {
-      const yr = parseInt(mk.split('-')[0]);
-      const mIdx = parseInt(mk.split('-')[1]) - 1;
-      const daysInMonth = new Date(yr, mIdx + 1, 0).getDate();
-      const startDate = `${yr}-${String(mIdx + 1).padStart(2, '0')}-01`;
-      const endDate = `${yr}-${String(mIdx + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
-      const [{ data: pd }, { data: sd }] = await Promise.all([
-        supabase.from('production_logs').select('cw_volume_m3').in('station_id', stationIds).gte('date', startDate).lte('date', endDate),
-        supabase.from('sales_records').select('sage_sales_volume_m3, returns_volume_m3').in('station_id', stationIds).eq('year', yr).eq('month', mIdx + 1),
-      ]);
-      const cwVol = (pd || []).reduce((s: number, r: any) => s + (Number(r.cw_volume_m3) || 0), 0);
+    for (const bar of bars) {
+      const prodKey = bar.monthKey;
+      const salesKey = bar.salesMonthKey;
+      if (!prodKey || !salesKey) continue;
+      if (map.has(salesKey)) continue;
+
+      const prodYr = parseInt(prodKey.split('-')[0]);
+      const prodMIdx = parseInt(prodKey.split('-')[1]) - 1;
+      const prodDays = new Date(prodYr, prodMIdx + 1, 0).getDate();
+      const prodStart = `${prodYr}-${String(prodMIdx + 1).padStart(2, '0')}-01`;
+      const prodEnd = `${prodYr}-${String(prodMIdx + 1).padStart(2, '0')}-${String(prodDays).padStart(2, '0')}`;
+
+      const salesYr = parseInt(salesKey.split('-')[0]);
+      const salesMIdx = parseInt(salesKey.split('-')[1]) - 1;
+
+      const queries: Promise<any>[] = [
+        supabase.from('sales_records').select('sage_sales_volume_m3, returns_volume_m3').in('station_id', stationIds).eq('year', salesYr).eq('month', salesMIdx + 1),
+      ];
+      if (surfaceArr.length > 0) {
+        queries.push(supabase.from('production_logs').select('rw_volume_m3').in('station_id', surfaceArr).gte('date', prodStart).lte('date', prodEnd));
+      } else {
+        queries.push(Promise.resolve({ data: [] }));
+      }
+      if (boreholeArr.length > 0) {
+        queries.push(supabase.from('production_logs').select('cw_volume_m3').in('station_id', boreholeArr).gte('date', prodStart).lte('date', prodEnd));
+      } else {
+        queries.push(Promise.resolve({ data: [] }));
+      }
+
+      const [{ data: sd }, { data: rwPd }, { data: cwPd }] = await Promise.all(queries);
+
+      const rwVol = (rwPd || []).reduce((s: number, r: any) => s + (Number(r.rw_volume_m3) || 0), 0);
+      const cwVol = (cwPd || []).reduce((s: number, r: any) => s + (Number(r.cw_volume_m3) || 0), 0);
+      const totalProdVol = rwVol + cwVol;
+
       const salesVol = (sd || []).reduce((s: number, r: any) => {
         const sage = Number(r.sage_sales_volume_m3) || 0;
         const ret = Number(r.returns_volume_m3) || 0;
         return s + (sage > 0 ? sage : ret);
       }, 0);
-      const totalLossVol = Math.max(0, cwVol - salesVol);
-      map.set(mk, cwVol > 0 ? Math.round((totalLossVol / cwVol) * 100) : null);
+
+      const totalLossVol = Math.max(0, totalProdVol - salesVol);
+      map.set(salesKey, totalProdVol > 0 ? Math.round((totalLossVol / totalProdVol) * 100) : null);
     }
     setNrwMap(map);
   };
