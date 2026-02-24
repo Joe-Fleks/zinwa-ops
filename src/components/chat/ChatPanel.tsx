@@ -427,7 +427,7 @@ export default function ChatPanel() {
                 <button
                   onClick={handleSend}
                   disabled={!input.trim() || streaming}
-                  className="p-2 rounded-xl bg-teal-600 text-white hover:bg-teal-700 transition-colors disabled:opacity-40 disabled:hover:bg-teal-600 flex-shrink-0"
+                  className="p-2 rounded-xl bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors disabled:opacity-40 disabled:hover:bg-blue-200 flex-shrink-0"
                 >
                   <Send className="w-4 h-4" />
                 </button>

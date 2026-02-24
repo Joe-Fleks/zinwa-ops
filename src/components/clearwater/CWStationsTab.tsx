@@ -33,7 +33,7 @@ export default function CWStationsTab() {
           </button>
           <button
             onClick={() => navigate('/clearwater/stations/new')}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
           >
             <Settings className="w-4 h-4" />
             Register Station

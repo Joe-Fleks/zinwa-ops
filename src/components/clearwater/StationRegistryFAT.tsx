@@ -293,7 +293,7 @@ export default function StationRegistryFAT() {
           <button onClick={handleToggleEdit} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${editing ? 'bg-gray-700 text-white hover:bg-gray-800' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
             {editing ? <><X className="w-4 h-4" />Done Editing</> : <><Pencil className="w-4 h-4" />Edit</>}
           </button>
-          <button onClick={handleAddStation} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
+          <button onClick={handleAddStation} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-200 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-300 transition-colors">
             <Plus className="w-4 h-4" />Add Station
           </button>
           {editing && dirtyCount > 0 && (

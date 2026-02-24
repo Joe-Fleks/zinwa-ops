@@ -366,13 +366,13 @@ export default function ChemicalNewStock() {
 
         <div className="flex items-center gap-2">
           {!editing && rows.length > 0 && (
-            <button onClick={handleExport} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors">
+            <button onClick={handleExport} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors">
               <Download className="w-4 h-4" /> Export
             </button>
           )}
           {editing && (
             <>
-              <button onClick={handleAddRow} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-teal-600 text-white hover:bg-teal-700 transition-colors">
+              <button onClick={handleAddRow} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors">
                 <Plus className="w-4 h-4" /> New Entry
               </button>
               <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50">

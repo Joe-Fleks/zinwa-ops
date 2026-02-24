@@ -708,7 +708,7 @@ export default function FuelTab({ fuelType }: FuelTabProps) {
               <button
                 type="button"
                 onClick={handleAddRow}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 New Entry

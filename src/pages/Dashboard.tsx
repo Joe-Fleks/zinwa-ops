@@ -1,4 +1,4 @@
-import { AlertTriangle, ExternalLink, Fuel, FlaskConical, ClipboardList, Plus, Pencil, Check, X, FileText, Download, Bell, Calendar, Flag } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Fuel, FlaskConical, ClipboardList, Plus, Pencil, Check, X, FileText, Download, Bell, Calendar, Flag, Search, Droplets, TestTube } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -92,6 +92,8 @@ export default function Dashboard() {
   const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis' | 'reports'>('cw');
   const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'alerts' | 'followups'>('cw');
   const [reportSection, setReportSection] = useState<'midweek' | 'endofweek' | 'monthly' | 'quarterly' | 'yearly'>('endofweek');
+  const [kpiSection, setKpiSection] = useState<'nrw' | 'chemical_usage'>('nrw');
+  const [kpiSearch, setKpiSearch] = useState('');
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 1024);
   const narrowRef = useRef(isNarrow);
 
@@ -1154,6 +1156,73 @@ export default function Dashboard() {
     );
   };
 
+  const KPI_ITEMS: { key: 'nrw' | 'chemical_usage'; label: string; icon: React.ReactNode }[] = [
+    { key: 'nrw', label: 'Non-Revenue Water (NRW)', icon: <Droplets className="w-3.5 h-3.5" /> },
+    { key: 'chemical_usage', label: 'Chemical Usage', icon: <TestTube className="w-3.5 h-3.5" /> },
+  ];
+
+  const filteredKpis = KPI_ITEMS.filter(k =>
+    k.label.toLowerCase().includes(kpiSearch.toLowerCase())
+  );
+
+  const renderKpisContent = () => (
+    <div className="flex h-full min-h-[400px]">
+      <div className="w-44 flex-shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col">
+        <div className="p-2 border-b border-gray-200">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={kpiSearch}
+              onChange={e => setKpiSearch(e.target.value)}
+              placeholder="Search KPIs..."
+              className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
+        </div>
+        <div className="flex-1 py-1 overflow-y-auto thin-scrollbar">
+          {filteredKpis.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-4 px-2">No KPIs match</p>
+          ) : (
+            filteredKpis.map(kpi => {
+              const isActive = kpiSection === kpi.key;
+              return (
+                <button
+                  key={kpi.key}
+                  onClick={() => setKpiSection(kpi.key)}
+                  className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2 ${
+                    isActive
+                      ? 'bg-blue-200 border-r-2 border-blue-400 text-blue-900 font-semibold'
+                      : 'text-gray-600 hover:bg-white hover:text-gray-800'
+                  }`}
+                >
+                  <span className={isActive ? 'text-blue-700' : 'text-gray-400'}>{kpi.icon}</span>
+                  <span className="text-xs leading-tight">{kpi.label}</span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto thin-scrollbar px-4 py-4">
+        {kpiSection === 'nrw' && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Droplets className="w-10 h-10 text-gray-200 mb-3" />
+            <p className="text-sm font-medium text-gray-400">NRW KPI</p>
+            <p className="text-xs text-gray-300 mt-1">Dashboard coming soon</p>
+          </div>
+        )}
+        {kpiSection === 'chemical_usage' && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <TestTube className="w-10 h-10 text-gray-200 mb-3" />
+            <p className="text-sm font-medium text-gray-400">Chemical Usage KPI</p>
+            <p className="text-xs text-gray-300 mt-1">Dashboard coming soon</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   const renderReportsContent = () => (
     <div className="flex h-full min-h-[400px]">
       <div className="w-44 flex-shrink-0 border-r border-gray-200 bg-gray-50 py-3">
@@ -1329,9 +1398,7 @@ export default function Dashboard() {
               {mergedTab === 'rw' && (
                 <div className="flex items-center justify-center h-full min-h-[200px] text-gray-400 text-sm">RW Trends coming soon</div>
               )}
-              {mergedTab === 'kpis' && (
-                <div className="flex items-center justify-center h-full min-h-[200px] text-gray-400 text-sm">KPIs coming soon</div>
-              )}
+              {mergedTab === 'kpis' && renderKpisContent()}
               {mergedTab === 'reports' && renderReportsContent()}
               {(mergedTab === 'alerts' || mergedTab === 'followups') && (
                 loading ? (
@@ -1408,11 +1475,7 @@ export default function Dashboard() {
                   RW Trends coming soon
                 </div>
               )}
-              {trendsTab === 'kpis' && (
-                <div className="flex items-center justify-center h-full min-h-[200px] text-gray-400 text-sm">
-                  KPIs coming soon
-                </div>
-              )}
+              {trendsTab === 'kpis' && renderKpisContent()}
               {trendsTab === 'reports' && renderReportsContent()}
             </div>
           </div>

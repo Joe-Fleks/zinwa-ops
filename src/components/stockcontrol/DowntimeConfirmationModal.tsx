@@ -270,7 +270,7 @@ export default function DowntimeConfirmationModal({
           </button>
           <button
             onClick={() => onConfirm(confirmations)}
-            className="px-5 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-md hover:shadow-lg"
+            className="px-5 py-2 text-sm font-medium text-blue-900 bg-blue-200 rounded-lg hover:bg-blue-300 transition-colors shadow-md hover:shadow-lg"
           >
             Confirm & Calculate Distribution
           </button>

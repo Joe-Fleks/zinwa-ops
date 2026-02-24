@@ -228,14 +228,14 @@ export default function ChemicalDistributor() {
               </button>
               <button
                 onClick={handleExport}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
               >
                 <Download className="w-4 h-4" /> Export
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save Plan
@@ -328,7 +328,7 @@ export default function ChemicalDistributor() {
             <button
               onClick={handleCalculate}
               disabled={loading || allowedScIds.length === 0}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50"
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

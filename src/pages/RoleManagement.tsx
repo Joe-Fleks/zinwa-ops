@@ -984,7 +984,7 @@ export default function RoleManagement() {
               <button
                 onClick={handleTransfer}
                 disabled={confirming || (selectedUser.scope_type === 'SC' && !transferSCId) || (selectedUser.scope_type === 'CATCHMENT' && !transferCatchmentId)}
-                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition disabled:opacity-50"
+                className="px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition disabled:opacity-50"
               >
                 {confirming ? 'Processing...' : 'Transfer'}
               </button>
@@ -1126,7 +1126,7 @@ export default function RoleManagement() {
               <button
                 onClick={handleRetire}
                 disabled={confirming}
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition disabled:opacity-50"
+                className="px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition disabled:opacity-50"
               >
                 {confirming ? 'Processing...' : 'Retire'}
               </button>
@@ -1174,7 +1174,7 @@ export default function RoleManagement() {
               <button
                 onClick={handleSuspend}
                 disabled={confirming}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition disabled:opacity-50"
+                className="px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition disabled:opacity-50"
               >
                 {confirming ? 'Processing...' : 'Suspend'}
               </button>

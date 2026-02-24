@@ -380,7 +380,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         denominator += cw;
         lossVol += Math.max(0, cw - sales);
       }
-      return denominator > 0 ? Math.round((lossVol / denominator) * 100) : null;
+      return denominator > 0 ? Math.round((lossVol / denominator) * 1000) / 10 : null;
     };
 
     const map = new Map<string, number | null>();
@@ -1316,7 +1316,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                               {item.sales.toLocaleString()} m³
                               {dualNrwPct !== null && (
                                 <span className="text-[10px] font-medium ml-1 opacity-75">
-                                  (NRW = {Math.round(dualNrwPct)}%)
+                                  (NRW = {dualNrwPct.toFixed(1)}%)
                                 </span>
                               )}
                             </span>

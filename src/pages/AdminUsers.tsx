@@ -317,7 +317,7 @@ export default function AdminUsers() {
                         <button
                           onClick={() => handleResetPassword(user.id, user.full_name)}
                           disabled={resetPasswordLoading === user.id}
-                          className="flex items-center gap-1 text-xs px-3 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 text-xs px-3 py-1 bg-blue-200 text-blue-900 hover:bg-blue-300 rounded transition-colors disabled:opacity-50"
                         >
                           <RotateCcw className="w-3 h-3" />
                           {resetPasswordLoading === user.id ? 'Resetting...' : 'Reset Password'}
