@@ -87,6 +87,7 @@ export default function Dashboard() {
   const [monthlyReports, setMonthlyReports] = useState<MonthlyReportRecord[]>([]);
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
   const [alertsTab, setAlertsTab] = useState<'alerts' | 'followups'>('alerts');
+  const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis'>('cw');
 
   const serviceCentreId = accessContext?.scopeId ?? null;
 
@@ -693,8 +694,55 @@ export default function Dashboard() {
       `}} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
         <div className="lg:col-span-2 lg:overflow-hidden lg:flex lg:flex-col min-h-0">
-          <div className="overflow-y-auto thin-scrollbar h-full">
-            <ProductionTrendChart accessContext={accessContext} />
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden h-full">
+            {/* Trends Tab Headers */}
+            <div className="flex flex-shrink-0 border-b border-gray-200">
+              <button
+                onClick={() => setTrendsTab('cw')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
+                  trendsTab === 'cw'
+                    ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                CW Trends
+              </button>
+              <button
+                onClick={() => setTrendsTab('rw')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
+                  trendsTab === 'rw'
+                    ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                RW Trends
+              </button>
+              <button
+                onClick={() => setTrendsTab('kpis')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
+                  trendsTab === 'kpis'
+                    ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                KPIs
+              </button>
+            </div>
+            <div className="overflow-y-auto thin-scrollbar flex-1">
+              {trendsTab === 'cw' && (
+                <ProductionTrendChart accessContext={accessContext} />
+              )}
+              {trendsTab === 'rw' && (
+                <div className="flex items-center justify-center h-full min-h-[200px] text-gray-400 text-sm">
+                  RW Trends coming soon
+                </div>
+              )}
+              {trendsTab === 'kpis' && (
+                <div className="flex items-center justify-center h-full min-h-[200px] text-gray-400 text-sm">
+                  KPIs coming soon
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
