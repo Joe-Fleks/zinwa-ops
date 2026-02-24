@@ -59,7 +59,7 @@ export default function TopBar() {
   };
 
   return (
-    <header className="bg-gray-400 border-b border-gray-500">
+    <header className="bg-blue-200 border-b border-blue-300">
       <div className="px-6 pt-3">
         <div className="flex items-center justify-between">
           <NavLink
@@ -69,7 +69,7 @@ export default function TopBar() {
               return `flex items-center gap-2 px-4 py-2 rounded-t-lg rounded-b-none transition-colors font-bold text-sm ${
                 active
                   ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-900 hover:bg-gray-500'
+                  : 'text-gray-900 hover:bg-blue-300'
               }`;
             }}
           >
@@ -92,7 +92,7 @@ export default function TopBar() {
                     return `flex items-center gap-2 px-4 py-2 rounded-t-lg rounded-b-none transition-colors font-bold text-sm ${
                       active
                         ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-900 hover:bg-gray-500'
+                        : 'text-gray-900 hover:bg-blue-300'
                     }`;
                   }}
                 >
@@ -119,7 +119,7 @@ export default function TopBar() {
                     return `flex items-center gap-2 px-4 py-2 rounded-t-lg rounded-b-none transition-colors font-bold text-sm ${
                       active
                         ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-900 hover:bg-gray-500'
+                        : 'text-gray-900 hover:bg-blue-300'
                     }`;
                   }}
                 >
@@ -148,7 +148,7 @@ export default function TopBar() {
 
             <button
               onClick={handleSignOut}
-              className="p-2 rounded-lg text-black hover:bg-gray-500 transition-colors"
+              className="p-2 rounded-lg text-black hover:bg-blue-300 transition-colors"
               title="Sign Out"
             >
               <LogOut className="w-4 h-4" />
@@ -161,7 +161,7 @@ export default function TopBar() {
                 return `flex items-center gap-2 px-4 py-2 rounded-t-lg rounded-b-none transition-colors font-bold text-sm ${
                   active
                     ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-900 hover:bg-gray-500'
+                    : 'text-gray-900 hover:bg-blue-300'
                 }`;
               }}
             >
