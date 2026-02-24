@@ -288,7 +288,7 @@ export default function MonthlyCapacityForm({ onClose, onSuccess, selectedDamId,
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               {loading ? (isEditMode ? 'Updating...' : 'Adding...') : (isEditMode ? 'Update Reading' : 'Add Reading')}
             </button>

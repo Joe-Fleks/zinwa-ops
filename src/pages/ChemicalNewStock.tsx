@@ -366,16 +366,16 @@ export default function ChemicalNewStock() {
 
         <div className="flex items-center gap-2">
           {!editing && rows.length > 0 && (
-            <button onClick={handleExport} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors">
+            <button onClick={handleExport} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-300 text-blue-900 hover:bg-blue-400 transition-colors">
               <Download className="w-4 h-4" /> Export
             </button>
           )}
           {editing && (
             <>
-              <button onClick={handleAddRow} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors">
+              <button onClick={handleAddRow} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-300 text-blue-900 hover:bg-blue-400 transition-colors">
                 <Plus className="w-4 h-4" /> New Entry
               </button>
-              <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors disabled:opacity-50">
+              <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-300 text-blue-900 hover:bg-blue-400 transition-colors disabled:opacity-50">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save
               </button>
             </>
@@ -383,7 +383,7 @@ export default function ChemicalNewStock() {
           <button
             onClick={() => { if (editing) loadData(); setEditing(!editing); }}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-              editing ? 'bg-blue-200 text-blue-900 hover:bg-blue-300' : 'bg-blue-200 text-blue-900 hover:bg-blue-300'
+              editing ? 'bg-blue-300 text-blue-900 hover:bg-blue-400' : 'bg-blue-300 text-blue-900 hover:bg-blue-400'
             }`}
           >
             {editing ? <><X className="w-4 h-4" /> Cancel</> : <><Pencil className="w-4 h-4" /> Edit</>}

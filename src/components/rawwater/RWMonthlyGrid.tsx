@@ -369,7 +369,7 @@ export default function RWMonthlyGrid({ title, tableName }: Props) {
           <button
             onClick={handleEdit}
             disabled={loading || filteredRows.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Edit2 className="w-4 h-4" />
             Edit
@@ -379,7 +379,7 @@ export default function RWMonthlyGrid({ title, tableName }: Props) {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               Save
@@ -387,7 +387,7 @@ export default function RWMonthlyGrid({ title, tableName }: Props) {
             <button
               onClick={handleCancel}
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors disabled:opacity-50"
             >
               <X className="w-4 h-4" />
               Cancel

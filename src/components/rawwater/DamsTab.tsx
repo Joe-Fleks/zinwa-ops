@@ -396,7 +396,7 @@ export default function DamsTab() {
             <>
               <button
                 onClick={() => setMode('edit')}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
               >
                 <Edit3 className="w-4 h-4" />
                 Edit Database
@@ -406,7 +406,7 @@ export default function DamsTab() {
             <>
               <button
                 onClick={handleAddNew}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Row
@@ -414,7 +414,7 @@ export default function DamsTab() {
               <button
                 onClick={handleSaveAll}
                 disabled={saving || dams.filter(d => d.status !== 'saved').length === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
               >
                 <Save className="w-4 h-4" />
                 {saving ? 'Saving...' : 'Save All'}

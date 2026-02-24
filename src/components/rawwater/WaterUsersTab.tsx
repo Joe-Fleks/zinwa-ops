@@ -291,7 +291,7 @@ export default function WaterUsersTab({ stationId }: Props) {
         <p className="text-gray-600 mb-4">Click "Edit" to register water users for this service centre.</p>
         <button
           onClick={() => setMode('edit')}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
         >
           <Edit3 className="w-4 h-4" />
           Edit
@@ -309,7 +309,7 @@ export default function WaterUsersTab({ stationId }: Props) {
             <>
               <button
                 onClick={() => setMode('edit')}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
               >
                 <Edit3 className="w-4 h-4" />
                 Edit
@@ -319,14 +319,14 @@ export default function WaterUsersTab({ stationId }: Props) {
             <>
               <button
                 onClick={handleAddNew}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add New User
               </button>
               <button
                 onClick={() => setShowBulkAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
               >
                 <Users className="w-4 h-4" />
                 Add Multiple Users
@@ -334,7 +334,7 @@ export default function WaterUsersTab({ stationId }: Props) {
               <button
                 onClick={handleSaveAll}
                 disabled={saving || users.filter(u => u.status !== 'saved').length === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
               >
                 <Save className="w-4 h-4" />
                 {saving ? 'Saving...' : 'Save All'}
@@ -507,7 +507,7 @@ export default function WaterUsersTab({ stationId }: Props) {
                 </button>
                 <button
                   onClick={handleAddMultiple}
-                  className="px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+                  className="px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
                 >
                   Add Users
                 </button>

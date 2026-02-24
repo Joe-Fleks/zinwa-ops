@@ -636,7 +636,7 @@ export default function BreakdownsTracker() {
             <button
               onClick={() => setViewMode('date')}
               className={`px-3 py-1 text-sm font-medium transition-colors ${
-                viewMode === 'date' ? 'bg-blue-200 text-blue-900' : 'bg-gray-100 text-gray-600 hover:bg-blue-100'
+                viewMode === 'date' ? 'bg-blue-300 text-blue-900' : 'bg-gray-100 text-gray-600 hover:bg-blue-100'
               }`}
             >
               Date
@@ -644,7 +644,7 @@ export default function BreakdownsTracker() {
             <button
               onClick={() => setViewMode('month')}
               className={`px-3 py-1 text-sm font-medium transition-colors border-l border-gray-300 ${
-                viewMode === 'month' ? 'bg-blue-200 text-blue-900' : 'bg-gray-100 text-gray-600 hover:bg-blue-100'
+                viewMode === 'month' ? 'bg-blue-300 text-blue-900' : 'bg-gray-100 text-gray-600 hover:bg-blue-100'
               }`}
             >
               Month
@@ -720,7 +720,7 @@ export default function BreakdownsTracker() {
               </button>
               <button
                 onClick={handleAddRow}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-200 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-300 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-300 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-400 transition-colors"
               >
                 <Plus className="w-4 h-4" />Add Breakdown
               </button>
@@ -728,7 +728,7 @@ export default function BreakdownsTracker() {
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-200 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-300 transition-colors disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-300 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-400 transition-colors disabled:opacity-60"
                 >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   Save ({dirtyCount})
@@ -739,13 +739,13 @@ export default function BreakdownsTracker() {
             <>
               <button
                 onClick={handleStartEdit}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-blue-200 text-blue-900 hover:bg-blue-300"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-blue-300 text-blue-900 hover:bg-blue-400"
               >
                 <Pencil className="w-4 h-4" />Edit
               </button>
               <button
                 onClick={handleAddRow}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-200 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-300 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-300 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-400 transition-colors"
               >
                 <Plus className="w-4 h-4" />Add Breakdown
               </button>

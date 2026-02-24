@@ -150,14 +150,14 @@ export default function ProductionDataManager() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/clearwater/production/bulk')}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors font-semibold"
+            className="flex items-center gap-2 px-6 py-3 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors font-semibold"
           >
             <Grid3x3 className="w-5 h-5" />
             Bulk Production Entry
           </button>
           <button
             onClick={handleAddLog}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors font-semibold"
+            className="flex items-center gap-2 px-6 py-3 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors font-semibold"
           >
             <Plus className="w-5 h-5" />
             Add Single Log

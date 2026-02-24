@@ -352,7 +352,7 @@ export default function AdminCreateUser() {
             disabled={!canSubmit() || creating}
             className={`flex-1 px-4 py-2 rounded-lg font-medium transition ${
               canSubmit() && !creating
-                ? 'bg-blue-200 text-blue-900 hover:bg-blue-300'
+                ? 'bg-blue-300 text-blue-900 hover:bg-blue-400'
                 : 'bg-gray-200 text-gray-500 cursor-not-allowed'
             }`}
           >
@@ -385,7 +385,7 @@ export default function AdminCreateUser() {
                   navigator.clipboard.writeText(tempPassword);
                   alert('Password copied to clipboard');
                 }}
-                className="w-full bg-blue-200 text-blue-900 px-4 py-2 rounded-lg hover:bg-blue-300 transition font-medium text-sm"
+                className="w-full bg-blue-300 text-blue-900 px-4 py-2 rounded-lg hover:bg-blue-400 transition font-medium text-sm"
               >
                 Copy Password
               </button>

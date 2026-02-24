@@ -211,7 +211,7 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
           <button
             onClick={handleEdit}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-200 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-300 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-300 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-400 transition-colors disabled:opacity-50"
           >
             <Pencil className="w-4 h-4" />
             Edit Tariffs
@@ -231,7 +231,7 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-200 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-300 transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-300 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-400 transition-colors disabled:opacity-60"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save

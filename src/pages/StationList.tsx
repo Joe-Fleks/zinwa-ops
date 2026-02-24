@@ -163,7 +163,7 @@ export default function StationList() {
         </div>
         <button
           onClick={() => navigate('/clearwater/stations/new')}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
         >
           <Plus className="w-4 h-4" />
           Register New Station

@@ -217,7 +217,7 @@ export default function TargetHoursForm({ onClose }: TargetHoursFormProps) {
           <button
             onClick={handleSaveAll}
             disabled={saving || modifiedStations.size === 0}
-            className="flex items-center gap-2 px-6 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            className="flex items-center gap-2 px-6 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             {saving ? (
               <>

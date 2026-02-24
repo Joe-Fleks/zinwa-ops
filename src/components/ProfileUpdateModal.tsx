@@ -200,7 +200,7 @@ export default function ProfileUpdateModal({ profile, onClose, onSaved }: Profil
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-900 bg-blue-200 rounded-lg hover:bg-blue-300 transition disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-900 bg-blue-300 rounded-lg hover:bg-blue-400 transition disabled:opacity-50"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             {saving ? 'Saving...' : 'Save Changes'}

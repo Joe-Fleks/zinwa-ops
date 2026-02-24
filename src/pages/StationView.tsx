@@ -182,14 +182,14 @@ export default function StationView() {
           <button
             onClick={handleUpdatePumpRates}
             disabled={updatingPumpRates}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100"
           >
             <RefreshCw className={`w-4 h-4 ${updatingPumpRates ? 'animate-spin' : ''}`} />
             {updatingPumpRates ? 'Updating...' : 'Update Pump Rates'}
           </button>
           <button
             onClick={() => navigate(`/clearwater/stations/${id}/edit`)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
           >
             <Edit className="w-4 h-4" />
             Edit Station

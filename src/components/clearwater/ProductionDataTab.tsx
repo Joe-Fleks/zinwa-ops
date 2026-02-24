@@ -152,7 +152,7 @@ export default function ProductionDataTab() {
             {!prod.editMode ? (
               <button
                 onClick={() => prod.setEditMode(true)}
-                className="px-3 py-1.5 text-xs sm:text-sm rounded-lg border-2 border-blue-400 bg-blue-200 text-blue-900 hover:bg-blue-300 transition-all font-medium whitespace-nowrap"
+                className="px-3 py-1.5 text-xs sm:text-sm rounded-lg border-2 border-blue-400 bg-blue-300 text-blue-900 hover:bg-blue-400 transition-all font-medium whitespace-nowrap"
                 title="Click to enable editing"
               >
                 Edit
@@ -160,7 +160,7 @@ export default function ProductionDataTab() {
             ) : (
               <button
                 onClick={prod.handleCancelChanges}
-                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg border-2 border-blue-400 bg-blue-200 text-blue-900 hover:bg-blue-300 transition-all font-medium whitespace-nowrap"
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg border-2 border-blue-400 bg-blue-300 text-blue-900 hover:bg-blue-400 transition-all font-medium whitespace-nowrap"
                 title="Cancel changes and return to read-only mode"
               >
                 <X className="w-3 sm:w-4 h-3 sm:h-4" />
@@ -410,7 +410,7 @@ export default function ProductionDataTab() {
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={() => prod.setShowValidationModal(false)}
-                className="px-6 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors font-semibold"
+                className="px-6 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors font-semibold"
               >
                 Close
               </button>
@@ -442,7 +442,7 @@ export default function ProductionDataTab() {
                 <button
                   onClick={prod.handleCancelChanges}
                   disabled={prod.saving}
-                  className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                   title="Discard all changes and reload data"
                 >
                   <X className="w-5 h-5" />
@@ -451,7 +451,7 @@ export default function ProductionDataTab() {
                 <button
                   onClick={() => handleSaveAndContinue('strict')}
                   disabled={prod.saving || !prod.hasEditedRows}
-                  className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                   title={!prod.hasEditedRows ? "Make changes to data first" : "Save all rows (aborts if any validation errors)"}
                 >
                   {prod.saving ? (
@@ -470,7 +470,7 @@ export default function ProductionDataTab() {
                   <button
                     onClick={() => handleSaveAndContinue('valid-only')}
                     disabled={prod.saving}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                     title="Save only valid rows, preserve invalid rows for correction"
                   >
                     {prod.saving ? (

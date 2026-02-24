@@ -199,7 +199,7 @@ export default function AdminUsers() {
         <PageHeader title="User Management" backTo="/admin" icon={<Users className="w-5 h-5 text-blue-600" />} />
         <button
           onClick={() => navigate('/admin/users/create')}
-          className="flex items-center gap-2 bg-blue-200 text-blue-900 px-4 py-2 rounded-lg hover:bg-blue-300 transition"
+          className="flex items-center gap-2 bg-blue-300 text-blue-900 px-4 py-2 rounded-lg hover:bg-blue-400 transition"
         >
           <Plus className="w-4 h-4" />
           Create User
@@ -308,8 +308,8 @@ export default function AdminUsers() {
                           onClick={() => toggleUserActive(user.id, user.is_active)}
                           className={`text-xs px-3 py-1 rounded transition-colors ${
                             user.is_active
-                              ? 'bg-blue-200 text-blue-900 hover:bg-blue-300'
-                              : 'bg-blue-200 text-blue-900 hover:bg-blue-300'
+                              ? 'bg-blue-300 text-blue-900 hover:bg-blue-400'
+                              : 'bg-blue-300 text-blue-900 hover:bg-blue-400'
                           }`}
                         >
                           {user.is_active ? 'Deactivate' : 'Activate'}
@@ -317,7 +317,7 @@ export default function AdminUsers() {
                         <button
                           onClick={() => handleResetPassword(user.id, user.full_name)}
                           disabled={resetPasswordLoading === user.id}
-                          className="flex items-center gap-1 text-xs px-3 py-1 bg-blue-200 text-blue-900 hover:bg-blue-300 rounded transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 text-xs px-3 py-1 bg-blue-300 text-blue-900 hover:bg-blue-400 rounded transition-colors disabled:opacity-50"
                         >
                           <RotateCcw className="w-3 h-3" />
                           {resetPasswordLoading === user.id ? 'Resetting...' : 'Reset Password'}
@@ -362,7 +362,7 @@ export default function AdminUsers() {
                   navigator.clipboard.writeText(resetPassword);
                   alert('Password copied to clipboard');
                 }}
-                className="w-full bg-blue-200 text-blue-900 px-4 py-2 rounded-lg hover:bg-blue-300 transition font-medium text-sm"
+                className="w-full bg-blue-300 text-blue-900 px-4 py-2 rounded-lg hover:bg-blue-400 transition font-medium text-sm"
               >
                 Copy Password
               </button>

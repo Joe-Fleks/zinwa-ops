@@ -652,14 +652,14 @@ export default function RWDatabaseTab({ stationId }: Props) {
             <>
               <button
                 onClick={() => setMode('edit')}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
               >
                 <Edit3 className="w-4 h-4" />
                 Edit Database
               </button>
               <button
                 onClick={exportToExcel}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
               >
                 <Download className="w-4 h-4" />
                 Export
@@ -670,14 +670,14 @@ export default function RWDatabaseTab({ stationId }: Props) {
               <button
                 onClick={handleSaveAll}
                 disabled={saving || allocations.filter(a => a.status !== 'saved').length === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
               >
                 <Save className="w-4 h-4" />
                 {saving ? 'Saving...' : 'Save All'}
               </button>
               <button
                 onClick={exportToExcel}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
               >
                 <Download className="w-4 h-4" />
                 Export

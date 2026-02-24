@@ -746,7 +746,7 @@ export default function Dashboard() {
             </div>
             <button
               onClick={() => { setAlertsTab('followups'); setMergedTab('followups'); startEdit(a); }}
-              className="text-xs font-semibold px-2 py-1 bg-blue-200 hover:bg-blue-300 text-blue-900 rounded transition-colors whitespace-nowrap"
+              className="text-xs font-semibold px-2 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 rounded transition-colors whitespace-nowrap"
             >
               View
             </button>
@@ -771,7 +771,7 @@ export default function Dashboard() {
             <button
               onClick={() => handleDownloadReport(report)}
               disabled={isDownloading}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-200 hover:bg-blue-300 disabled:bg-blue-100 text-blue-900 text-xs font-semibold rounded transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors"
             >
               {isDownloading ? (
                 <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>Preparing...</>
@@ -799,7 +799,7 @@ export default function Dashboard() {
             <button
               onClick={() => handleDownloadMonthlyReport(report)}
               disabled={isDownloading}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-200 hover:bg-blue-300 disabled:bg-blue-100 text-blue-900 text-xs font-semibold rounded transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors"
             >
               {isDownloading ? (
                 <><span className="w-3 h-3 border-2 border-blue-900 border-t-transparent rounded-full animate-spin"></span>Preparing...</>
@@ -828,7 +828,7 @@ export default function Dashboard() {
                 <p className="text-sm font-bold text-gray-700">{nonFunctionalStats.nonFunctionalCount} out of {nonFunctionalStats.savedRecordsCount} stations not producing</p>
                 <div className="flex items-center justify-between gap-3 mt-0.5">
                   <p className="text-sm text-red-700">{nonFunctionalStats.unmetDemandPct}% of daily demand</p>
-                  <Link to={`/sc/${scId}/maintenance?tab=non-functional`} className="px-2.5 py-1 bg-blue-200 text-blue-900 text-xs font-semibold rounded hover:bg-blue-300 transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                  <Link to={`/sc/${scId}/maintenance?tab=non-functional`} className="px-2.5 py-1 bg-blue-300 text-blue-900 text-xs font-semibold rounded hover:bg-blue-400 transition-colors flex items-center gap-1.5 whitespace-nowrap">
                     More Details<ExternalLink className="w-3.5 h-3.5" />
                   </Link>
                 </div>
@@ -851,7 +851,7 @@ export default function Dashboard() {
                   {fuelBalances.diesel !== null ? `${fuelBalances.diesel.toFixed(1)} L` : 'N/A'}
                 </span>
               </div>
-              <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=diesel`} className="text-xs font-semibold px-2.5 py-1 bg-blue-200 hover:bg-blue-300 text-blue-900 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
+              <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=diesel`} className="text-xs font-semibold px-2.5 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
                 See control card<ExternalLink className="w-3 h-3" />
               </Link>
             </div>
@@ -863,7 +863,7 @@ export default function Dashboard() {
                   {fuelBalances.petrol !== null ? `${fuelBalances.petrol.toFixed(1)} L` : 'N/A'}
                 </span>
               </div>
-              <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=petrol`} className="text-xs font-semibold px-2.5 py-1 bg-blue-200 hover:bg-blue-300 text-blue-900 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
+              <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=petrol`} className="text-xs font-semibold px-2.5 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
                 See control card<ExternalLink className="w-3 h-3" />
               </Link>
             </div>
@@ -887,7 +887,7 @@ export default function Dashboard() {
                     <span className="text-sm font-bold text-gray-800">{section.label}</span>
                     <Link
                       to={`/sc/${scId}/stock-control?tab=chemicals&chemical=${section.chemParam}`}
-                      className="text-xs font-semibold rounded px-2.5 py-1 flex items-center gap-1 whitespace-nowrap transition-colors bg-blue-200 text-blue-900 hover:bg-blue-300"
+                      className="text-xs font-semibold rounded px-2.5 py-1 flex items-center gap-1 whitespace-nowrap transition-colors bg-blue-300 text-blue-900 hover:bg-blue-400"
                     >
                       View Balances<ExternalLink className="w-3 h-3" />
                     </Link>
@@ -935,7 +935,7 @@ export default function Dashboard() {
         <span className="text-xs text-gray-500 font-medium">Your personal follow-up items</span>
         <button
           onClick={() => { setShowAddForm(true); setNewSubtitle(''); setNewBody(''); setNewDueDate(''); setNewImportance('Medium'); }}
-          className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-200 hover:bg-blue-300 rounded transition-colors"
+          className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-300 hover:bg-blue-400 rounded transition-colors"
         >
           <Plus className="w-3 h-3" />
           Add Follow-up
@@ -982,7 +982,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex gap-1.5">
-            <button onClick={handleAddCustomAlert} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-200 hover:bg-blue-300 rounded transition-colors">
+            <button onClick={handleAddCustomAlert} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-300 hover:bg-blue-400 rounded transition-colors">
               <Check className="w-3 h-3" />Save
             </button>
             <button onClick={() => setShowAddForm(false)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-200 hover:bg-gray-300 rounded transition-colors">
@@ -999,7 +999,7 @@ export default function Dashboard() {
               <span className="text-amber-700">{pendingSummarySheets.pendingCount}/{pendingSummarySheets.totalCount} stations</span>
               {' '}<span className="text-gray-500 text-xs">— {pendingSummarySheets.totalClientWeight > 0 ? Math.round((pendingSummarySheets.pendingClientWeight / pendingSummarySheets.totalClientWeight) * 100) : Math.round((pendingSummarySheets.pendingCount / pendingSummarySheets.totalCount) * 100)}% outstanding</span>
             </p>
-            <Link to={`/sc/${scId}/clearwater?tab=sales&filter=pending`} className="text-xs font-semibold px-2.5 py-1 bg-blue-200 hover:bg-blue-300 text-blue-900 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
+            <Link to={`/sc/${scId}/clearwater?tab=sales&filter=pending`} className="text-xs font-semibold px-2.5 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
               See Details<ExternalLink className="w-3 h-3" />
             </Link>
           </div>
@@ -1054,7 +1054,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex gap-1.5">
-                <button onClick={() => handleEditCustomAlert(alert.id)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-200 hover:bg-blue-300 rounded transition-colors">
+                <button onClick={() => handleEditCustomAlert(alert.id)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-300 hover:bg-blue-400 rounded transition-colors">
                   <Check className="w-3 h-3" />Save
                 </button>
                 <button onClick={() => setEditingId(null)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-200 hover:bg-gray-300 rounded transition-colors">
@@ -1088,7 +1088,7 @@ export default function Dashboard() {
                 <button onClick={() => startEdit(alert)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors">
                   <Pencil className="w-3 h-3" />Edit
                 </button>
-                <button onClick={() => handleDeleteCustomAlert(alert.id)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-200 hover:bg-blue-300 rounded transition-colors">
+                <button onClick={() => handleDeleteCustomAlert(alert.id)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-300 hover:bg-blue-400 rounded transition-colors">
                   <Check className="w-3 h-3" />Done
                 </button>
               </div>
@@ -1143,7 +1143,7 @@ export default function Dashboard() {
                 <button
                   onClick={() => handleDownloadReport(report)}
                   disabled={isDownloading}
-                  className={`flex items-center gap-1 px-2 py-1 bg-blue-200 hover:bg-blue-300 disabled:bg-blue-100 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0`}
+                  className={`flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0`}
                 >
                   {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
                   {isDownloading ? '' : 'Download'}
@@ -1192,7 +1192,7 @@ export default function Dashboard() {
                   onClick={() => setKpiSection(kpi.key)}
                   className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2 ${
                     isActive
-                      ? 'bg-blue-200 border-r-2 border-blue-400 text-blue-900 font-semibold'
+                      ? 'bg-blue-300 border-r-2 border-blue-400 text-blue-900 font-semibold'
                       : 'text-gray-600 hover:bg-white hover:text-gray-800'
                   }`}
                 >
@@ -1241,7 +1241,7 @@ export default function Dashboard() {
               onClick={() => setReportSection(section.key)}
               className={`w-full text-left px-3 py-2.5 transition-colors flex items-center justify-between gap-1 ${
                 isActive
-                  ? 'bg-blue-200 border-r-2 border-blue-400 text-blue-900 font-semibold'
+                  ? 'bg-blue-300 border-r-2 border-blue-400 text-blue-900 font-semibold'
                   : 'text-gray-600 hover:bg-white hover:text-gray-800'
               }`}
             >
@@ -1260,7 +1260,7 @@ export default function Dashboard() {
           border: 'border-blue-300',
           readyBg: 'bg-blue-50',
           readyText: 'text-blue-800',
-          badgeBg: 'bg-blue-200',
+          badgeBg: 'bg-blue-300',
           badgeText: 'text-blue-800',
           btnBg: 'bg-blue-700',
           btnHover: 'hover:bg-blue-800',
@@ -1275,9 +1275,9 @@ export default function Dashboard() {
           readyText: 'text-sky-800',
           badgeBg: 'bg-sky-200',
           badgeText: 'text-sky-800',
-          btnBg: 'bg-blue-200',
-          btnHover: 'hover:bg-blue-300',
-          btnDisabled: 'disabled:bg-blue-100',
+          btnBg: 'bg-blue-300',
+          btnHover: 'hover:bg-blue-400',
+          btnDisabled: 'disabled:bg-blue-200',
           iconColor: 'text-blue-600',
         })}
 
@@ -1307,7 +1307,7 @@ export default function Dashboard() {
                       <button
                         onClick={() => handleDownloadMonthlyReport(report)}
                         disabled={isDownloading}
-                        className="flex items-center gap-1 px-2 py-1 bg-blue-200 hover:bg-blue-300 disabled:bg-blue-100 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0"
+                        className="flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0"
                       >
                         {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
                         {isDownloading ? '' : 'Download'}
@@ -1368,7 +1368,7 @@ export default function Dashboard() {
                     onClick={() => setMergedTab(tab)}
                     className={`flex-shrink-0 flex items-center justify-center gap-1.5 px-4 py-3 text-xs font-semibold transition-colors whitespace-nowrap ${
                       mergedTab === tab
-                        ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-200'
+                        ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
                         : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                     }`}
                   >
@@ -1424,7 +1424,7 @@ export default function Dashboard() {
                 onClick={() => setTrendsTab('cw')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                   trendsTab === 'cw'
-                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-200'
+                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1434,7 +1434,7 @@ export default function Dashboard() {
                 onClick={() => setTrendsTab('rw')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                   trendsTab === 'rw'
-                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-200'
+                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1444,7 +1444,7 @@ export default function Dashboard() {
                 onClick={() => setTrendsTab('kpis')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                   trendsTab === 'kpis'
-                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-200'
+                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1454,7 +1454,7 @@ export default function Dashboard() {
                 onClick={() => setTrendsTab('reports')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                   trendsTab === 'reports'
-                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-200'
+                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1488,7 +1488,7 @@ export default function Dashboard() {
               onClick={() => setAlertsTab('alerts')}
               className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                 alertsTab === 'alerts'
-                  ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-200'
+                  ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -1504,7 +1504,7 @@ export default function Dashboard() {
               onClick={() => setAlertsTab('followups')}
               className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                 alertsTab === 'followups'
-                  ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-200'
+                  ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >

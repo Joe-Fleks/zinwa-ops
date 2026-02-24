@@ -708,7 +708,7 @@ export default function FuelTab({ fuelType }: FuelTabProps) {
               <button
                 type="button"
                 onClick={handleAddRow}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-300 text-blue-900 hover:bg-blue-400 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 New Entry
@@ -717,7 +717,7 @@ export default function FuelTab({ fuelType }: FuelTabProps) {
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-300 text-blue-900 hover:bg-blue-400 transition-colors disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save
@@ -729,8 +729,8 @@ export default function FuelTab({ fuelType }: FuelTabProps) {
             onClick={handleToggleEdit}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
               editing
-                ? 'bg-blue-200 text-blue-900 hover:bg-blue-300'
-                : 'bg-blue-200 text-blue-900 hover:bg-blue-300'
+                ? 'bg-blue-300 text-blue-900 hover:bg-blue-400'
+                : 'bg-blue-300 text-blue-900 hover:bg-blue-400'
             }`}
           >
             {editing ? (
@@ -749,7 +749,7 @@ export default function FuelTab({ fuelType }: FuelTabProps) {
             type="button"
             onClick={handleExport}
             disabled={rows.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium bg-blue-300 text-blue-900 hover:bg-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
             Export
@@ -805,7 +805,7 @@ export default function FuelTab({ fuelType }: FuelTabProps) {
               <button
                 type="button"
                 onClick={() => setDateConfirmation(null)}
-                className="px-4 py-2 text-sm font-medium bg-blue-200 text-blue-900 rounded hover:bg-blue-300 transition-colors"
+                className="px-4 py-2 text-sm font-medium bg-blue-300 text-blue-900 rounded hover:bg-blue-400 transition-colors"
               >
                 Cancel
               </button>
@@ -815,7 +815,7 @@ export default function FuelTab({ fuelType }: FuelTabProps) {
                   setDateConfirmation(null);
                   performSave();
                 }}
-                className="px-4 py-2 text-sm font-medium bg-blue-200 text-blue-900 rounded hover:bg-blue-300 transition-colors"
+                className="px-4 py-2 text-sm font-medium bg-blue-300 text-blue-900 rounded hover:bg-blue-400 transition-colors"
               >
                 Confirm & Save
               </button>

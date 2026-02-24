@@ -311,7 +311,7 @@ export default function SalesDataTab({ initialFilter = 'all' }: SalesDataTabProp
               onClick={() => setViewFilter('all')}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                 viewFilter === 'all'
-                  ? 'bg-blue-200 text-blue-900 shadow-sm'
+                  ? 'bg-blue-300 text-blue-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -321,14 +321,14 @@ export default function SalesDataTab({ initialFilter = 'all' }: SalesDataTabProp
               onClick={() => setViewFilter('pending')}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
                 viewFilter === 'pending'
-                  ? 'bg-blue-200 text-blue-900 shadow-sm'
+                  ? 'bg-blue-300 text-blue-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               Pending Returns
               {pendingCount > 0 && (
                 <span className={`inline-flex items-center justify-center w-4 h-4 text-xs rounded-full font-bold ${
-                  viewFilter === 'pending' ? 'bg-blue-300 text-blue-900' : 'bg-blue-200 text-blue-900'
+                  viewFilter === 'pending' ? 'bg-blue-300 text-blue-900' : 'bg-blue-300 text-blue-900'
                 }`}>
                   {pendingCount}
                 </span>
@@ -348,7 +348,7 @@ export default function SalesDataTab({ initialFilter = 'all' }: SalesDataTabProp
             <button
               onClick={() => { setEditing(true); setMessage(null); }}
               disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-200 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-300 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-300 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-400 transition-colors disabled:opacity-50"
             >
               <Pencil className="w-4 h-4" />
               Edit
@@ -366,7 +366,7 @@ export default function SalesDataTab({ initialFilter = 'all' }: SalesDataTabProp
               <button
                 onClick={handleSave}
                 disabled={saving || dirtyCount === 0}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-200 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-300 transition-colors disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-300 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-400 transition-colors disabled:opacity-60"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save{dirtyCount > 0 ? ` (${dirtyCount})` : ''}

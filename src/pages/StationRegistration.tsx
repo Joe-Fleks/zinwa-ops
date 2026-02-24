@@ -1070,7 +1070,7 @@ export default function StationRegistration() {
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:bg-blue-100 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors disabled:bg-blue-200 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
             {loading
