@@ -83,7 +83,7 @@ export default function ChemicalValidationModal({
           </button>
           <button
             onClick={onAddChemicals}
-            className="px-5 py-2.5 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors shadow-md hover:shadow-lg"
+            className="px-5 py-2.5 text-sm font-medium text-blue-900 bg-blue-200 rounded-lg hover:bg-blue-300 transition-colors shadow-md hover:shadow-lg"
           >
             <span className="flex items-center gap-2">
               <FlaskConical className="w-4 h-4" />

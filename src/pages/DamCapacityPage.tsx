@@ -312,7 +312,7 @@ export default function DamCapacityPage() {
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:bg-blue-100 disabled:cursor-not-allowed"
             >
               {loading ? (isEditMode ? 'Updating...' : 'Adding...') : (isEditMode ? 'Update Reading' : 'Add Reading')}
             </button>

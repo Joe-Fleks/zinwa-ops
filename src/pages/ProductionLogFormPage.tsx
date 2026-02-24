@@ -397,7 +397,7 @@ export default function ProductionLogFormPage() {
             <button
               type="submit"
               disabled={saving || !isDateEditable}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:bg-blue-100 disabled:cursor-not-allowed"
             >
               {saving ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update Log' : 'Save Log')}
             </button>

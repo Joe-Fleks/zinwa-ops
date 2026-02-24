@@ -420,13 +420,13 @@ export default function CapacityVariance() {
             <button
               onClick={() => setViewMode('date')}
               className={`px-3 py-1 text-sm font-semibold rounded transition-all ${
-                viewMode === 'date' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                viewMode === 'date' ? 'bg-blue-200 text-blue-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-blue-100'
               }`}
             >Date</button>
             <button
               onClick={() => setViewMode('month')}
               className={`px-3 py-1 text-sm font-semibold rounded transition-all ${
-                viewMode === 'month' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                viewMode === 'month' ? 'bg-blue-200 text-blue-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-blue-100'
               }`}
             >Month</button>
           </div>

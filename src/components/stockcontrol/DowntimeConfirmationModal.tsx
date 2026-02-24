@@ -198,14 +198,14 @@ export default function DowntimeConfirmationModal({
                             onClick={() => handleSelectRate(st.station_id, suggestion.value)}
                             className={`w-full flex items-center justify-between px-2.5 py-2 rounded border transition-all text-left ${
                               isSelectedRate(st.station_id, suggestion.value)
-                                ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-200'
-                                : 'border-gray-200 bg-white hover:border-teal-300 hover:bg-teal-50/30'
+                                ? 'border-blue-400 bg-blue-100 ring-2 ring-blue-200'
+                                : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
                             }`}
                           >
                             <div className="flex items-center gap-2">
                               <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                                 isSelectedRate(st.station_id, suggestion.value)
-                                  ? 'border-teal-600 bg-teal-600'
+                                  ? 'border-blue-500 bg-blue-500'
                                   : 'border-gray-300'
                               }`}>
                                 {isSelectedRate(st.station_id, suggestion.value) && (

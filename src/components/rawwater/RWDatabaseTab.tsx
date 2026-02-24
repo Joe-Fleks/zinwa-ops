@@ -652,14 +652,14 @@ export default function RWDatabaseTab({ stationId }: Props) {
             <>
               <button
                 onClick={() => setMode('edit')}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
               >
                 <Edit3 className="w-4 h-4" />
                 Edit Database
               </button>
               <button
                 onClick={exportToExcel}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
               >
                 <Download className="w-4 h-4" />
                 Export
@@ -677,7 +677,7 @@ export default function RWDatabaseTab({ stationId }: Props) {
               </button>
               <button
                 onClick={exportToExcel}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
               >
                 <Download className="w-4 h-4" />
                 Export

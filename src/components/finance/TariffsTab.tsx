@@ -211,7 +211,7 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
           <button
             onClick={handleEdit}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-200 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-300 transition-colors disabled:opacity-50"
           >
             <Pencil className="w-4 h-4" />
             Edit Tariffs

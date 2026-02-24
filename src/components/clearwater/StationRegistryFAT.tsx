@@ -290,14 +290,14 @@ export default function StationRegistryFAT() {
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <button onClick={handleToggleEdit} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${editing ? 'bg-gray-700 text-white hover:bg-gray-800' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+          <button onClick={handleToggleEdit} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${editing ? 'bg-blue-200 text-blue-900 hover:bg-blue-300' : 'bg-blue-200 text-blue-900 hover:bg-blue-300'}`}>
             {editing ? <><X className="w-4 h-4" />Done Editing</> : <><Pencil className="w-4 h-4" />Edit</>}
           </button>
           <button onClick={handleAddStation} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-200 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-300 transition-colors">
             <Plus className="w-4 h-4" />Add Station
           </button>
           {editing && dirtyCount > 0 && (
-            <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors disabled:opacity-60">
+            <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-200 text-blue-900 rounded-lg text-sm font-medium hover:bg-blue-300 transition-colors disabled:opacity-60">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save ({dirtyCount})
             </button>

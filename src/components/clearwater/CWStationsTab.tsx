@@ -19,14 +19,14 @@ export default function CWStationsTab() {
         <div className="flex gap-3">
           <button
             onClick={() => setShowTargetHoursForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
           >
             <Clock className="w-4 h-4" />
             Target Daily Operating Hours
           </button>
           <button
             onClick={() => navigate('/clearwater/stations')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
           >
             <ListChecks className="w-4 h-4" />
             View Registry

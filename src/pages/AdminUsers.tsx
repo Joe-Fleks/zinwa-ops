@@ -199,7 +199,7 @@ export default function AdminUsers() {
         <PageHeader title="User Management" backTo="/admin" icon={<Users className="w-5 h-5 text-blue-600" />} />
         <button
           onClick={() => navigate('/admin/users/create')}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          className="flex items-center gap-2 bg-blue-200 text-blue-900 px-4 py-2 rounded-lg hover:bg-blue-300 transition"
         >
           <Plus className="w-4 h-4" />
           Create User
@@ -308,8 +308,8 @@ export default function AdminUsers() {
                           onClick={() => toggleUserActive(user.id, user.is_active)}
                           className={`text-xs px-3 py-1 rounded transition-colors ${
                             user.is_active
-                              ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                              ? 'bg-blue-200 text-blue-900 hover:bg-blue-300'
+                              : 'bg-blue-200 text-blue-900 hover:bg-blue-300'
                           }`}
                         >
                           {user.is_active ? 'Deactivate' : 'Activate'}
@@ -362,7 +362,7 @@ export default function AdminUsers() {
                   navigator.clipboard.writeText(resetPassword);
                   alert('Password copied to clipboard');
                 }}
-                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm"
+                className="w-full bg-blue-200 text-blue-900 px-4 py-2 rounded-lg hover:bg-blue-300 transition font-medium text-sm"
               >
                 Copy Password
               </button>

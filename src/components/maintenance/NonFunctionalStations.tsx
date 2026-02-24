@@ -517,7 +517,7 @@ export default function NonFunctionalStations() {
               onClick={() => setViewMode('date')}
               className={`px-3 py-1 text-sm font-semibold rounded transition-all ${
                 viewMode === 'date'
-                  ? 'bg-blue-600 text-white shadow-sm'
+                  ? 'bg-blue-200 text-blue-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -527,7 +527,7 @@ export default function NonFunctionalStations() {
               onClick={() => setViewMode('month')}
               className={`px-3 py-1 text-sm font-semibold rounded transition-all ${
                 viewMode === 'month'
-                  ? 'bg-blue-600 text-white shadow-sm'
+                  ? 'bg-blue-200 text-blue-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >

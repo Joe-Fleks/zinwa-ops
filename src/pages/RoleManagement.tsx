@@ -700,7 +700,7 @@ export default function RoleManagement() {
                             setActiveModal('transfer');
                           }}
                           disabled={user.scope_type === 'NATIONAL'}
-                          className="p-1 hover:bg-teal-50 text-teal-600 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-1 hover:bg-blue-100 text-blue-700 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Transfer to different location"
                         >
                           <ArrowRight className="w-4 h-4" />
@@ -716,7 +716,7 @@ export default function RoleManagement() {
                             setAssignmentValidationError('');
                             setActiveModal('assign');
                           }}
-                          className="p-1 hover:bg-cyan-50 text-cyan-600 rounded transition"
+                          className="p-1 hover:bg-blue-100 text-blue-700 rounded transition"
                           title="Assign new role or location"
                         >
                           <Plus className="w-4 h-4" />
@@ -728,7 +728,7 @@ export default function RoleManagement() {
                             setActionReason('');
                             setActiveModal('retire');
                           }}
-                          className="p-1 hover:bg-orange-50 text-orange-600 rounded transition"
+                          className="p-1 hover:bg-blue-100 text-blue-700 rounded transition"
                           title="Retire role"
                         >
                           <LogOut className="w-4 h-4" />
@@ -741,7 +741,7 @@ export default function RoleManagement() {
                             setActiveModal('suspend');
                           }}
                           disabled={!user.is_active}
-                          className="p-1 hover:bg-yellow-50 text-yellow-600 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-1 hover:bg-blue-100 text-blue-700 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Suspend account"
                         >
                           <Pause className="w-4 h-4" />
@@ -817,7 +817,7 @@ export default function RoleManagement() {
               <button
                 onClick={handlePromote}
                 disabled={confirming || !selectedRoleForPromotion}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                className="px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition disabled:opacity-50"
               >
                 {confirming ? 'Processing...' : 'Promote'}
               </button>

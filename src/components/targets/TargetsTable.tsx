@@ -211,7 +211,7 @@ export default function TargetsTable({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onYearChange(year - 1)}
-              className="p-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+              className="p-2 rounded-lg bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors"
               title="Previous year"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -229,7 +229,7 @@ export default function TargetsTable({
             </select>
             <button
               onClick={() => onYearChange(year + 1)}
-              className="p-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+              className="p-2 rounded-lg bg-blue-200 text-blue-900 hover:bg-blue-300 transition-colors"
               title="Next year"
             >
               <ChevronRight className="w-4 h-4" />
@@ -241,7 +241,7 @@ export default function TargetsTable({
           <button
             onClick={handleEdit}
             disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Edit2 className="w-4 h-4" />
             Edit Targets
@@ -251,7 +251,7 @@ export default function TargetsTable({
             <button
               onClick={handleSaveAndContinue}
               disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               Save & Continue
@@ -259,7 +259,7 @@ export default function TargetsTable({
             <button
               onClick={handleSaveAndExit}
               disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               Save & Exit
@@ -267,7 +267,7 @@ export default function TargetsTable({
             <button
               onClick={handleCancel}
               disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors disabled:opacity-50"
             >
               <X className="w-4 h-4" />
               Cancel

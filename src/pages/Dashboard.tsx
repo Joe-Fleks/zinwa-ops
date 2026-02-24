@@ -1275,10 +1275,10 @@ export default function Dashboard() {
           readyText: 'text-sky-800',
           badgeBg: 'bg-sky-200',
           badgeText: 'text-sky-800',
-          btnBg: 'bg-sky-700',
-          btnHover: 'hover:bg-sky-800',
-          btnDisabled: 'disabled:bg-sky-400',
-          iconColor: 'text-sky-600',
+          btnBg: 'bg-blue-200',
+          btnHover: 'hover:bg-blue-300',
+          btnDisabled: 'disabled:bg-blue-100',
+          iconColor: 'text-blue-600',
         })}
 
         {reportSection === 'monthly' && (

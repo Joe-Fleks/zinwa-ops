@@ -396,7 +396,7 @@ export default function DamsTab() {
             <>
               <button
                 onClick={() => setMode('edit')}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
               >
                 <Edit3 className="w-4 h-4" />
                 Edit Database
@@ -406,7 +406,7 @@ export default function DamsTab() {
             <>
               <button
                 onClick={handleAddNew}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-200 text-blue-900 rounded-lg hover:bg-blue-300 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Row

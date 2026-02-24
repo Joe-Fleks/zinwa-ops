@@ -636,7 +636,7 @@ export default function BreakdownsTracker() {
             <button
               onClick={() => setViewMode('date')}
               className={`px-3 py-1 text-sm font-medium transition-colors ${
-                viewMode === 'date' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                viewMode === 'date' ? 'bg-blue-200 text-blue-900' : 'bg-gray-100 text-gray-600 hover:bg-blue-100'
               }`}
             >
               Date
@@ -644,7 +644,7 @@ export default function BreakdownsTracker() {
             <button
               onClick={() => setViewMode('month')}
               className={`px-3 py-1 text-sm font-medium transition-colors border-l border-gray-300 ${
-                viewMode === 'month' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                viewMode === 'month' ? 'bg-blue-200 text-blue-900' : 'bg-gray-100 text-gray-600 hover:bg-blue-100'
               }`}
             >
               Month
@@ -739,7 +739,7 @@ export default function BreakdownsTracker() {
             <>
               <button
                 onClick={handleStartEdit}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-blue-200 text-blue-900 hover:bg-blue-300"
               >
                 <Pencil className="w-4 h-4" />Edit
               </button>

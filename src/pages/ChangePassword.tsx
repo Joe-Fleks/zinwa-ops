@@ -227,7 +227,7 @@ export function ChangePassword() {
             <button
               type="submit"
               disabled={loading || !password || !confirmPassword || !!validationErrors.password || !!validationErrors.confirm}
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="w-full py-2 px-4 bg-blue-200 text-blue-900 rounded-lg font-medium hover:bg-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {loading ? 'Updating...' : 'Set Password'}
             </button>
