@@ -28,6 +28,7 @@ interface DualBar {
   production: number;
   sales: number;
   monthKey?: string;
+  salesMonthKey?: string;
 }
 
 interface Station {
@@ -336,49 +337,44 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         : `Prod ${MONTH_SHORT[prodMonthIdx]} ${salesYear}`;
       const salesRowLabel = `Sales ${MONTH_SHORT[salesMonthIdx]} ${salesYear}`;
 
+      const salesKey = `${salesYear}-${String(salesMonthIdx + 1).padStart(2, '0')}`;
       bars.push({
         prodLabel: prodRowLabel,
         salesLabel: salesRowLabel,
         production: Math.round(prodMonthMap.get(prodKey) || 0),
         sales: Math.round(salesMonthMap.get(salesMonthIdx) || 0),
         monthKey: prodKey,
+        salesMonthKey: salesKey,
       });
     }
 
     setDualData(bars);
     setChartData([]);
 
-    const allProdMonthKeys = bars.map(b => b.monthKey).filter(Boolean) as string[];
-    const uniqueKeys = [...new Set(allProdMonthKeys)];
+    const allSalesMonthKeys = bars.map(b => b.salesMonthKey).filter(Boolean) as string[];
+    const uniqueSalesKeys = [...new Set(allSalesMonthKeys)];
     const stationIds = await getStationIds();
-    const monthIndices = uniqueKeys.map(k => parseInt(k.split('-')[1]) - 1);
-    const nrwYear = (mk: string) => parseInt(mk.split('-')[0]);
 
     const map = new Map<string, number | null>();
-    for (const mk of uniqueKeys) {
-      const yr = nrwYear(mk);
+    for (const mk of uniqueSalesKeys) {
+      const yr = parseInt(mk.split('-')[0]);
       const mIdx = parseInt(mk.split('-')[1]) - 1;
       const daysInMonth = new Date(yr, mIdx + 1, 0).getDate();
       const startDate = `${yr}-${String(mIdx + 1).padStart(2, '0')}-01`;
       const endDate = `${yr}-${String(mIdx + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
       const [{ data: pd }, { data: sd }] = await Promise.all([
-        supabase.from('production_logs').select('rw_volume_m3, cw_volume_m3').in('station_id', stationIds).gte('date', startDate).lte('date', endDate),
+        supabase.from('production_logs').select('cw_volume_m3').in('station_id', stationIds).gte('date', startDate).lte('date', endDate),
         supabase.from('sales_records').select('sage_sales_volume_m3, returns_volume_m3').in('station_id', stationIds).eq('year', yr).eq('month', mIdx + 1),
       ]);
-      const rwVol = (pd || []).reduce((s: number, r: any) => s + (Number(r.rw_volume_m3) || 0), 0);
       const cwVol = (pd || []).reduce((s: number, r: any) => s + (Number(r.cw_volume_m3) || 0), 0);
       const salesVol = (sd || []).reduce((s: number, r: any) => {
         const sage = Number(r.sage_sales_volume_m3) || 0;
         const ret = Number(r.returns_volume_m3) || 0;
         return s + (sage > 0 ? sage : ret);
       }, 0);
-      const totalLossVol = rwVol > 0
-        ? Math.max(0, rwVol - salesVol)
-        : Math.max(0, cwVol - salesVol);
-      const denominator = rwVol > 0 ? rwVol : cwVol;
-      map.set(mk, denominator > 0 ? Math.round((totalLossVol / denominator) * 100) : null);
+      const totalLossVol = Math.max(0, cwVol - salesVol);
+      map.set(mk, cwVol > 0 ? Math.round((totalLossVol / cwVol) * 100) : null);
     }
-    void monthIndices;
     setNrwMap(map);
   };
 
@@ -1186,7 +1182,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                 {dualData.map((item, i) => {
                   const prodPct = dualMaxVal > 0 ? (item.production / dualMaxVal) * 100 : 0;
                   const salesPct = dualMaxVal > 0 ? (item.sales / dualMaxVal) * 100 : 0;
-                  const dualNrwPct = item.monthKey ? (nrwMap.get(item.monthKey) ?? null) : null;
+                  const dualNrwPct = item.salesMonthKey ? (nrwMap.get(item.salesMonthKey) ?? null) : null;
 
                   return (
                     <div
