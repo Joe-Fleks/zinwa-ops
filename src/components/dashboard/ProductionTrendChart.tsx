@@ -653,8 +653,6 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     ? Math.max(...chartData.map((d) => d.actual), ...chartData.map((d) => d.target), 1)
     : 1;
 
-  const BAR_MAX_PX = 550;
-
   const totalActual = chartData.reduce((s, d) => s + d.actual, 0);
   const totalTarget = chartData.reduce((s, d) => s + d.target, 0);
   const achievement = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0;
@@ -944,8 +942,8 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         <>
           <div className="space-y-0">
             {chartData.map((item, i) => {
-              const actualPx = maxVal > 0 ? (item.actual / maxVal) * BAR_MAX_PX : 0;
-              const targetPx = maxVal > 0 ? (item.target / maxVal) * BAR_MAX_PX : 0;
+              const actualPct = maxVal > 0 ? (item.actual / maxVal) * 100 : 0;
+              const targetPct = maxVal > 0 ? (item.target / maxVal) * 100 : 0;
               const barAchievement = item.target > 0 ? (item.actual / item.target) * 100 : null;
 
               return (
@@ -954,44 +952,48 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                   className="py-1.5"
                   style={i > 0 ? { borderTop: '1px solid #d1d5db' } : undefined}
                 >
-                  <div className="flex gap-2">
+                  <div className="flex items-start gap-2 w-full">
                     <div className="w-16 flex-shrink-0">
                       <div className="text-xs font-bold text-gray-800 leading-tight">{item.label}</div>
                       {item.sublabel && (
                         <div className="text-[10px] text-gray-500 leading-tight">{item.sublabel}</div>
                       )}
                     </div>
-                    <div className="flex flex-col gap-[3px]">
-                      <div className="flex items-center gap-1.5 leading-none">
-                        <div className="bg-gray-100 rounded h-[3.5px] overflow-hidden flex-shrink-0" style={{ width: `${BAR_MAX_PX}px` }}>
+                    <div className="flex-1 flex flex-col gap-[3px] min-w-0">
+                      <div className="flex items-center gap-2 leading-none">
+                        <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
                           <div
                             className={`h-full rounded transition-all duration-500 ${
                               item.actual >= item.target ? actualMetColor : actualNotMetColor
                             }`}
-                            style={{ width: `${Math.max(actualPx, item.actual > 0 ? 2 : 0)}px` }}
+                            style={{ width: `${Math.max(actualPct, item.actual > 0 ? 0.5 : 0)}%` }}
                           />
                         </div>
-                        <span className={`text-[11px] font-bold tabular-nums leading-none whitespace-nowrap ${
-                          item.actual >= item.target ? actualMetTextColor : actualNotMetTextColor
-                        }`}>
-                          {item.actual.toLocaleString()} m³
-                          {barAchievement !== null && (
-                            <span className="text-[10px] font-medium ml-1 opacity-75">
-                              ({barAchievement.toFixed(0)}%)
-                            </span>
-                          )}
-                        </span>
+                        <div className="w-36 flex-shrink-0">
+                          <span className={`text-[11px] font-bold tabular-nums leading-none whitespace-nowrap ${
+                            item.actual >= item.target ? actualMetTextColor : actualNotMetTextColor
+                          }`}>
+                            {item.actual.toLocaleString()} m³
+                            {barAchievement !== null && (
+                              <span className="text-[10px] font-medium ml-1 opacity-75">
+                                ({barAchievement.toFixed(0)}%)
+                              </span>
+                            )}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5 leading-none">
-                        <div className="bg-gray-100 rounded h-[3.5px] overflow-hidden flex-shrink-0" style={{ width: `${BAR_MAX_PX}px` }}>
+                      <div className="flex items-center gap-2 leading-none">
+                        <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
                           <div
                             className="h-full bg-gray-400 rounded transition-all duration-500"
-                            style={{ width: `${Math.max(targetPx, item.target > 0 ? 2 : 0)}px` }}
+                            style={{ width: `${Math.max(targetPct, item.target > 0 ? 0.5 : 0)}%` }}
                           />
                         </div>
-                        <span className="text-[11px] font-bold text-gray-600 tabular-nums leading-none whitespace-nowrap">
-                          {item.target.toLocaleString()} m³
-                        </span>
+                        <div className="w-36 flex-shrink-0">
+                          <span className="text-[11px] font-bold text-gray-600 tabular-nums leading-none whitespace-nowrap">
+                            {item.target.toLocaleString()} m³
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
