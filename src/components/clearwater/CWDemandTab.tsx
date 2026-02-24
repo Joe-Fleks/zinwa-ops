@@ -96,6 +96,14 @@ export default function CWDemandTab() {
         type: 'numericColumn',
         valueFormatter: (p: any) => fmt(p.value, 0),
         cellStyle: { fontWeight: 600, color: '#1d4ed8' },
+      },
+      {
+        headerName: 'Yearly Demand (m³)',
+        field: 'yearlyDemandM3',
+        width: 160,
+        type: 'numericColumn',
+        valueFormatter: (p: any) => fmt(p.value, 0),
+        cellStyle: { fontWeight: 600, color: '#0f766e' },
       }
     );
 
@@ -110,6 +118,7 @@ export default function CWDemandTab() {
       totalClients: summary.scTotalClients,
       dailyDemandM3: summary.scDailyDemandM3,
       monthlyDemandM3: summary.scMonthlyDemandM3,
+      yearlyDemandM3: summary.scDailyDemandM3 * 365,
     };
     for (const cat of CLIENT_CATEGORIES) {
       totals[cat] = summary.stationRows.reduce((s, r) => s + (r as any)[cat], 0);
@@ -194,6 +203,7 @@ export default function CWDemandTab() {
               rowData={summary.stationRows.map(r => ({
                 ...r,
                 stationName: r.stationName,
+                yearlyDemandM3: r.dailyDemandM3 * 365,
               }))}
               columnDefs={columnDefs}
               defaultColDef={defaultColDef}
