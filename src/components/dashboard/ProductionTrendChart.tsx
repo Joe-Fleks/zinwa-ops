@@ -963,6 +963,19 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                       <div className="flex items-center gap-2 leading-none">
                         <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
                           <div
+                            className="h-full bg-gray-400 rounded transition-all duration-500"
+                            style={{ width: `${Math.max(targetPct, item.target > 0 ? 0.5 : 0)}%` }}
+                          />
+                        </div>
+                        <div className="w-36 flex-shrink-0">
+                          <span className="text-[11px] font-bold text-gray-600 tabular-nums leading-none whitespace-nowrap">
+                            {item.target.toLocaleString()} m³
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 leading-none">
+                        <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
+                          <div
                             className={`h-full rounded transition-all duration-500 ${
                               item.actual >= item.target ? actualMetColor : actualNotMetColor
                             }`}
@@ -979,19 +992,6 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                                 ({barAchievement.toFixed(0)}%)
                               </span>
                             )}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 leading-none">
-                        <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
-                          <div
-                            className="h-full bg-gray-400 rounded transition-all duration-500"
-                            style={{ width: `${Math.max(targetPct, item.target > 0 ? 0.5 : 0)}%` }}
-                          />
-                        </div>
-                        <div className="w-36 flex-shrink-0">
-                          <span className="text-[11px] font-bold text-gray-600 tabular-nums leading-none whitespace-nowrap">
-                            {item.target.toLocaleString()} m³
                           </span>
                         </div>
                       </div>
