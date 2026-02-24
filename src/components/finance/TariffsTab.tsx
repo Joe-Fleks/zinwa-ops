@@ -1,18 +1,12 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Loader2, AlertCircle, CheckCircle2, Save, X, Pencil, Plus, Trash2 } from 'lucide-react';
-import { AgGridReact } from 'ag-grid-react';
-import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
-import type { ColDef } from 'ag-grid-community';
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-alpine.css';
-
-ModuleRegistry.registerModules([AllCommunityModule]);
+import { Loader2, AlertCircle, CheckCircle2, Save, X, Pencil, Plus, Trash2, Info } from 'lucide-react';
 
 interface TariffRow {
   id: string;
   tariff_type: string;
+  category: string | null;
   band_label: string;
   band_min_m3: number;
   band_max_m3: number | null;
@@ -32,6 +26,28 @@ interface TariffsTabProps {
   tariffType: 'CW' | 'RW';
 }
 
+const CW_CATEGORIES = ['Domestic', 'Government', 'Parastatal', 'Business', 'Industry', 'Institutions', 'Mines'];
+
+const CW_CATEGORY_COLORS: Record<string, string> = {
+  Domestic:     'bg-blue-50 border-blue-200',
+  Government:   'bg-emerald-50 border-emerald-200',
+  Parastatal:   'bg-teal-50 border-teal-200',
+  Business:     'bg-amber-50 border-amber-200',
+  Industry:     'bg-orange-50 border-orange-200',
+  Institutions: 'bg-sky-50 border-sky-200',
+  Mines:        'bg-slate-50 border-slate-200',
+};
+
+const CW_HEADER_COLORS: Record<string, string> = {
+  Domestic:     'bg-blue-100 text-blue-800',
+  Government:   'bg-emerald-100 text-emerald-800',
+  Parastatal:   'bg-teal-100 text-teal-800',
+  Business:     'bg-amber-100 text-amber-800',
+  Industry:     'bg-orange-100 text-orange-800',
+  Institutions: 'bg-sky-100 text-sky-800',
+  Mines:        'bg-slate-100 text-slate-800',
+};
+
 export default function TariffsTab({ tariffType }: TariffsTabProps) {
   const { roles } = useAuth();
   const [rows, setRows] = useState<TariffRow[]>([]);
@@ -40,7 +56,6 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const gridRef = useRef<AgGridReact>(null);
 
   const canEdit = useMemo(() => {
     return roles.some(r => TARIFF_EDIT_ROLES.includes(r.name));
@@ -53,6 +68,7 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
         .from('tariffs')
         .select('*')
         .eq('tariff_type', tariffType)
+        .order('category')
         .order('sort_order');
 
       if (error) throw error;
@@ -90,13 +106,14 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
     });
   };
 
-  const handleAddRow = () => {
-    const maxSort = editRows.length > 0 ? Math.max(...editRows.map(r => r.sort_order)) : 0;
+  const handleAddRow = (category?: string) => {
+    const maxSort = editRows.filter(r => r.category === (category || null)).length;
     setEditRows(prev => [
       ...prev,
       {
         id: `new_${Date.now()}`,
         tariff_type: tariffType,
+        category: category || null,
         band_label: '',
         band_min_m3: 0,
         band_max_m3: null,
@@ -137,6 +154,7 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
       for (const row of toInsert) {
         const { error } = await supabase.from('tariffs').insert({
           tariff_type: row.tariff_type,
+          category: row.category,
           band_label: row.band_label,
           band_min_m3: row.band_min_m3,
           band_max_m3: row.band_max_m3,
@@ -148,6 +166,7 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
 
       for (const row of toUpdate) {
         const { error } = await supabase.from('tariffs').update({
+          category: row.category,
           band_label: row.band_label,
           band_min_m3: row.band_min_m3,
           band_max_m3: row.band_max_m3,
@@ -168,41 +187,24 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
     }
   };
 
-  const columnDefs = useMemo<ColDef[]>(() => [
-    {
-      headerName: 'Consumption (m\u00B3)',
-      field: 'band_label',
-      flex: 1,
-      minWidth: 180,
-      cellClass: 'font-medium',
-    },
-    {
-      headerName: 'Tariff (USD/m\u00B3)',
-      field: 'tariff_usd_per_m3',
-      type: 'numericColumn',
-      minWidth: 160,
-      valueFormatter: (params: any) => {
-        if (params.value === null || params.value === undefined) return '-';
-        return params.value.toFixed(2);
-      },
-      cellClass: 'font-semibold',
-    },
-  ], []);
-
-  const defaultColDef = useMemo<ColDef>(() => ({
-    sortable: false,
-    filter: false,
-    resizable: true,
-    suppressMovable: true,
-  }), []);
-
   const typeLabel = tariffType === 'CW' ? 'Clear Water' : 'Raw Water';
+
+  const byCategory = useMemo(() => {
+    const map = new Map<string, TariffRow[]>();
+    for (const row of rows) {
+      const cat = row.category || 'Other';
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(row);
+    }
+    return map;
+  }, [rows]);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-4">
-          <p className="text-sm text-gray-500">Tariffs reset to the first band at the beginning of each month.</p>
+        <div className="flex items-center gap-2">
+          <Info className="w-4 h-4 text-gray-400" />
+          <p className="text-sm text-gray-500">Official ZINWA tariffs effective June 1, 2023.</p>
         </div>
 
         {canEdit && !editing && (
@@ -212,7 +214,7 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
             <Pencil className="w-4 h-4" />
-            Edit
+            Edit Tariffs
           </button>
         )}
 
@@ -255,6 +257,7 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
       ) : editing ? (
         <TariffEditForm
           rows={editRows}
+          tariffType={tariffType}
           onChange={handleFieldChange}
           onAdd={handleAddRow}
           onDelete={handleDeleteRow}
@@ -263,38 +266,206 @@ export default function TariffsTab({ tariffType }: TariffsTabProps) {
         <div className="bg-white rounded-lg shadow-sm p-12 text-center border border-gray-200">
           <p className="text-sm text-gray-500">No {typeLabel} tariffs configured yet</p>
         </div>
+      ) : tariffType === 'CW' ? (
+        <CWTariffDisplay byCategory={byCategory} />
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-            <p className="text-sm font-semibold text-gray-700">Zinwa {typeLabel} Tariff Bands</p>
-          </div>
-          <div className="ag-theme-alpine" style={{ width: '100%' }}>
-            <AgGridReact
-              ref={gridRef}
-              rowData={rows}
-              columnDefs={columnDefs}
-              defaultColDef={defaultColDef}
-              domLayout="autoHeight"
-              getRowId={(params) => params.data.id}
-              suppressMovableColumns
-              animateRows={false}
-            />
-          </div>
-        </div>
+        <RWTariffDisplay rows={rows} />
       )}
+    </div>
+  );
+}
+
+function CWTariffDisplay({ byCategory }: { byCategory: Map<string, TariffRow[]> }) {
+  const categoriesInOrder = CW_CATEGORIES.filter(c => byCategory.has(c));
+  const otherCategories = Array.from(byCategory.keys()).filter(c => !CW_CATEGORIES.includes(c));
+  const allCategories = [...categoriesInOrder, ...otherCategories];
+
+  const isFlat = (rows: TariffRow[]) => rows.length === 1 && rows[0].band_label === 'Flat Rate';
+
+  const bandedCategories = allCategories.filter(c => !isFlat(byCategory.get(c) || []));
+  const flatCategories = allCategories.filter(c => isFlat(byCategory.get(c) || []));
+
+  const globalBands = useMemo(() => {
+    const set = new Set<string>();
+    for (const cat of bandedCategories) {
+      for (const r of (byCategory.get(cat) || [])) set.add(r.band_label);
+    }
+    const arr = Array.from(set);
+    const catRows = byCategory.get(bandedCategories[0]) || [];
+    arr.sort((a, b) => {
+      const ai = catRows.findIndex(r => r.band_label === a);
+      const bi = catRows.findIndex(r => r.band_label === b);
+      return ai - bi;
+    });
+    return arr;
+  }, [bandedCategories, byCategory]);
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <p className="text-sm font-bold text-gray-800 uppercase tracking-wide">Clear Water Tariffs (USD/m³)</p>
+          <span className="text-xs text-gray-400 font-medium">Effective June 1, 2023</span>
+        </div>
+
+        {bandedCategories.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap w-36">
+                    Band (m³)
+                  </th>
+                  {bandedCategories.map(cat => (
+                    <th key={cat} className={`px-4 py-2.5 text-center text-xs font-bold uppercase whitespace-nowrap ${CW_HEADER_COLORS[cat] || 'bg-gray-100 text-gray-700'}`}>
+                      {cat === 'Institutions' ? 'Schools & Churches' : cat}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {globalBands.map((bandLabel, idx) => (
+                  <tr key={bandLabel} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                    <td className="px-4 py-2 font-medium text-gray-700 whitespace-nowrap text-xs">
+                      {bandLabel}
+                    </td>
+                    {bandedCategories.map(cat => {
+                      const catRows = byCategory.get(cat) || [];
+                      const band = catRows.find(r => r.band_label === bandLabel);
+                      return (
+                        <td key={cat} className="px-4 py-2 text-center tabular-nums">
+                          {band ? (
+                            <span className="font-semibold text-gray-800">${band.tariff_usd_per_m3.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {flatCategories.length > 0 && (
+          <div className={`${bandedCategories.length > 0 ? 'border-t border-gray-200' : ''}`}>
+            <div className="px-5 py-2.5 bg-gray-50 border-b border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Flat Rate Categories</p>
+            </div>
+            <div className="px-5 py-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {flatCategories.map(cat => {
+                const row = (byCategory.get(cat) || [])[0];
+                return (
+                  <div key={cat} className={`rounded-lg border px-4 py-3 ${CW_CATEGORY_COLORS[cat] || 'bg-gray-50 border-gray-200'}`}>
+                    <p className={`text-xs font-bold uppercase mb-1 ${CW_HEADER_COLORS[cat]?.split(' ')[1] || 'text-gray-700'}`}>{cat}</p>
+                    <p className="text-lg font-bold text-gray-900">${row.tariff_usd_per_m3.toFixed(2)}</p>
+                    <p className="text-xs text-gray-500">per m³</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <p className="text-xs text-gray-400 italic px-1">
+        Tariff bands apply progressively per connection per month. Industry and Mines apply a flat rate on total consumption.
+      </p>
+    </div>
+  );
+}
+
+function RWTariffDisplay({ rows }: { rows: TariffRow[] }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+        <p className="text-sm font-bold text-gray-800 uppercase tracking-wide">Raw Water Tariffs</p>
+        <span className="text-xs text-gray-400 font-medium">Effective June 1, 2023</span>
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase">
+            <th className="px-5 py-2.5 text-left font-semibold">Category</th>
+            <th className="px-5 py-2.5 text-right font-semibold">USD / ML</th>
+            <th className="px-5 py-2.5 text-right font-semibold">USD / m³</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {rows.map((row, idx) => (
+            <tr key={row.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+              <td className="px-5 py-2.5 font-medium text-gray-800">{row.category || row.band_label}</td>
+              <td className="px-5 py-2.5 text-right tabular-nums text-gray-700">
+                ${(row.tariff_usd_per_m3 * 1000).toFixed(2)}
+              </td>
+              <td className="px-5 py-2.5 text-right tabular-nums font-semibold text-gray-900">
+                ${row.tariff_usd_per_m3.toFixed(5)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="px-5 py-2.5 bg-gray-50 border-t border-gray-100">
+        <p className="text-xs text-gray-400">
+          1 ML = 1,000 m³. USD/m³ = USD/ML ÷ 1,000. Applied to metered raw water abstraction volumes.
+        </p>
+      </div>
     </div>
   );
 }
 
 interface TariffEditFormProps {
   rows: EditRow[];
+  tariffType: 'CW' | 'RW';
   onChange: (index: number, field: keyof EditRow, value: any) => void;
-  onAdd: () => void;
+  onAdd: (category?: string) => void;
   onDelete: (index: number) => void;
 }
 
-function TariffEditForm({ rows, onChange, onAdd, onDelete }: TariffEditFormProps) {
+function TariffEditForm({ rows, tariffType, onChange, onAdd, onDelete }: TariffEditFormProps) {
   const visibleRows = rows.filter(r => !r.isDeleted);
+
+  const byCategory = useMemo(() => {
+    const map = new Map<string, { row: EditRow; idx: number }[]>();
+    rows.forEach((row, idx) => {
+      if (row.isDeleted) return;
+      const cat = row.category || '_no_cat';
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push({ row, idx });
+    });
+    return map;
+  }, [rows]);
+
+  if (tariffType === 'CW') {
+    const categories = CW_CATEGORIES.filter(c => byCategory.has(c));
+    const otherCats = Array.from(byCategory.keys()).filter(c => !CW_CATEGORIES.includes(c) && c !== '_no_cat');
+    const allCats = [...categories, ...otherCats];
+
+    return (
+      <div className="space-y-4">
+        {allCats.map(cat => (
+          <div key={cat} className={`rounded-lg border overflow-hidden ${CW_CATEGORY_COLORS[cat] || 'bg-gray-50 border-gray-200'}`}>
+            <div className={`px-4 py-2 flex items-center justify-between ${CW_HEADER_COLORS[cat] || 'bg-gray-100 text-gray-700'}`}>
+              <span className="text-xs font-bold uppercase">{cat === 'Institutions' ? 'Institutions / Schools & Churches' : cat}</span>
+              <button
+                onClick={() => onAdd(cat)}
+                className="flex items-center gap-1 text-xs font-medium opacity-70 hover:opacity-100 transition-opacity"
+              >
+                <Plus className="w-3 h-3" />
+                Add Band
+              </button>
+            </div>
+            <EditBandTable
+              entries={byCategory.get(cat) || []}
+              onChange={onChange}
+              onDelete={onDelete}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -302,10 +473,9 @@ function TariffEditForm({ rows, onChange, onAdd, onDelete }: TariffEditFormProps
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
               <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Band Label</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Min (m&#179;)</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Max (m&#179;)</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Tariff (USD/m&#179;)</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Tariff (USD/m³)</th>
               <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
               <th className="px-4 py-2.5 w-12"></th>
             </tr>
@@ -318,35 +488,26 @@ function TariffEditForm({ rows, onChange, onAdd, onDelete }: TariffEditFormProps
                   <td className="px-4 py-2">
                     <input
                       type="text"
+                      value={row.category || ''}
+                      onChange={e => onChange(actualIndex, 'category', e.target.value || null)}
+                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                    />
+                  </td>
+                  <td className="px-4 py-2">
+                    <input
+                      type="text"
                       value={row.band_label}
                       onChange={e => onChange(actualIndex, 'band_label', e.target.value)}
-                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                     />
                   </td>
                   <td className="px-4 py-2">
                     <input
                       type="number"
-                      value={row.band_min_m3}
-                      onChange={e => onChange(actualIndex, 'band_min_m3', Number(e.target.value))}
-                      className="w-24 px-2 py-1 border border-gray-300 rounded text-sm text-right focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </td>
-                  <td className="px-4 py-2">
-                    <input
-                      type="number"
-                      value={row.band_max_m3 ?? ''}
-                      onChange={e => onChange(actualIndex, 'band_max_m3', e.target.value === '' ? null : Number(e.target.value))}
-                      placeholder="Unlimited"
-                      className="w-24 px-2 py-1 border border-gray-300 rounded text-sm text-right focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-400"
-                    />
-                  </td>
-                  <td className="px-4 py-2">
-                    <input
-                      type="number"
-                      step="0.01"
+                      step="0.00001"
                       value={row.tariff_usd_per_m3}
                       onChange={e => onChange(actualIndex, 'tariff_usd_per_m3', Number(e.target.value))}
-                      className="w-28 px-2 py-1 border border-gray-300 rounded text-sm text-right focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-28 px-2 py-1 border border-gray-300 rounded text-sm text-right focus:ring-1 focus:ring-blue-500"
                     />
                   </td>
                   <td className="px-4 py-2">
@@ -354,14 +515,13 @@ function TariffEditForm({ rows, onChange, onAdd, onDelete }: TariffEditFormProps
                       type="number"
                       value={row.sort_order}
                       onChange={e => onChange(actualIndex, 'sort_order', Number(e.target.value))}
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-right focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-right focus:ring-1 focus:ring-blue-500"
                     />
                   </td>
                   <td className="px-4 py-2">
                     <button
                       onClick={() => onDelete(actualIndex)}
                       className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                      title="Remove band"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -373,12 +533,93 @@ function TariffEditForm({ rows, onChange, onAdd, onDelete }: TariffEditFormProps
         </table>
       </div>
       <button
-        onClick={onAdd}
+        onClick={() => onAdd()}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
       >
         <Plus className="w-4 h-4" />
-        Add Band
+        Add Row
       </button>
     </div>
+  );
+}
+
+function EditBandTable({
+  entries,
+  onChange,
+  onDelete,
+}: {
+  entries: { row: EditRow; idx: number }[];
+  onChange: (index: number, field: keyof EditRow, value: any) => void;
+  onDelete: (index: number) => void;
+}) {
+  return (
+    <table className="w-full text-sm bg-white">
+      <thead>
+        <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase">
+          <th className="px-4 py-2 text-left">Band Label</th>
+          <th className="px-4 py-2 text-right">Min (m³)</th>
+          <th className="px-4 py-2 text-right">Max (m³)</th>
+          <th className="px-4 py-2 text-right">Tariff (USD/m³)</th>
+          <th className="px-4 py-2 text-right">Order</th>
+          <th className="px-4 py-2 w-10"></th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-50">
+        {entries.map(({ row, idx }) => (
+          <tr key={row.id} className="hover:bg-gray-50">
+            <td className="px-4 py-1.5">
+              <input
+                type="text"
+                value={row.band_label}
+                onChange={e => onChange(idx, 'band_label', e.target.value)}
+                className="w-full px-2 py-1 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-500"
+              />
+            </td>
+            <td className="px-4 py-1.5">
+              <input
+                type="number"
+                value={row.band_min_m3}
+                onChange={e => onChange(idx, 'band_min_m3', Number(e.target.value))}
+                className="w-20 px-2 py-1 border border-gray-200 rounded text-xs text-right focus:ring-1 focus:ring-blue-500"
+              />
+            </td>
+            <td className="px-4 py-1.5">
+              <input
+                type="number"
+                value={row.band_max_m3 ?? ''}
+                onChange={e => onChange(idx, 'band_max_m3', e.target.value === '' ? null : Number(e.target.value))}
+                placeholder="Unlimited"
+                className="w-20 px-2 py-1 border border-gray-200 rounded text-xs text-right focus:ring-1 focus:ring-blue-500 placeholder:text-gray-300"
+              />
+            </td>
+            <td className="px-4 py-1.5">
+              <input
+                type="number"
+                step="0.01"
+                value={row.tariff_usd_per_m3}
+                onChange={e => onChange(idx, 'tariff_usd_per_m3', Number(e.target.value))}
+                className="w-24 px-2 py-1 border border-gray-200 rounded text-xs text-right focus:ring-1 focus:ring-blue-500"
+              />
+            </td>
+            <td className="px-4 py-1.5">
+              <input
+                type="number"
+                value={row.sort_order}
+                onChange={e => onChange(idx, 'sort_order', Number(e.target.value))}
+                className="w-14 px-2 py-1 border border-gray-200 rounded text-xs text-right focus:ring-1 focus:ring-blue-500"
+              />
+            </td>
+            <td className="px-4 py-1.5">
+              <button
+                onClick={() => onDelete(idx)}
+                className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

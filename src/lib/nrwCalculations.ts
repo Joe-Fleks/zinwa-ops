@@ -3,6 +3,7 @@ export interface TariffBand {
   band_max_m3: number | null;
   tariff_usd_per_m3: number;
   sort_order: number;
+  category?: string | null;
 }
 
 export interface StationClients {
@@ -27,6 +28,17 @@ const CATEGORY_DAILY_DEMAND_M3: Record<keyof StationClients, number> = {
   clients_other: 5.0,
 };
 
+const CLIENT_TO_TARIFF_CATEGORY: Record<keyof StationClients, string> = {
+  clients_domestic: 'Domestic',
+  clients_school: 'Institutions',
+  clients_business: 'Business',
+  clients_industry: 'Industry',
+  clients_church: 'Institutions',
+  clients_parastatal: 'Parastatal',
+  clients_government: 'Government',
+  clients_other: 'Domestic',
+};
+
 const CATEGORIES = Object.keys(CATEGORY_DAILY_DEMAND_M3) as (keyof StationClients)[];
 
 export function calcRevenueForVolume(volume: number, bands: TariffBand[]): number {
@@ -49,16 +61,31 @@ export function calcRevenueForVolume(volume: number, bands: TariffBand[]): numbe
   return revenue;
 }
 
+export type CategoryTariffMap = Map<string, TariffBand[]>;
+
+export function buildCategoryTariffMap(bands: TariffBand[]): CategoryTariffMap {
+  const map = new Map<string, TariffBand[]>();
+  for (const band of bands) {
+    const cat = band.category || 'Default';
+    if (!map.has(cat)) map.set(cat, []);
+    map.get(cat)!.push(band);
+  }
+  return map;
+}
+
 export function estimateFinancialLoss(
   lostVolume: number,
   stationClients: StationClients,
   bands: TariffBand[],
-  daysInPeriod: number = 30
+  _daysInPeriod: number = 30
 ): number {
   if (lostVolume <= 0 || bands.length === 0) return 0;
 
   const totalClients = getStationTotalClients(stationClients);
   if (totalClients <= 0) return 0;
+
+  const categoryMap = buildCategoryTariffMap(bands);
+  const hasCategories = categoryMap.size > 1 || !categoryMap.has('Default');
 
   let totalDailyDemand = 0;
   for (const cat of CATEGORIES) {
@@ -80,7 +107,16 @@ export function estimateFinancialLoss(
     const demandShare = categoryDailyDemand / totalDailyDemand;
     const categoryLostVolume = lostVolume * demandShare;
     const lostPerConnection = categoryLostVolume / count;
-    const revenuePerConnection = calcRevenueForVolume(lostPerConnection, bands);
+
+    let catBands: TariffBand[];
+    if (hasCategories) {
+      const tariffCat = CLIENT_TO_TARIFF_CATEGORY[cat];
+      catBands = categoryMap.get(tariffCat) || categoryMap.get('Domestic') || bands;
+    } else {
+      catBands = bands;
+    }
+
+    const revenuePerConnection = calcRevenueForVolume(lostPerConnection, catBands);
     totalRevenueLoss += revenuePerConnection * count;
   }
 

@@ -134,7 +134,7 @@ export default function WaterLossesNRW() {
     try {
       const { data, error } = await supabase
         .from('tariffs')
-        .select('band_min_m3, band_max_m3, tariff_usd_per_m3, sort_order')
+        .select('band_min_m3, band_max_m3, tariff_usd_per_m3, sort_order, category')
         .eq('tariff_type', 'CW')
         .order('sort_order');
 

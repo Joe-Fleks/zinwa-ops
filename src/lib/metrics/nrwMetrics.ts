@@ -7,7 +7,8 @@ import {
   computeTotalClients,
   type StationClientFields,
 } from './coreCalculations';
-import { calcRevenueForVolume, type TariffBand } from '../nrwCalculations';
+import { calcRevenueForVolume, buildCategoryTariffMap, type TariffBand } from '../nrwCalculations';
+
 
 export interface NRWStationMetrics {
   stationId: string;
@@ -191,6 +192,17 @@ export async function fetchNRWMetrics(
   };
 }
 
+const CLIENT_TO_TARIFF_CATEGORY: Record<string, string> = {
+  clients_domestic: 'Domestic',
+  clients_school: 'Institutions',
+  clients_business: 'Business',
+  clients_industry: 'Industry',
+  clients_church: 'Institutions',
+  clients_parastatal: 'Parastatal',
+  clients_government: 'Government',
+  clients_other: 'Domestic',
+};
+
 function computeEstFinancialLoss(
   lostVolume: number,
   clientData: StationClientFields,
@@ -200,6 +212,9 @@ function computeEstFinancialLoss(
 
   const totalClients = computeTotalClients(clientData);
   if (totalClients <= 0) return 0;
+
+  const categoryMap = buildCategoryTariffMap(bands);
+  const hasCategories = categoryMap.size > 1 || !categoryMap.has('Default');
 
   let totalDailyDemand = 0;
   for (const cat of CLIENT_CATEGORIES) {
@@ -217,7 +232,16 @@ function computeEstFinancialLoss(
     const demandShare = categoryDailyDemand / totalDailyDemand;
     const categoryLostVolume = lostVolume * demandShare;
     const lostPerConnection = categoryLostVolume / count;
-    const revenuePerConnection = calcRevenueForVolume(lostPerConnection, bands);
+
+    let catBands: TariffBand[];
+    if (hasCategories) {
+      const tariffCat = CLIENT_TO_TARIFF_CATEGORY[cat];
+      catBands = categoryMap.get(tariffCat) || categoryMap.get('Domestic') || bands;
+    } else {
+      catBands = bands;
+    }
+
+    const revenuePerConnection = calcRevenueForVolume(lostPerConnection, catBands);
     totalRevenueLoss += revenuePerConnection * count;
   }
 
