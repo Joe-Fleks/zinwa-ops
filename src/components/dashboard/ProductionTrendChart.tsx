@@ -23,8 +23,8 @@ interface ChartBar {
 }
 
 interface DualBar {
-  label: string;
-  sublabel?: string;
+  prodLabel: string;
+  salesLabel: string;
   production: number;
   sales: number;
   monthKey?: string;
@@ -85,7 +85,8 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       }
       setNrwMap(new Map());
     } else if (trendType === 'production-vs-sales') {
-      setViewMode('year');
+      setViewMode('quarter');
+      setNrwMap(new Map());
     } else {
       if (viewMode === 'week' || viewMode === 'month') {
         setViewMode(productionViewMode);
@@ -282,8 +283,21 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     const salesYear = selectedYear;
     const prevYear = selectedYear - 1;
 
-    const prodStartDate = `${prevYear}-12-01`;
-    const prodEndDate = `${salesYear}-11-30`;
+    const salesMonthRange: number[] = viewMode === 'quarter'
+      ? [selectedQuarter * 3, selectedQuarter * 3 + 1, selectedQuarter * 3 + 2]
+      : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
+    const firstSalesMonth = salesMonthRange[0];
+    const lastSalesMonth = salesMonthRange[salesMonthRange.length - 1];
+    const firstProdMonthIdx = firstSalesMonth - 1;
+    const lastProdMonthIdx = lastSalesMonth - 1;
+    const prodStartYear = firstProdMonthIdx < 0 ? prevYear : salesYear;
+    const prodStartMon = firstProdMonthIdx < 0 ? 12 : firstProdMonthIdx + 1;
+    const prodEndYear = lastProdMonthIdx < 0 ? prevYear : salesYear;
+    const prodEndMon = lastProdMonthIdx < 0 ? 12 : lastProdMonthIdx + 1;
+    const prodEndDay = new Date(prodEndYear, prodEndMon, 0).getDate();
+    const prodStartDate = `${prodStartYear}-${String(prodStartMon).padStart(2, '0')}-01`;
+    const prodEndDate = `${prodEndYear}-${String(prodEndMon).padStart(2, '0')}-${String(prodEndDay).padStart(2, '0')}`;
     const { data: prodData } = await buildProductionQuery(prodStartDate, prodEndDate);
 
     const prodMonthMap = new Map<string, number>();
@@ -295,7 +309,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       prodMonthMap.set(key, cur + Number(log.cw_volume_m3 || 0));
     });
 
-    const { data: salesDataCurr } = await buildSalesQuery(salesYear, 0, 11);
+    const salesQueryStart = viewMode === 'quarter' ? selectedQuarter * 3 : 0;
+    const salesQueryEnd = viewMode === 'quarter' ? selectedQuarter * 3 + 2 : 11;
+    const { data: salesDataCurr } = await buildSalesQuery(salesYear, salesQueryStart, salesQueryEnd);
     const salesMonthMap = new Map<number, number>();
     (salesDataCurr || []).forEach((r: Record<string, unknown>) => {
       const mIdx = (r.month as number) - 1;
@@ -304,7 +320,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     });
 
     const bars: DualBar[] = [];
-    for (let salesMonthIdx = 0; salesMonthIdx < 12; salesMonthIdx++) {
+    for (const salesMonthIdx of salesMonthRange) {
       const prodMonthIdx = salesMonthIdx - 1;
       let prodKey: string;
       if (prodMonthIdx < 0) {
@@ -313,13 +329,14 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         prodKey = `${salesYear}-${String(prodMonthIdx + 1).padStart(2, '0')}`;
       }
 
-      const prodLabel = prodMonthIdx < 0
-        ? `${MONTH_SHORT[11]} ${prevYear}`
-        : `${MONTH_SHORT[prodMonthIdx]} ${salesYear}`;
+      const prodRowLabel = prodMonthIdx < 0
+        ? `Prod ${MONTH_SHORT[11]} ${prevYear}`
+        : `Prod ${MONTH_SHORT[prodMonthIdx]} ${salesYear}`;
+      const salesRowLabel = `Sales ${MONTH_SHORT[salesMonthIdx]} ${salesYear}`;
 
       bars.push({
-        label: MONTH_SHORT[salesMonthIdx],
-        sublabel: `${salesYear} | Prod: ${prodLabel}`,
+        prodLabel: prodRowLabel,
+        salesLabel: salesRowLabel,
         production: Math.round(prodMonthMap.get(prodKey) || 0),
         sales: Math.round(salesMonthMap.get(salesMonthIdx) || 0),
         monthKey: prodKey,
@@ -597,7 +614,16 @@ export default function ProductionTrendChart({ accessContext }: Props) {
 
   const handlePrev = () => {
     if (trendType === 'production-vs-sales') {
-      setSelectedYear((p) => p - 1);
+      if (viewMode === 'quarter') {
+        if (selectedQuarter > 0) {
+          setSelectedQuarter((p) => p - 1);
+        } else {
+          setSelectedYear((p) => p - 1);
+          setSelectedQuarter(3);
+        }
+      } else {
+        setSelectedYear((p) => p - 1);
+      }
       return;
     }
     switch (viewMode) {
@@ -635,6 +661,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     const now = new Date();
     const cy = now.getFullYear();
     if (trendType === 'production-vs-sales') {
+      if (viewMode === 'quarter') {
+        return !(selectedYear === cy && selectedQuarter >= Math.floor(now.getMonth() / 3));
+      }
       return selectedYear < cy;
     }
     switch (viewMode) {
@@ -654,7 +683,16 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   const handleNext = () => {
     if (!canGoNext()) return;
     if (trendType === 'production-vs-sales') {
-      setSelectedYear((p) => p + 1);
+      if (viewMode === 'quarter') {
+        if (selectedQuarter < 3) {
+          setSelectedQuarter((p) => p + 1);
+        } else {
+          setSelectedYear((p) => p + 1);
+          setSelectedQuarter(0);
+        }
+      } else {
+        setSelectedYear((p) => p + 1);
+      }
       return;
     }
     switch (viewMode) {
@@ -701,7 +739,10 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       : (accessContext?.serviceCentre?.name ?? 'SC');
 
     if (trendType === 'production-vs-sales') {
-      return `${scopeLabel} - Production vs Sales - ${selectedYear}`;
+      const period = viewMode === 'quarter'
+        ? `Q${selectedQuarter + 1} ${selectedYear}`
+        : `${selectedYear}`;
+      return `${scopeLabel} - Production vs Sales - ${period}`;
     }
 
     switch (viewMode) {
@@ -963,7 +1004,24 @@ export default function ProductionTrendChart({ accessContext }: Props) {
           </div>
 
           <div className="flex items-center gap-2">
-            {!isProdVsSales && (
+            {isProdVsSales ? (
+              <>
+                {(['quarter', 'year'] as ViewMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                      viewMode === mode
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  </button>
+                ))}
+                <div className="w-px h-5 bg-gray-200 mx-1" />
+              </>
+            ) : (
               <>
                 {(['week', 'month', 'quarter', 'year'] as ViewMode[])
                   .filter((mode) => (trendType === 'sales' || trendType === 'production') ? (mode === 'quarter' || mode === 'year') : true)
@@ -1019,7 +1077,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
               )}
             </div>
 
-            {!isProdVsSales && viewMode !== 'year' && (
+            {((!isProdVsSales && viewMode !== 'year') || (isProdVsSales && viewMode === 'quarter')) && (
               <div className="relative chart-period-dd">
                 <button
                   onClick={() => {
@@ -1113,58 +1171,50 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                 {dualData.map((item, i) => {
                   const prodPct = dualMaxVal > 0 ? (item.production / dualMaxVal) * 100 : 0;
                   const salesPct = dualMaxVal > 0 ? (item.sales / dualMaxVal) * 100 : 0;
-                  const ratio = item.production > 0 ? (item.sales / item.production) * 100 : null;
                   const dualNrwPct = item.monthKey ? (nrwMap.get(item.monthKey) ?? null) : null;
 
                   return (
                     <div
-                      key={`dual-${item.label}-${i}`}
+                      key={`dual-${item.prodLabel}-${i}`}
                       className="py-1.5"
                       style={i > 0 ? { borderTop: '1px solid #d1d5db' } : undefined}
                     >
-                      <div className="flex items-start gap-2 w-full">
-                        <div className="w-16 flex-shrink-0">
-                          <div className="text-xs font-bold text-gray-800 leading-tight">{item.label}</div>
-                          {item.sublabel && (
-                            <div className="text-[9px] text-gray-400 leading-tight">{item.sublabel}</div>
-                          )}
-                        </div>
-                        <div className="flex-1 flex flex-col gap-[3px] min-w-0">
-                          <div className="flex items-center gap-2 leading-none">
-                            <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
-                              <div
-                                className="h-full bg-green-300 rounded transition-all duration-500"
-                                style={{ width: `${Math.max(prodPct, item.production > 0 ? 0.5 : 0)}%` }}
-                              />
-                            </div>
-                            <div className="w-36 flex-shrink-0">
-                              <span className="text-[11px] font-bold text-green-600 tabular-nums leading-none whitespace-nowrap">
-                                {item.production.toLocaleString()} m³
-                                {dualNrwPct !== null && (
-                                  <span className="text-[10px] font-medium ml-1 opacity-75">
-                                    (NRW = {dualNrwPct.toFixed(1)}%)
-                                  </span>
-                                )}
-                              </span>
-                            </div>
+                      <div className="flex flex-col gap-[3px] w-full">
+                        <div className="flex items-center gap-2 w-full">
+                          <div className="w-28 flex-shrink-0">
+                            <span className="text-[10px] font-semibold text-green-700 leading-none whitespace-nowrap">{item.prodLabel}</span>
                           </div>
-                          <div className="flex items-center gap-2 leading-none">
-                            <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
-                              <div
-                                className="h-full bg-blue-400 rounded transition-all duration-500"
-                                style={{ width: `${Math.max(salesPct, item.sales > 0 ? 0.5 : 0)}%` }}
-                              />
-                            </div>
-                            <div className="w-36 flex-shrink-0">
-                              <span className="text-[11px] font-bold text-blue-600 tabular-nums leading-none whitespace-nowrap">
-                                {item.sales.toLocaleString()} m³
-                                {ratio !== null && (
-                                  <span className="text-[10px] font-medium ml-1 opacity-75">
-                                    ({ratio.toFixed(0)}%)
-                                  </span>
-                                )}
-                              </span>
-                            </div>
+                          <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
+                            <div
+                              className="h-full bg-green-300 rounded transition-all duration-500"
+                              style={{ width: `${Math.max(prodPct, item.production > 0 ? 0.5 : 0)}%` }}
+                            />
+                          </div>
+                          <div className="w-28 flex-shrink-0 text-right">
+                            <span className="text-[11px] font-bold text-green-600 tabular-nums leading-none whitespace-nowrap">
+                              {item.production.toLocaleString()} m³
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 w-full">
+                          <div className="w-28 flex-shrink-0">
+                            <span className="text-[10px] font-semibold text-blue-700 leading-none whitespace-nowrap">{item.salesLabel}</span>
+                          </div>
+                          <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
+                            <div
+                              className="h-full bg-blue-400 rounded transition-all duration-500"
+                              style={{ width: `${Math.max(salesPct, item.sales > 0 ? 0.5 : 0)}%` }}
+                            />
+                          </div>
+                          <div className="w-28 flex-shrink-0 text-right">
+                            <span className="text-[11px] font-bold text-blue-600 tabular-nums leading-none whitespace-nowrap">
+                              {item.sales.toLocaleString()} m³
+                              {dualNrwPct !== null && (
+                                <span className="text-[10px] font-medium ml-1 opacity-75">
+                                  (NRW = {dualNrwPct.toFixed(1)}%)
+                                </span>
+                              )}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1178,13 +1228,13 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                   <div className="flex items-center gap-5">
                     <div>
                       <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">
-                        {selectedYear} Production
+                        {viewMode === 'quarter' ? `Q${selectedQuarter + 1} ` : ''}{selectedYear} Production
                       </span>
                       <p className="text-sm font-bold text-green-700">{totalDualProduction.toLocaleString()} m³</p>
                     </div>
                     <div>
                       <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">
-                        {selectedYear} Sales
+                        {viewMode === 'quarter' ? `Q${selectedQuarter + 1} ` : ''}{selectedYear} Sales
                       </span>
                       <p className="text-sm font-bold text-blue-600">{totalDualSales.toLocaleString()} m³</p>
                     </div>
