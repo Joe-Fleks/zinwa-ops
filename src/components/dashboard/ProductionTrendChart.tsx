@@ -11,13 +11,20 @@ import {
 
 type ViewMode = 'week' | 'month' | 'quarter' | 'year';
 type ScopeMode = 'sc' | 'station';
-type TrendType = 'production' | 'sales';
+type TrendType = 'production' | 'sales' | 'production-vs-sales';
 
 interface ChartBar {
   label: string;
   sublabel?: string;
   actual: number;
   target: number;
+}
+
+interface DualBar {
+  label: string;
+  sublabel?: string;
+  production: number;
+  sales: number;
 }
 
 interface Station {
@@ -49,6 +56,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(new Date().getMonth() / 3));
   const [chartData, setChartData] = useState<ChartBar[]>([]);
+  const [dualData, setDualData] = useState<DualBar[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [showYearDropdown, setShowYearDropdown] = useState(false);
@@ -71,6 +79,8 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       if (viewMode === 'week' || viewMode === 'month') {
         setViewMode(salesViewMode);
       }
+    } else if (trendType === 'production-vs-sales') {
+      setViewMode('year');
     } else {
       setViewMode(productionViewMode);
     }
@@ -79,7 +89,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   useEffect(() => {
     if (trendType === 'production') {
       setProductionViewMode(viewMode);
-    } else {
+    } else if (trendType === 'sales') {
       if (viewMode !== 'week' && viewMode !== 'month') {
         setSalesViewMode(viewMode);
       }
@@ -176,7 +186,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     return q;
   };
 
-  const buildTargetsQuery = (type: TrendType) => {
+  const buildTargetsQuery = (type: 'production' | 'sales') => {
     const tableName = type === 'production' ? 'cw_production_targets' : 'cw_sales_targets';
 
     if (scopeMode === 'station' && selectedStation) {
@@ -202,6 +212,11 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     setLoading(true);
 
     try {
+      if (trendType === 'production-vs-sales') {
+        await loadProductionVsSalesData();
+        return;
+      }
+
       const { data: allTargetsData } = await buildTargetsQuery(trendType);
       const allTargets = allTargetsData || [];
 
@@ -229,6 +244,57 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadProductionVsSalesData = async () => {
+    const salesYear = selectedYear;
+    const prevYear = selectedYear - 1;
+
+    const prodStartDate = `${prevYear}-12-01`;
+    const prodEndDate = `${salesYear}-11-30`;
+    const { data: prodData } = await buildProductionQuery(prodStartDate, prodEndDate);
+
+    const prodMonthMap = new Map<string, number>();
+    (prodData || []).forEach((log: Record<string, unknown>) => {
+      const date = log.date as string;
+      const parts = date.split('-');
+      const key = `${parts[0]}-${parts[1]}`;
+      const cur = prodMonthMap.get(key) || 0;
+      prodMonthMap.set(key, cur + Number(log.cw_volume_m3 || 0));
+    });
+
+    const { data: salesDataCurr } = await buildSalesQuery(salesYear, 0, 11);
+    const salesMonthMap = new Map<number, number>();
+    (salesDataCurr || []).forEach((r: Record<string, unknown>) => {
+      const mIdx = (r.month as number) - 1;
+      const cur = salesMonthMap.get(mIdx) || 0;
+      salesMonthMap.set(mIdx, cur + Number(r.sage_sales_volume_m3 || 0));
+    });
+
+    const bars: DualBar[] = [];
+    for (let salesMonthIdx = 0; salesMonthIdx < 12; salesMonthIdx++) {
+      const prodMonthIdx = salesMonthIdx - 1;
+      let prodKey: string;
+      if (prodMonthIdx < 0) {
+        prodKey = `${prevYear}-12`;
+      } else {
+        prodKey = `${salesYear}-${String(prodMonthIdx + 1).padStart(2, '0')}`;
+      }
+
+      const prodLabel = prodMonthIdx < 0
+        ? `${MONTH_SHORT[11]} ${prevYear}`
+        : `${MONTH_SHORT[prodMonthIdx]} ${salesYear}`;
+
+      bars.push({
+        label: MONTH_SHORT[salesMonthIdx],
+        sublabel: `${salesYear} | Prod: ${prodLabel}`,
+        production: Math.round(prodMonthMap.get(prodKey) || 0),
+        sales: Math.round(salesMonthMap.get(salesMonthIdx) || 0),
+      });
+    }
+
+    setDualData(bars);
+    setChartData([]);
   };
 
   const getSalesVolumeForMonth = async (year: number, monthIdx: number): Promise<number> => {
@@ -465,6 +531,10 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   };
 
   const handlePrev = () => {
+    if (trendType === 'production-vs-sales') {
+      setSelectedYear((p) => p - 1);
+      return;
+    }
     switch (viewMode) {
       case 'week':
         if (selectedWeek > 1) {
@@ -499,6 +569,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   const canGoNext = (): boolean => {
     const now = new Date();
     const cy = now.getFullYear();
+    if (trendType === 'production-vs-sales') {
+      return selectedYear < cy;
+    }
     switch (viewMode) {
       case 'week': {
         const cw = shouldShowPreviousWeek() ? getCurrentWeekNumber() - 1 : getCurrentWeekNumber();
@@ -515,6 +588,10 @@ export default function ProductionTrendChart({ accessContext }: Props) {
 
   const handleNext = () => {
     if (!canGoNext()) return;
+    if (trendType === 'production-vs-sales') {
+      setSelectedYear((p) => p + 1);
+      return;
+    }
     switch (viewMode) {
       case 'week': {
         const maxWeek = getMaxWeekNumberForYear(selectedYear);
@@ -548,12 +625,19 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     }
   };
 
-  const trendLabel = trendType === 'production' ? 'CW Production Trend' : 'CW Sales Trend';
+  const trendLabel =
+    trendType === 'production' ? 'CW Production Trend' :
+    trendType === 'sales' ? 'CW Sales Trend' :
+    'Production/Sales Trend';
 
   const getTitle = (): string => {
     const scopeLabel = scopeMode === 'station' && selectedStation
       ? selectedStation.station_name
       : (accessContext?.serviceCentre?.name ?? 'SC');
+
+    if (trendType === 'production-vs-sales') {
+      return `${scopeLabel} - Production vs Sales - ${selectedYear}`;
+    }
 
     switch (viewMode) {
       case 'week': {
@@ -653,9 +737,16 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     ? Math.max(...chartData.map((d) => d.actual), ...chartData.map((d) => d.target), 1)
     : 1;
 
+  const dualMaxVal = dualData.length > 0
+    ? Math.max(...dualData.map((d) => d.production), ...dualData.map((d) => d.sales), 1)
+    : 1;
+
   const totalActual = chartData.reduce((s, d) => s + d.actual, 0);
   const totalTarget = chartData.reduce((s, d) => s + d.target, 0);
   const achievement = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0;
+
+  const totalDualProduction = dualData.reduce((s, d) => s + d.production, 0);
+  const totalDualSales = dualData.reduce((s, d) => s + d.sales, 0);
 
   const getSummaryLabel = (): string => {
     switch (viewMode) {
@@ -674,6 +765,8 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   const legendMetColor = trendType === 'production' ? 'bg-green-300' : 'bg-blue-400';
   const legendNotMetColor = 'bg-red-400';
 
+  const isProdVsSales = trendType === 'production-vs-sales';
+
   return (
     <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
       <div className="flex flex-col gap-2 mb-3">
@@ -684,13 +777,17 @@ export default function ProductionTrendChart({ accessContext }: Props) {
               onClick={() => setShowTrendDropdown(!showTrendDropdown)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors text-xs font-semibold text-gray-700"
             >
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${trendType === 'production' ? 'bg-green-500' : 'bg-blue-500'}`} />
-              {trendType === 'production' ? 'CW Production Trend' : 'CW Sales Trend'}
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                trendType === 'production' ? 'bg-green-500' :
+                trendType === 'sales' ? 'bg-blue-500' :
+                'bg-gray-500'
+              }`} />
+              {trendLabel}
               <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${showTrendDropdown ? 'rotate-180' : ''}`} />
             </button>
             {showTrendDropdown && (
-              <div className="absolute top-full right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-20 w-52 overflow-hidden">
-                {(['production', 'sales'] as TrendType[]).map((type) => (
+              <div className="absolute top-full right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-20 w-56 overflow-hidden">
+                {(['production', 'sales', 'production-vs-sales'] as TrendType[]).map((type) => (
                   <button
                     key={type}
                     onClick={() => {
@@ -703,8 +800,14 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                         : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${type === 'production' ? 'bg-green-500' : 'bg-blue-500'}`} />
-                    {type === 'production' ? 'CW Production Trend' : 'CW Sales Trend'}
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      type === 'production' ? 'bg-green-500' :
+                      type === 'sales' ? 'bg-blue-500' :
+                      'bg-gray-500'
+                    }`} />
+                    {type === 'production' ? 'CW Production Trend' :
+                     type === 'sales' ? 'CW Sales Trend' :
+                     'Production/Sales Trend'}
                   </button>
                 ))}
               </div>
@@ -795,23 +898,26 @@ export default function ProductionTrendChart({ accessContext }: Props) {
           </div>
 
           <div className="flex items-center gap-2">
-            {(['week', 'month', 'quarter', 'year'] as ViewMode[])
-              .filter((mode) => trendType === 'sales' ? (mode === 'quarter' || mode === 'year') : true)
-              .map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                    viewMode === mode
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                </button>
-              ))}
-
-            <div className="w-px h-5 bg-gray-200 mx-1" />
+            {!isProdVsSales && (
+              <>
+                {(['week', 'month', 'quarter', 'year'] as ViewMode[])
+                  .filter((mode) => trendType === 'sales' ? (mode === 'quarter' || mode === 'year') : true)
+                  .map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => setViewMode(mode)}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                        viewMode === mode
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </button>
+                  ))}
+                <div className="w-px h-5 bg-gray-200 mx-1" />
+              </>
+            )}
 
             <div className="relative chart-year-dd">
               <button
@@ -848,7 +954,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
               )}
             </div>
 
-            {viewMode !== 'year' && (
+            {!isProdVsSales && viewMode !== 'year' && (
               <div className="relative chart-period-dd">
                 <button
                   onClick={() => {
@@ -919,111 +1025,225 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center gap-5 mb-2 text-xs font-medium">
-        <div className="flex items-center gap-1.5">
-          <div className={`w-3 h-3 rounded-sm ${legendMetColor}`} />
-          <span className="text-gray-600">{actualLabel} (Target Met)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className={`w-3 h-3 rounded-sm ${legendNotMetColor}`} />
-          <span className="text-gray-600">{actualLabel} (Target Not Met)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-gray-400" />
-          <span className="text-gray-600">Target</span>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="text-center py-12 text-gray-500">Loading data...</div>
-      ) : chartData.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">No {trendType} data available</div>
-      ) : (
+      {isProdVsSales ? (
         <>
-          <div className="space-y-0">
-            {chartData.map((item, i) => {
-              const actualPct = maxVal > 0 ? (item.actual / maxVal) * 100 : 0;
-              const targetPct = maxVal > 0 ? (item.target / maxVal) * 100 : 0;
-              const barAchievement = item.target > 0 ? (item.actual / item.target) * 100 : null;
-
-              return (
-                <div
-                  key={`${item.label}-${i}`}
-                  className="py-1.5"
-                  style={i > 0 ? { borderTop: '1px solid #d1d5db' } : undefined}
-                >
-                  <div className="flex items-start gap-2 w-full">
-                    <div className="w-16 flex-shrink-0">
-                      <div className="text-xs font-bold text-gray-800 leading-tight">{item.label}</div>
-                      {item.sublabel && (
-                        <div className="text-[10px] text-gray-500 leading-tight">{item.sublabel}</div>
-                      )}
-                    </div>
-                    <div className="flex-1 flex flex-col gap-[3px] min-w-0">
-                      <div className="flex items-center gap-2 leading-none">
-                        <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
-                          <div
-                            className="h-full bg-gray-400 rounded transition-all duration-500"
-                            style={{ width: `${Math.max(targetPct, item.target > 0 ? 0.5 : 0)}%` }}
-                          />
-                        </div>
-                        <div className="w-36 flex-shrink-0">
-                          <span className="text-[11px] font-bold text-gray-600 tabular-nums leading-none whitespace-nowrap">
-                            {item.target.toLocaleString()} m³
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 leading-none">
-                        <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
-                          <div
-                            className={`h-full rounded transition-all duration-500 ${
-                              item.actual >= item.target ? actualMetColor : actualNotMetColor
-                            }`}
-                            style={{ width: `${Math.max(actualPct, item.actual > 0 ? 0.5 : 0)}%` }}
-                          />
-                        </div>
-                        <div className="w-36 flex-shrink-0">
-                          <span className={`text-[11px] font-bold tabular-nums leading-none whitespace-nowrap ${
-                            item.actual >= item.target ? actualMetTextColor : actualNotMetTextColor
-                          }`}>
-                            {item.actual.toLocaleString()} m³
-                            {barAchievement !== null && (
-                              <span className="text-[10px] font-medium ml-1 opacity-75">
-                                ({barAchievement.toFixed(0)}%)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-2 pt-2 border-t border-gray-300">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-5">
-                <div>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">
-                    {getSummaryLabel()} Total
-                  </span>
-                  <p className="text-sm font-bold text-gray-900">{totalActual.toLocaleString()} m³</p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Target</span>
-                  <p className="text-sm font-bold text-gray-600">{totalTarget.toLocaleString()} m³</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Achievement</span>
-                <p className={`text-sm font-bold ${achievement >= 100 ? 'text-green-600' : achievement >= 75 ? 'text-blue-600' : 'text-red-600'}`}>
-                  {achievement.toFixed(1)}%
-                </p>
-              </div>
+          <div className="flex items-center gap-5 mb-2 text-xs font-medium">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm bg-green-300" />
+              <span className="text-gray-600">Production</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm bg-blue-400" />
+              <span className="text-gray-600">Sales (billing lag: prev month prod)</span>
             </div>
           </div>
+
+          {loading ? (
+            <div className="text-center py-12 text-gray-500">Loading data...</div>
+          ) : dualData.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">No data available</div>
+          ) : (
+            <>
+              <div className="space-y-0">
+                {dualData.map((item, i) => {
+                  const prodPct = dualMaxVal > 0 ? (item.production / dualMaxVal) * 100 : 0;
+                  const salesPct = dualMaxVal > 0 ? (item.sales / dualMaxVal) * 100 : 0;
+                  const ratio = item.production > 0 ? (item.sales / item.production) * 100 : null;
+
+                  return (
+                    <div
+                      key={`dual-${item.label}-${i}`}
+                      className="py-1.5"
+                      style={i > 0 ? { borderTop: '1px solid #d1d5db' } : undefined}
+                    >
+                      <div className="flex items-start gap-2 w-full">
+                        <div className="w-16 flex-shrink-0">
+                          <div className="text-xs font-bold text-gray-800 leading-tight">{item.label}</div>
+                          {item.sublabel && (
+                            <div className="text-[9px] text-gray-400 leading-tight">{item.sublabel}</div>
+                          )}
+                        </div>
+                        <div className="flex-1 flex flex-col gap-[3px] min-w-0">
+                          <div className="flex items-center gap-2 leading-none">
+                            <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
+                              <div
+                                className="h-full bg-green-300 rounded transition-all duration-500"
+                                style={{ width: `${Math.max(prodPct, item.production > 0 ? 0.5 : 0)}%` }}
+                              />
+                            </div>
+                            <div className="w-36 flex-shrink-0">
+                              <span className="text-[11px] font-bold text-green-600 tabular-nums leading-none whitespace-nowrap">
+                                {item.production.toLocaleString()} m³
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 leading-none">
+                            <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
+                              <div
+                                className="h-full bg-blue-400 rounded transition-all duration-500"
+                                style={{ width: `${Math.max(salesPct, item.sales > 0 ? 0.5 : 0)}%` }}
+                              />
+                            </div>
+                            <div className="w-36 flex-shrink-0">
+                              <span className="text-[11px] font-bold text-blue-600 tabular-nums leading-none whitespace-nowrap">
+                                {item.sales.toLocaleString()} m³
+                                {ratio !== null && (
+                                  <span className="text-[10px] font-medium ml-1 opacity-75">
+                                    ({ratio.toFixed(0)}%)
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-2 pt-2 border-t border-gray-300">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-5">
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">
+                        {selectedYear} Production
+                      </span>
+                      <p className="text-sm font-bold text-green-700">{totalDualProduction.toLocaleString()} m³</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">
+                        {selectedYear} Sales
+                      </span>
+                      <p className="text-sm font-bold text-blue-600">{totalDualSales.toLocaleString()} m³</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Sales / Production</span>
+                    <p className={`text-sm font-bold ${
+                      totalDualProduction > 0 && (totalDualSales / totalDualProduction) >= 0.9
+                        ? 'text-green-600'
+                        : totalDualProduction > 0 && (totalDualSales / totalDualProduction) >= 0.7
+                        ? 'text-blue-600'
+                        : 'text-red-600'
+                    }`}>
+                      {totalDualProduction > 0 ? ((totalDualSales / totalDualProduction) * 100).toFixed(1) : '0.0'}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-5 mb-2 text-xs font-medium">
+            <div className="flex items-center gap-1.5">
+              <div className={`w-3 h-3 rounded-sm ${legendMetColor}`} />
+              <span className="text-gray-600">{actualLabel} (Target Met)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className={`w-3 h-3 rounded-sm ${legendNotMetColor}`} />
+              <span className="text-gray-600">{actualLabel} (Target Not Met)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm bg-gray-400" />
+              <span className="text-gray-600">Target</span>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-12 text-gray-500">Loading data...</div>
+          ) : chartData.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">No {trendType} data available</div>
+          ) : (
+            <>
+              <div className="space-y-0">
+                {chartData.map((item, i) => {
+                  const actualPct = maxVal > 0 ? (item.actual / maxVal) * 100 : 0;
+                  const targetPct = maxVal > 0 ? (item.target / maxVal) * 100 : 0;
+                  const barAchievement = item.target > 0 ? (item.actual / item.target) * 100 : null;
+
+                  return (
+                    <div
+                      key={`${item.label}-${i}`}
+                      className="py-1.5"
+                      style={i > 0 ? { borderTop: '1px solid #d1d5db' } : undefined}
+                    >
+                      <div className="flex items-start gap-2 w-full">
+                        <div className="w-16 flex-shrink-0">
+                          <div className="text-xs font-bold text-gray-800 leading-tight">{item.label}</div>
+                          {item.sublabel && (
+                            <div className="text-[10px] text-gray-500 leading-tight">{item.sublabel}</div>
+                          )}
+                        </div>
+                        <div className="flex-1 flex flex-col gap-[3px] min-w-0">
+                          <div className="flex items-center gap-2 leading-none">
+                            <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
+                              <div
+                                className="h-full bg-gray-400 rounded transition-all duration-500"
+                                style={{ width: `${Math.max(targetPct, item.target > 0 ? 0.5 : 0)}%` }}
+                              />
+                            </div>
+                            <div className="w-36 flex-shrink-0">
+                              <span className="text-[11px] font-bold text-gray-600 tabular-nums leading-none whitespace-nowrap">
+                                {item.target.toLocaleString()} m³
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 leading-none">
+                            <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
+                              <div
+                                className={`h-full rounded transition-all duration-500 ${
+                                  item.actual >= item.target ? actualMetColor : actualNotMetColor
+                                }`}
+                                style={{ width: `${Math.max(actualPct, item.actual > 0 ? 0.5 : 0)}%` }}
+                              />
+                            </div>
+                            <div className="w-36 flex-shrink-0">
+                              <span className={`text-[11px] font-bold tabular-nums leading-none whitespace-nowrap ${
+                                item.actual >= item.target ? actualMetTextColor : actualNotMetTextColor
+                              }`}>
+                                {item.actual.toLocaleString()} m³
+                                {barAchievement !== null && (
+                                  <span className="text-[10px] font-medium ml-1 opacity-75">
+                                    ({barAchievement.toFixed(0)}%)
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-2 pt-2 border-t border-gray-300">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-5">
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">
+                        {getSummaryLabel()} Total
+                      </span>
+                      <p className="text-sm font-bold text-gray-900">{totalActual.toLocaleString()} m³</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Target</span>
+                      <p className="text-sm font-bold text-gray-600">{totalTarget.toLocaleString()} m³</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Achievement</span>
+                    <p className={`text-sm font-bold ${achievement >= 100 ? 'text-green-600' : achievement >= 75 ? 'text-blue-600' : 'text-red-600'}`}>
+                      {achievement.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
     </div>
