@@ -389,6 +389,7 @@ export async function fetchMonthlyReportData(
 
   let nrwRWTot = 0, nrwCWTot = 0, nrwSalesTot = 0;
   let nrwStLoss = 0, nrwDistLoss = 0, nrwTotLoss = 0;
+  let nrwSurfaceRW = 0, nrwBoreholeCW = 0;
 
   for (const station of allStations) {
     const vol = stationAggForNRW.get(station.id) || { rw: 0, cw: 0, sales: 0 };
@@ -400,7 +401,14 @@ export async function fetchMonthlyReportData(
     nrwStLoss += losses.stationLossVol;
     nrwDistLoss += losses.distributionLossVol;
     nrwTotLoss += losses.totalLossVol;
+    if (isBorehole) {
+      nrwBoreholeCW += vol.cw;
+    } else {
+      nrwSurfaceRW += vol.rw;
+    }
   }
+
+  const nrwTotalDenominator = nrwSurfaceRW + nrwBoreholeCW;
 
   const nrw: MonthlyNRWSummary = {
     totalRWVolume: roundTo(nrwRWTot, 0),
@@ -411,7 +419,7 @@ export async function fetchMonthlyReportData(
     distributionLossVol: roundTo(nrwDistLoss, 0),
     distributionLossPct: nrwCWTot > 0 ? roundTo((nrwDistLoss / nrwCWTot) * 100, 1) : 0,
     totalLossVol: roundTo(nrwTotLoss, 0),
-    totalLossPct: nrwRWTot > 0 ? roundTo((nrwTotLoss / nrwRWTot) * 100, 1) : 0,
+    totalLossPct: nrwTotalDenominator > 0 ? roundTo((nrwTotLoss / nrwTotalDenominator) * 100, 1) : 0,
   };
 
   const chemicals: MonthlyChemicalSummary[] = [];

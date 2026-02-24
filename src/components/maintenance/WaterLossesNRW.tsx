@@ -415,7 +415,10 @@ export default function WaterLossesNRW() {
     const distLossPct = totalCW > 0 ? (distLossVol / totalCW) * 100 : 0;
 
     const totalLossVol = nrwRows.reduce((s, r) => s + r.total_loss_vol, 0);
-    const totalLossPct = totalRW > 0 ? (totalLossVol / totalRW) * 100 : 0;
+    const surfaceRWVol = nrwRows.filter(r => r.station_type !== 'Borehole').reduce((s, r) => s + r.rw_volume, 0);
+    const boreholeCWVol = nrwRows.filter(r => r.station_type === 'Borehole').reduce((s, r) => s + r.cw_volume, 0);
+    const nrwDenominator = surfaceRWVol + boreholeCWVol;
+    const totalLossPct = nrwDenominator > 0 ? (totalLossVol / nrwDenominator) * 100 : 0;
 
     const totalFinLoss = nrwRows.reduce((s, r) => s + r.est_financial_loss, 0);
 

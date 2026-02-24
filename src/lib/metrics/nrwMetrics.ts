@@ -176,6 +176,14 @@ export async function fetchNRWMetrics(
   const totLossVol = stationMetrics.reduce((s, r) => s + r.totalLossVol, 0);
   const totFinLoss = stationMetrics.reduce((s, r) => s + r.estimatedFinancialLoss, 0);
 
+  const surfaceRWVol = stationMetrics
+    .filter(r => r.stationType !== 'Borehole')
+    .reduce((s, r) => s + r.rwVolume, 0);
+  const boreholeCWVol = stationMetrics
+    .filter(r => r.stationType === 'Borehole')
+    .reduce((s, r) => s + r.cwVolume, 0);
+  const totalNRWDenominator = surfaceRWVol + boreholeCWVol;
+
   return {
     totalRWVolume: totalRW,
     totalCWVolume: totalCW,
@@ -185,7 +193,7 @@ export async function fetchNRWMetrics(
     distributionLossVol: distLossVol,
     distributionLossPct: totalCW > 0 ? roundTo((distLossVol / totalCW) * 100, 1) : 0,
     totalLossVol: totLossVol,
-    totalLossPct: totalRW > 0 ? roundTo((totLossVol / totalRW) * 100, 1) : 0,
+    totalLossPct: totalNRWDenominator > 0 ? roundTo((totLossVol / totalNRWDenominator) * 100, 1) : 0,
     totalFinancialLoss: totFinLoss,
     stationCount: stationMetrics.length,
     stations: stationMetrics,
@@ -258,8 +266,9 @@ function emptyNRWSummary(): NRWSummaryMetrics {
 
 export interface NRWMonthResult {
   monthKey: string;
-  cwVolume: number;
+  prodVolume: number;
   salesVolume: number;
+  lossVolume: number;
   nrwPct: number | null;
 }
 
@@ -271,39 +280,77 @@ export async function fetchNRWByMonth(
   const result = new Map<string, NRWMonthResult>();
   if (stationIds.length === 0 || monthIndices.length === 0) return result;
 
-  for (const monthIdx of monthIndices) {
-    const monthNum = monthIdx + 1;
-    const daysInMonth = new Date(year, monthNum, 0).getDate();
-    const startDate = `${year}-${String(monthNum).padStart(2, '0')}-01`;
-    const endDate = `${year}-${String(monthNum).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
-    const monthKey = `${year}-${String(monthNum).padStart(2, '0')}`;
+  const { data: stationTypesData } = await supabase
+    .from('stations')
+    .select('id, station_type')
+    .in('id', stationIds);
 
-    const [{ data: prodData }, { data: salesData }] = await Promise.all([
-      supabase
-        .from('production_logs')
-        .select('cw_volume_m3')
-        .in('station_id', stationIds)
-        .gte('date', startDate)
-        .lte('date', endDate),
-      supabase
-        .from('sales_records')
-        .select('sage_sales_volume_m3, returns_volume_m3')
+  const boreholeSet = new Set(
+    (stationTypesData || []).filter((s: any) => s.station_type === 'Borehole').map((s: any) => s.id)
+  );
+  const boreholeIds = stationIds.filter(id => boreholeSet.has(id));
+  const surfaceIds = stationIds.filter(id => !boreholeSet.has(id));
+
+  for (const monthIdx of monthIndices) {
+    const salesMonthNum = monthIdx + 1;
+    const salesMonthKey = `${year}-${String(salesMonthNum).padStart(2, '0')}`;
+
+    const prevPeriod = getPreviousMonthPeriod(year, salesMonthNum);
+    const prodStart = `${prevPeriod.year}-${String(prevPeriod.month).padStart(2, '0')}-01`;
+    const prodEnd = new Date(prevPeriod.year, prevPeriod.month, 0).toISOString().split('T')[0];
+
+    const queries: Promise<any>[] = [
+      supabase.from('sales_records')
+        .select('station_id, sage_sales_volume_m3, returns_volume_m3')
         .in('station_id', stationIds)
         .eq('year', year)
-        .eq('month', monthNum),
-    ]);
+        .eq('month', salesMonthNum),
+      surfaceIds.length > 0
+        ? supabase.from('production_logs')
+            .select('station_id, rw_volume_m3')
+            .in('station_id', surfaceIds)
+            .gte('date', prodStart)
+            .lte('date', prodEnd)
+        : Promise.resolve({ data: [] }),
+      boreholeIds.length > 0
+        ? supabase.from('production_logs')
+            .select('station_id, cw_volume_m3')
+            .in('station_id', boreholeIds)
+            .gte('date', prodStart)
+            .lte('date', prodEnd)
+        : Promise.resolve({ data: [] }),
+    ];
 
-    const cwVolume = (prodData || []).reduce((s: number, r: any) => s + (Number(r.cw_volume_m3) || 0), 0);
-    const salesVolume = (salesData || []).reduce((s: number, r: any) => {
+    const [{ data: salesData }, { data: rwProdData }, { data: cwProdData }] = await Promise.all(queries);
+
+    const prodByStation = new Map<string, number>();
+    for (const r of (rwProdData || [])) {
+      prodByStation.set(r.station_id, (prodByStation.get(r.station_id) || 0) + (Number(r.rw_volume_m3) || 0));
+    }
+    for (const r of (cwProdData || [])) {
+      prodByStation.set(r.station_id, (prodByStation.get(r.station_id) || 0) + (Number(r.cw_volume_m3) || 0));
+    }
+
+    const salesByStation = new Map<string, number>();
+    for (const r of (salesData || [])) {
       const sage = Number(r.sage_sales_volume_m3) || 0;
       const ret = Number(r.returns_volume_m3) || 0;
-      return s + (sage > 0 ? sage : ret);
-    }, 0);
+      salesByStation.set(r.station_id, (salesByStation.get(r.station_id) || 0) + (sage > 0 ? sage : ret));
+    }
 
-    const lossVol = cwVolume - salesVolume;
-    const nrwPct = cwVolume > 0 ? roundTo((lossVol / cwVolume) * 100, 1) : null;
+    let totalProdVol = 0;
+    let totalLossVol = 0;
+    for (const id of stationIds) {
+      const prod = prodByStation.get(id) || 0;
+      const sales = salesByStation.get(id) || 0;
+      totalProdVol += prod;
+      totalLossVol += Math.max(0, prod - sales);
+    }
 
-    result.set(monthKey, { monthKey, cwVolume, salesVolume, nrwPct });
+    const totalSalesVol = [...salesByStation.values()].reduce((s, v) => s + v, 0);
+    const nrwPct = totalProdVol > 0 ? roundTo((totalLossVol / totalProdVol) * 100, 1) : null;
+
+    result.set(salesMonthKey, { monthKey: salesMonthKey, prodVolume: totalProdVol, salesVolume: totalSalesVol, lossVolume: totalLossVol, nrwPct });
   }
 
   return result;
