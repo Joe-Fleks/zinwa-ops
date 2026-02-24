@@ -1376,48 +1376,52 @@ export default function ProductionTrendChart({ accessContext }: Props) {
               </div>
 
               <div className="mt-2 pt-2 border-t-2 border-gray-400">
-                <div className="flex items-start gap-2 w-full py-1.5">
-                  <div className="w-16 flex-shrink-0">
-                    <div className="text-xs font-bold text-gray-800 leading-tight uppercase tracking-wide">Total</div>
-                    <div className="text-[10px] text-gray-500 leading-tight">{getSummaryLabel()}</div>
-                  </div>
-                  <div className="flex-1 flex flex-col gap-[3px] min-w-0">
-                    <div className="flex items-center gap-2 leading-none">
-                      <div className="flex-1 bg-gray-200 rounded h-[7px] lg:h-[9px] overflow-hidden">
-                        <div
-                          className="h-full bg-gray-500 rounded transition-all duration-500"
-                          style={{ width: `${maxVal > 0 ? Math.max((totalTarget / maxVal) * 100, totalTarget > 0 ? 0.5 : 0) : 0}%` }}
-                        />
-                      </div>
-                      <div className="w-36 flex-shrink-0">
-                        <span className="text-[12px] font-extrabold text-gray-600 tabular-nums leading-none whitespace-nowrap">
-                          {totalTarget.toLocaleString()} m³
-                        </span>
-                      </div>
+                <div className="flex flex-col gap-[3px] w-full py-1.5">
+                  <div className="flex items-center gap-2 w-full leading-none">
+                    <div className="w-16 flex-shrink-0">
+                      <span className="text-[10px] font-bold text-gray-700 leading-none whitespace-nowrap uppercase tracking-wide">Target</span>
+                      <div className="text-[9px] text-gray-400 leading-tight">{getSummaryLabel()}</div>
                     </div>
-                    <div className="flex items-center gap-2 leading-none">
-                      <div className="flex-1 bg-gray-200 rounded h-[7px] lg:h-[9px] overflow-hidden">
-                        <div
-                          className={`h-full rounded transition-all duration-500 ${
-                            totalActual >= totalTarget
-                              ? (trendType === 'production' ? 'bg-green-400' : 'bg-blue-500')
-                              : 'bg-red-500'
-                          }`}
-                          style={{ width: `${maxVal > 0 ? Math.max((totalActual / maxVal) * 100, totalActual > 0 ? 0.5 : 0) : 0}%` }}
-                        />
-                      </div>
-                      <div className="w-36 flex-shrink-0">
-                        <span className={`text-[12px] font-extrabold tabular-nums leading-none whitespace-nowrap ${
+                    <div className="flex-1 bg-gray-200 rounded h-[7px] lg:h-[9px] overflow-hidden">
+                      <div
+                        className="h-full bg-gray-500 rounded transition-all duration-500"
+                        style={{ width: `${maxVal > 0 ? Math.max((totalTarget / maxVal) * 100, totalTarget > 0 ? 0.5 : 0) : 0}%` }}
+                      />
+                    </div>
+                    <div className="w-36 flex-shrink-0">
+                      <span className="text-[12px] font-extrabold text-gray-600 tabular-nums leading-none whitespace-nowrap">
+                        {totalTarget.toLocaleString()} m³
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 w-full leading-none">
+                    <div className="w-16 flex-shrink-0">
+                      <span className="text-[10px] font-bold leading-none whitespace-nowrap uppercase tracking-wide truncate block max-w-full" style={{ color: totalActual >= totalTarget ? (trendType === 'production' ? '#15803d' : '#1d4ed8') : '#dc2626' }}>
+                        {trendType === 'production' ? 'Actual Prod.' : 'Actual Sales'}
+                      </span>
+                      <div className="text-[9px] text-gray-400 leading-tight">{getSummaryLabel()}</div>
+                    </div>
+                    <div className="flex-1 bg-gray-200 rounded h-[7px] lg:h-[9px] overflow-hidden">
+                      <div
+                        className={`h-full rounded transition-all duration-500 ${
                           totalActual >= totalTarget
-                            ? (trendType === 'production' ? 'text-green-700' : 'text-blue-700')
-                            : 'text-red-600'
-                        }`}>
-                          {totalActual.toLocaleString()} m³
-                          <span className={`text-[10px] font-semibold ml-1 opacity-80 ${achievement >= 100 ? 'text-green-600' : achievement >= 75 ? 'text-blue-600' : 'text-red-600'}`}>
-                            ({achievement.toFixed(1)}%)
-                          </span>
+                            ? (trendType === 'production' ? 'bg-green-400' : 'bg-blue-500')
+                            : 'bg-red-500'
+                        }`}
+                        style={{ width: `${maxVal > 0 ? Math.max((totalActual / maxVal) * 100, totalActual > 0 ? 0.5 : 0) : 0}%` }}
+                      />
+                    </div>
+                    <div className="w-36 flex-shrink-0">
+                      <span className={`text-[12px] font-extrabold tabular-nums leading-none whitespace-nowrap ${
+                        totalActual >= totalTarget
+                          ? (trendType === 'production' ? 'text-green-700' : 'text-blue-700')
+                          : 'text-red-600'
+                      }`}>
+                        {totalActual.toLocaleString()} m³
+                        <span className={`text-[10px] font-semibold ml-1 opacity-80 ${achievement >= 100 ? 'text-green-600' : achievement >= 75 ? 'text-blue-600' : 'text-red-600'}`}>
+                          ({achievement.toFixed(1)}%)
                         </span>
-                      </div>
+                      </span>
                     </div>
                   </div>
                 </div>
