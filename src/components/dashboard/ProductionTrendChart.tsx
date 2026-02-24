@@ -8,6 +8,7 @@ import {
   shouldShowPreviousWeek,
   getMaxWeekNumberForYear,
 } from '../../lib/dateUtils';
+import { fetchNRWByMonth } from '../../lib/metrics';
 
 type ViewMode = 'week' | 'month' | 'quarter' | 'year';
 type ScopeMode = 'sc' | 'station';
@@ -18,6 +19,7 @@ interface ChartBar {
   sublabel?: string;
   actual: number;
   target: number;
+  monthKey?: string;
 }
 
 interface DualBar {
@@ -42,8 +44,8 @@ const MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'Jul
 const QUARTER_LABELS = ['Q1 (Jan - Mar)', 'Q2 (Apr - Jun)', 'Q3 (Jul - Sep)', 'Q4 (Oct - Dec)'];
 
 export default function ProductionTrendChart({ accessContext }: Props) {
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
-  const [productionViewMode, setProductionViewMode] = useState<ViewMode>('month');
+  const [viewMode, setViewMode] = useState<ViewMode>('quarter');
+  const [productionViewMode, setProductionViewMode] = useState<ViewMode>('quarter');
   const [salesViewMode, setSalesViewMode] = useState<ViewMode>('quarter');
   const [scopeMode, setScopeMode] = useState<ScopeMode>('sc');
   const [trendType, setTrendType] = useState<TrendType>('production');
@@ -58,6 +60,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   const [chartData, setChartData] = useState<ChartBar[]>([]);
   const [dualData, setDualData] = useState<DualBar[]>([]);
   const [loading, setLoading] = useState(false);
+  const [nrwMap, setNrwMap] = useState<Map<string, number | null>>(new Map());
 
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
@@ -79,16 +82,22 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       if (viewMode === 'week' || viewMode === 'month') {
         setViewMode(salesViewMode);
       }
+      setNrwMap(new Map());
     } else if (trendType === 'production-vs-sales') {
       setViewMode('year');
+      setNrwMap(new Map());
     } else {
-      setViewMode(productionViewMode);
+      if (viewMode === 'week' || viewMode === 'month') {
+        setViewMode(productionViewMode);
+      }
     }
   }, [trendType]);
 
   useEffect(() => {
     if (trendType === 'production') {
-      setProductionViewMode(viewMode);
+      if (viewMode === 'quarter' || viewMode === 'year') {
+        setProductionViewMode(viewMode);
+      }
     } else if (trendType === 'sales') {
       if (viewMode !== 'week' && viewMode !== 'month') {
         setSalesViewMode(viewMode);
@@ -118,6 +127,16 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const getStationIds = async (): Promise<string[]> => {
+    if (scopeMode === 'station' && selectedStation) return [selectedStation.id];
+    let q = supabase.from('stations').select('id');
+    if (accessContext?.isSCScoped && accessContext.scopeId) {
+      q = q.eq('service_centre_id', accessContext.scopeId);
+    }
+    const { data } = await q;
+    return (data || []).map((s: { id: string }) => s.id);
+  };
 
   const loadStations = async () => {
     if (!accessContext) return;
@@ -206,6 +225,18 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     return q;
   };
 
+  const loadNRWForMonths = async (monthIndices: number[]) => {
+    try {
+      const stationIds = await getStationIds();
+      const results = await fetchNRWByMonth(stationIds, selectedYear, monthIndices);
+      const map = new Map<string, number | null>();
+      results.forEach((v, k) => map.set(k, v.nrwPct));
+      setNrwMap(map);
+    } catch {
+      setNrwMap(new Map());
+    }
+  };
+
   const loadChartData = async () => {
     if (!accessContext) return;
     if (scopeMode === 'station' && !selectedStation) return;
@@ -228,15 +259,30 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       switch (viewMode) {
         case 'week':
           await loadWeekData(getMonthTarget);
+          if (trendType === 'production') {
+            const weekDates = getWeekDateRangeForWeekNumber(selectedWeek, selectedYear);
+            const startM = parseInt(weekDates.start.split('-')[1]) - 1;
+            const endM = parseInt(weekDates.end.split('-')[1]) - 1;
+            const months = startM === endM ? [startM] : [startM, endM];
+            await loadNRWForMonths(months);
+          }
           break;
         case 'month':
           await loadMonthData(getMonthTarget);
+          if (trendType === 'production') await loadNRWForMonths([selectedMonth]);
           break;
         case 'quarter':
           await loadQuarterData(getMonthTarget);
+          if (trendType === 'production') {
+            const sm = selectedQuarter * 3;
+            await loadNRWForMonths([sm, sm + 1, sm + 2]);
+          }
           break;
         case 'year':
           await loadYearData(getMonthTarget);
+          if (trendType === 'production') {
+            await loadNRWForMonths([0,1,2,3,4,5,6,7,8,9,10,11]);
+          }
           break;
       }
     } catch (err) {
@@ -365,6 +411,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         sublabel: dateLabel,
         actual: Math.round(dailyMap.get(ds) || 0),
         target: Math.round(dailyTarget),
+        monthKey: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
       });
     }
     setChartData(bars);
@@ -431,6 +478,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         sublabel: `${firstDay} - ${lastDay} ${MONTH_SHORT[selectedMonth]}`,
         actual: Math.round(group.volume),
         target: Math.round(dailyTarget * group.days.size),
+        monthKey: `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`,
       });
     }
     setChartData(bars);
@@ -481,6 +529,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         sublabel: MONTH_FULL[m],
         actual: Math.round(monthVolumes.get(m) || 0),
         target: Math.round(getMonthTarget(m, selectedYear)),
+        monthKey: `${selectedYear}-${String(m + 1).padStart(2, '0')}`,
       });
     }
     setChartData(bars);
@@ -525,6 +574,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         label: MONTH_SHORT[m],
         actual: Math.round(monthVolumes.get(m) || 0),
         target: Math.round(getMonthTarget(m, selectedYear)),
+        monthKey: `${selectedYear}-${String(m + 1).padStart(2, '0')}`,
       });
     }
     setChartData(bars);
@@ -901,7 +951,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
             {!isProdVsSales && (
               <>
                 {(['week', 'month', 'quarter', 'year'] as ViewMode[])
-                  .filter((mode) => trendType === 'sales' ? (mode === 'quarter' || mode === 'year') : true)
+                  .filter((mode) => (trendType === 'sales' || trendType === 'production') ? (mode === 'quarter' || mode === 'year') : true)
                   .map((mode) => (
                     <button
                       key={mode}
@@ -1163,6 +1213,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                   const actualPct = maxVal > 0 ? (item.actual / maxVal) * 100 : 0;
                   const targetPct = maxVal > 0 ? (item.target / maxVal) * 100 : 0;
                   const barAchievement = item.target > 0 ? (item.actual / item.target) * 100 : null;
+                  const itemNrwPct = trendType === 'production' && item.monthKey
+                    ? nrwMap.get(item.monthKey) ?? null
+                    : null;
 
                   return (
                     <div
@@ -1205,7 +1258,12 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                                 item.actual >= item.target ? actualMetTextColor : actualNotMetTextColor
                               }`}>
                                 {item.actual.toLocaleString()} m³
-                                {barAchievement !== null && (
+                                {trendType === 'production' && itemNrwPct !== null && (
+                                  <span className="text-[10px] font-medium ml-1 opacity-75">
+                                    (NRW = {itemNrwPct.toFixed(1)}%)
+                                  </span>
+                                )}
+                                {trendType === 'sales' && barAchievement !== null && (
                                   <span className="text-[10px] font-medium ml-1 opacity-75">
                                     ({barAchievement.toFixed(0)}%)
                                   </span>

@@ -24,8 +24,8 @@ export type { ProductionSummaryMetrics, StationProductionMetrics } from './produ
 export { fetchChemicalStationMetrics, fetchChemicalSummary } from './chemicalMetrics';
 export type { ChemicalStationMetrics, ChemicalSummaryMetrics } from './chemicalMetrics';
 
-export { fetchNRWMetrics } from './nrwMetrics';
-export type { NRWStationMetrics, NRWSummaryMetrics } from './nrwMetrics';
+export { fetchNRWMetrics, fetchNRWByMonth } from './nrwMetrics';
+export type { NRWStationMetrics, NRWSummaryMetrics, NRWMonthResult } from './nrwMetrics';
 
 export {
   fetchNonFunctionalSummary,

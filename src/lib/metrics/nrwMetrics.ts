@@ -255,3 +255,56 @@ function emptyNRWSummary(): NRWSummaryMetrics {
     totalLossVol: 0, totalLossPct: 0, totalFinancialLoss: 0, stationCount: 0, stations: [],
   };
 }
+
+export interface NRWMonthResult {
+  monthKey: string;
+  cwVolume: number;
+  salesVolume: number;
+  nrwPct: number | null;
+}
+
+export async function fetchNRWByMonth(
+  stationIds: string[],
+  year: number,
+  monthIndices: number[]
+): Promise<Map<string, NRWMonthResult>> {
+  const result = new Map<string, NRWMonthResult>();
+  if (stationIds.length === 0 || monthIndices.length === 0) return result;
+
+  for (const monthIdx of monthIndices) {
+    const monthNum = monthIdx + 1;
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
+    const startDate = `${year}-${String(monthNum).padStart(2, '0')}-01`;
+    const endDate = `${year}-${String(monthNum).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+    const monthKey = `${year}-${String(monthNum).padStart(2, '0')}`;
+
+    const [{ data: prodData }, { data: salesData }] = await Promise.all([
+      supabase
+        .from('production_logs')
+        .select('cw_volume_m3')
+        .in('station_id', stationIds)
+        .gte('date', startDate)
+        .lte('date', endDate),
+      supabase
+        .from('sales_records')
+        .select('sage_sales_volume_m3, returns_volume_m3')
+        .in('station_id', stationIds)
+        .eq('year', year)
+        .eq('month', monthNum),
+    ]);
+
+    const cwVolume = (prodData || []).reduce((s: number, r: any) => s + (Number(r.cw_volume_m3) || 0), 0);
+    const salesVolume = (salesData || []).reduce((s: number, r: any) => {
+      const sage = Number(r.sage_sales_volume_m3) || 0;
+      const ret = Number(r.returns_volume_m3) || 0;
+      return s + (sage > 0 ? sage : ret);
+    }, 0);
+
+    const lossVol = cwVolume - salesVolume;
+    const nrwPct = cwVolume > 0 ? roundTo((lossVol / cwVolume) * 100, 1) : null;
+
+    result.set(monthKey, { monthKey, cwVolume, salesVolume, nrwPct });
+  }
+
+  return result;
+}
