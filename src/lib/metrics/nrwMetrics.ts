@@ -323,12 +323,13 @@ export async function fetchNRWByMonth(
 
     const [{ data: salesData }, { data: rwProdData }, { data: cwProdData }] = await Promise.all(queries);
 
-    const prodByStation = new Map<string, number>();
+    const rwByStation = new Map<string, number>();
     for (const r of (rwProdData || [])) {
-      prodByStation.set(r.station_id, (prodByStation.get(r.station_id) || 0) + (Number(r.rw_volume_m3) || 0));
+      rwByStation.set(r.station_id, (rwByStation.get(r.station_id) || 0) + (Number(r.rw_volume_m3) || 0));
     }
+    const cwByStation = new Map<string, number>();
     for (const r of (cwProdData || [])) {
-      prodByStation.set(r.station_id, (prodByStation.get(r.station_id) || 0) + (Number(r.cw_volume_m3) || 0));
+      cwByStation.set(r.station_id, (cwByStation.get(r.station_id) || 0) + (Number(r.cw_volume_m3) || 0));
     }
 
     const salesByStation = new Map<string, number>();
@@ -338,19 +339,25 @@ export async function fetchNRWByMonth(
       salesByStation.set(r.station_id, (salesByStation.get(r.station_id) || 0) + (sage > 0 ? sage : ret));
     }
 
-    let totalProdVol = 0;
+    let totalNRWDenominator = 0;
     let totalLossVol = 0;
-    for (const id of stationIds) {
-      const prod = prodByStation.get(id) || 0;
+    for (const id of surfaceIds) {
+      const rw = rwByStation.get(id) || 0;
       const sales = salesByStation.get(id) || 0;
-      totalProdVol += prod;
-      totalLossVol += Math.max(0, prod - sales);
+      totalNRWDenominator += rw;
+      totalLossVol += Math.max(0, rw - sales);
+    }
+    for (const id of boreholeIds) {
+      const cw = cwByStation.get(id) || 0;
+      const sales = salesByStation.get(id) || 0;
+      totalNRWDenominator += cw;
+      totalLossVol += Math.max(0, cw - sales);
     }
 
     const totalSalesVol = [...salesByStation.values()].reduce((s, v) => s + v, 0);
-    const nrwPct = totalProdVol > 0 ? roundTo((totalLossVol / totalProdVol) * 100, 1) : null;
+    const nrwPct = totalNRWDenominator > 0 ? roundTo((totalLossVol / totalNRWDenominator) * 100, 1) : null;
 
-    result.set(salesMonthKey, { monthKey: salesMonthKey, prodVolume: totalProdVol, salesVolume: totalSalesVol, lossVolume: totalLossVol, nrwPct });
+    result.set(salesMonthKey, { monthKey: salesMonthKey, prodVolume: totalNRWDenominator, salesVolume: totalSalesVol, lossVolume: totalLossVol, nrwPct });
   }
 
   return result;

@@ -357,10 +357,31 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       .from('stations')
       .select('id, station_type')
       .in('id', stationIds);
-    const boreholeIds = new Set((stationTypes || []).filter((s: any) => s.station_type === 'Borehole').map((s: any) => s.id));
-    const surfaceIds = new Set((stationTypes || []).filter((s: any) => s.station_type !== 'Borehole').map((s: any) => s.id));
-    const boreholeArr = [...boreholeIds] as string[];
-    const surfaceArr = [...surfaceIds] as string[];
+    const boreholeSet = new Set((stationTypes || []).filter((s: any) => s.station_type === 'Borehole').map((s: any) => s.id));
+    const boreholeArr = stationIds.filter((id: string) => boreholeSet.has(id));
+    const surfaceArr = stationIds.filter((id: string) => !boreholeSet.has(id));
+
+    const computeNRWPct = (
+      rwByStation: Map<string, number>,
+      cwByStation: Map<string, number>,
+      salesByStation: Map<string, number>
+    ): number | null => {
+      let denominator = 0;
+      let lossVol = 0;
+      for (const id of surfaceArr) {
+        const rw = rwByStation.get(id) || 0;
+        const sales = salesByStation.get(id) || 0;
+        denominator += rw;
+        lossVol += Math.max(0, rw - sales);
+      }
+      for (const id of boreholeArr) {
+        const cw = cwByStation.get(id) || 0;
+        const sales = salesByStation.get(id) || 0;
+        denominator += cw;
+        lossVol += Math.max(0, cw - sales);
+      }
+      return denominator > 0 ? Math.round((lossVol / denominator) * 100) : null;
+    };
 
     const map = new Map<string, number | null>();
     for (const bar of bars) {
@@ -379,34 +400,75 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       const salesMIdx = parseInt(salesKey.split('-')[1]) - 1;
 
       const queries: Promise<any>[] = [
-        supabase.from('sales_records').select('sage_sales_volume_m3, returns_volume_m3').in('station_id', stationIds).eq('year', salesYr).eq('month', salesMIdx + 1),
+        supabase.from('sales_records').select('station_id, sage_sales_volume_m3, returns_volume_m3').in('station_id', stationIds).eq('year', salesYr).eq('month', salesMIdx + 1),
+        surfaceArr.length > 0
+          ? supabase.from('production_logs').select('station_id, rw_volume_m3').in('station_id', surfaceArr).gte('date', prodStart).lte('date', prodEnd)
+          : Promise.resolve({ data: [] }),
+        boreholeArr.length > 0
+          ? supabase.from('production_logs').select('station_id, cw_volume_m3').in('station_id', boreholeArr).gte('date', prodStart).lte('date', prodEnd)
+          : Promise.resolve({ data: [] }),
       ];
-      if (surfaceArr.length > 0) {
-        queries.push(supabase.from('production_logs').select('rw_volume_m3').in('station_id', surfaceArr).gte('date', prodStart).lte('date', prodEnd));
-      } else {
-        queries.push(Promise.resolve({ data: [] }));
-      }
-      if (boreholeArr.length > 0) {
-        queries.push(supabase.from('production_logs').select('cw_volume_m3').in('station_id', boreholeArr).gte('date', prodStart).lte('date', prodEnd));
-      } else {
-        queries.push(Promise.resolve({ data: [] }));
-      }
 
       const [{ data: sd }, { data: rwPd }, { data: cwPd }] = await Promise.all(queries);
 
-      const rwVol = (rwPd || []).reduce((s: number, r: any) => s + (Number(r.rw_volume_m3) || 0), 0);
-      const cwVol = (cwPd || []).reduce((s: number, r: any) => s + (Number(r.cw_volume_m3) || 0), 0);
-      const totalProdVol = rwVol + cwVol;
-
-      const salesVol = (sd || []).reduce((s: number, r: any) => {
+      const rwByStation = new Map<string, number>();
+      for (const r of (rwPd || [])) {
+        rwByStation.set(r.station_id, (rwByStation.get(r.station_id) || 0) + (Number(r.rw_volume_m3) || 0));
+      }
+      const cwByStation = new Map<string, number>();
+      for (const r of (cwPd || [])) {
+        cwByStation.set(r.station_id, (cwByStation.get(r.station_id) || 0) + (Number(r.cw_volume_m3) || 0));
+      }
+      const salesByStation = new Map<string, number>();
+      for (const r of (sd || [])) {
         const sage = Number(r.sage_sales_volume_m3) || 0;
         const ret = Number(r.returns_volume_m3) || 0;
-        return s + (sage > 0 ? sage : ret);
-      }, 0);
+        salesByStation.set(r.station_id, (salesByStation.get(r.station_id) || 0) + (sage > 0 ? sage : ret));
+      }
 
-      const totalLossVol = Math.max(0, totalProdVol - salesVol);
-      map.set(salesKey, totalProdVol > 0 ? Math.round((totalLossVol / totalProdVol) * 100) : null);
+      map.set(salesKey, computeNRWPct(rwByStation, cwByStation, salesByStation));
     }
+
+    if (viewMode === 'year') {
+      const quarterKeys = ['Q1', 'Q2', 'Q3', 'Q4'];
+      for (let q = 0; q < 4; q++) {
+        const salesMonths = [q * 3, q * 3 + 1, q * 3 + 2];
+        const rwByStation = new Map<string, number>();
+        const cwByStation = new Map<string, number>();
+        const salesByStation = new Map<string, number>();
+
+        for (const salesMIdx of salesMonths) {
+          const salesMonthNum = salesMIdx + 1;
+          const prodMIdx = salesMIdx - 1;
+          const prodYr = prodMIdx < 0 ? salesYear - 1 : salesYear;
+          const prodMonNum = prodMIdx < 0 ? 12 : prodMIdx + 1;
+          const prodDays = new Date(prodYr, prodMonNum, 0).getDate();
+          const prodStart = `${prodYr}-${String(prodMonNum).padStart(2, '0')}-01`;
+          const prodEnd = `${prodYr}-${String(prodMonNum).padStart(2, '0')}-${String(prodDays).padStart(2, '0')}`;
+
+          const [{ data: sd2 }, { data: rwPd2 }, { data: cwPd2 }] = await Promise.all([
+            supabase.from('sales_records').select('station_id, sage_sales_volume_m3, returns_volume_m3').in('station_id', stationIds).eq('year', salesYear).eq('month', salesMonthNum),
+            surfaceArr.length > 0
+              ? supabase.from('production_logs').select('station_id, rw_volume_m3').in('station_id', surfaceArr).gte('date', prodStart).lte('date', prodEnd)
+              : Promise.resolve({ data: [] }),
+            boreholeArr.length > 0
+              ? supabase.from('production_logs').select('station_id, cw_volume_m3').in('station_id', boreholeArr).gte('date', prodStart).lte('date', prodEnd)
+              : Promise.resolve({ data: [] }),
+          ]);
+
+          for (const r of (rwPd2 || [])) rwByStation.set(r.station_id, (rwByStation.get(r.station_id) || 0) + (Number(r.rw_volume_m3) || 0));
+          for (const r of (cwPd2 || [])) cwByStation.set(r.station_id, (cwByStation.get(r.station_id) || 0) + (Number(r.cw_volume_m3) || 0));
+          for (const r of (sd2 || [])) {
+            const sage = Number(r.sage_sales_volume_m3) || 0;
+            const ret = Number(r.returns_volume_m3) || 0;
+            salesByStation.set(r.station_id, (salesByStation.get(r.station_id) || 0) + (sage > 0 ? sage : ret));
+          }
+        }
+
+        map.set(quarterKeys[q], computeNRWPct(rwByStation, cwByStation, salesByStation));
+      }
+    }
+
     setNrwMap(map);
   };
 
