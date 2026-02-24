@@ -121,7 +121,7 @@ export async function checkAndTriggerMonthlyReport(
     .lte('date', `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(daysInPrevMonth).padStart(2, '0')}`);
 
   const coveragePct = expectedLogs > 0 ? ((count || 0) / expectedLogs) * 100 : 0;
-  if (coveragePct < 70) return { triggered: false };
+  if (coveragePct < 100) return { triggered: false };
 
   const result = await generateAndSaveMonthlyReport(
     scope, serviceCentreId, serviceCentreName, prevYear, prevMonth

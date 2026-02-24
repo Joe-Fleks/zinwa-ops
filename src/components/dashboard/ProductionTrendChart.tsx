@@ -187,7 +187,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     if (scopeMode === 'station' && selectedStation) {
       return supabase
         .from('sales_records')
-        .select('year, month, sage_sales_volume_m3, station_id')
+        .select('year, month, sage_sales_volume_m3, returns_volume_m3, station_id')
         .eq('station_id', selectedStation.id)
         .eq('year', year)
         .gte('month', monthStart + 1)
@@ -196,7 +196,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
 
     let q = supabase
       .from('sales_records')
-      .select('year, month, sage_sales_volume_m3, station_id, stations(service_centre_id)')
+      .select('year, month, sage_sales_volume_m3, returns_volume_m3, station_id, stations(service_centre_id)')
       .eq('year', year)
       .gte('month', monthStart + 1)
       .lte('month', monthEnd + 1);
@@ -315,8 +315,10 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     const salesMonthMap = new Map<number, number>();
     (salesDataCurr || []).forEach((r: Record<string, unknown>) => {
       const mIdx = (r.month as number) - 1;
+      const sage = Number(r.sage_sales_volume_m3) || 0;
+      const ret = Number(r.returns_volume_m3) || 0;
       const cur = salesMonthMap.get(mIdx) || 0;
-      salesMonthMap.set(mIdx, cur + Number(r.sage_sales_volume_m3 || 0));
+      salesMonthMap.set(mIdx, cur + (sage > 0 ? sage : ret));
     });
 
     const bars: DualBar[] = [];
@@ -360,16 +362,21 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       const startDate = `${yr}-${String(mIdx + 1).padStart(2, '0')}-01`;
       const endDate = `${yr}-${String(mIdx + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
       const [{ data: pd }, { data: sd }] = await Promise.all([
-        supabase.from('production_logs').select('cw_volume_m3').in('station_id', stationIds).gte('date', startDate).lte('date', endDate),
+        supabase.from('production_logs').select('rw_volume_m3, cw_volume_m3').in('station_id', stationIds).gte('date', startDate).lte('date', endDate),
         supabase.from('sales_records').select('sage_sales_volume_m3, returns_volume_m3').in('station_id', stationIds).eq('year', yr).eq('month', mIdx + 1),
       ]);
+      const rwVol = (pd || []).reduce((s: number, r: any) => s + (Number(r.rw_volume_m3) || 0), 0);
       const cwVol = (pd || []).reduce((s: number, r: any) => s + (Number(r.cw_volume_m3) || 0), 0);
       const salesVol = (sd || []).reduce((s: number, r: any) => {
         const sage = Number(r.sage_sales_volume_m3) || 0;
         const ret = Number(r.returns_volume_m3) || 0;
         return s + (sage > 0 ? sage : ret);
       }, 0);
-      map.set(mk, cwVol > 0 ? Math.round(((cwVol - salesVol) / cwVol) * 1000) / 10 : null);
+      const totalLossVol = rwVol > 0
+        ? Math.max(0, rwVol - salesVol)
+        : Math.max(0, cwVol - salesVol);
+      const denominator = rwVol > 0 ? rwVol : cwVol;
+      map.set(mk, denominator > 0 ? Math.round((totalLossVol / denominator) * 100) : null);
     }
     void monthIndices;
     setNrwMap(map);
@@ -377,7 +384,11 @@ export default function ProductionTrendChart({ accessContext }: Props) {
 
   const getSalesVolumeForMonth = async (year: number, monthIdx: number): Promise<number> => {
     const { data } = await buildSalesQuery(year, monthIdx, monthIdx);
-    return (data || []).reduce((sum: number, r: Record<string, unknown>) => sum + Number(r.sage_sales_volume_m3 || 0), 0);
+    return (data || []).reduce((sum: number, r: Record<string, unknown>) => {
+      const sage = Number(r.sage_sales_volume_m3) || 0;
+      const ret = Number(r.returns_volume_m3) || 0;
+      return sum + (sage > 0 ? sage : ret);
+    }, 0);
   };
 
   const loadWeekData = async (getMonthTarget: (m: number, y: number) => number) => {
@@ -525,8 +536,10 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       const monthVolumes = new Map<number, number>();
       (data || []).forEach((r: Record<string, unknown>) => {
         const mIdx = (r.month as number) - 1;
+        const sage = Number(r.sage_sales_volume_m3) || 0;
+        const ret = Number(r.returns_volume_m3) || 0;
         const cur = monthVolumes.get(mIdx) || 0;
-        monthVolumes.set(mIdx, cur + Number(r.sage_sales_volume_m3 || 0));
+        monthVolumes.set(mIdx, cur + (sage > 0 ? sage : ret));
       });
       const bars: ChartBar[] = [];
       for (let m = startMonth; m <= endMonth; m++) {
@@ -573,8 +586,10 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       const monthVolumes = new Map<number, number>();
       (data || []).forEach((r: Record<string, unknown>) => {
         const mIdx = (r.month as number) - 1;
+        const sage = Number(r.sage_sales_volume_m3) || 0;
+        const ret = Number(r.returns_volume_m3) || 0;
         const cur = monthVolumes.get(mIdx) || 0;
-        monthVolumes.set(mIdx, cur + Number(r.sage_sales_volume_m3 || 0));
+        monthVolumes.set(mIdx, cur + (sage > 0 ? sage : ret));
       });
       const bars: ChartBar[] = [];
       for (let m = 0; m < 12; m++) {
@@ -1211,7 +1226,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                               {item.sales.toLocaleString()} m³
                               {dualNrwPct !== null && (
                                 <span className="text-[10px] font-medium ml-1 opacity-75">
-                                  (NRW = {dualNrwPct.toFixed(1)}%)
+                                  (NRW = {Math.round(dualNrwPct)}%)
                                 </span>
                               )}
                             </span>

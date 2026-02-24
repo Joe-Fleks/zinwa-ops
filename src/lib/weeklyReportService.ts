@@ -163,7 +163,7 @@ async function tryGenerateFridayReport(
     .in('station_id', stationIds)
     .eq('date', thursdayStr);
 
-  if (!count || count < Math.ceil(stationIds.length * 0.5)) return false;
+  if (!count || count < stationIds.length) return false;
 
   const daysFromFriday = (today.getDay() + 2) % 7;
   const currentWeekStart = new Date(today);
@@ -207,7 +207,7 @@ async function tryGenerateTuesdayReport(
     .in('station_id', stationIds)
     .eq('date', mondayStr);
 
-  if (!count || count < Math.ceil(stationIds.length * 0.5)) return false;
+  if (!count || count < stationIds.length) return false;
 
   const daysFromFriday = (today.getDay() + 2) % 7;
   const currentWeekStart = new Date(today);

@@ -85,10 +85,12 @@ export default function Dashboard() {
   const [editImportance, setEditImportance] = useState<'High' | 'Medium' | 'Low'>('Medium');
   const [weeklyReports, setWeeklyReports] = useState<WeeklyReportRecord[]>([]);
   const [monthlyReports, setMonthlyReports] = useState<MonthlyReportRecord[]>([]);
+  const [allWeeklyReports, setAllWeeklyReports] = useState<WeeklyReportRecord[]>([]);
+  const [allMonthlyReports, setAllMonthlyReports] = useState<MonthlyReportRecord[]>([]);
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
   const [alertsTab, setAlertsTab] = useState<'alerts' | 'followups'>('alerts');
-  const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis'>('cw');
-  const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'alerts' | 'followups'>('cw');
+  const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis' | 'reports'>('cw');
+  const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'alerts' | 'followups'>('cw');
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 1024);
   const narrowRef = useRef(isNarrow);
 
@@ -132,6 +134,7 @@ export default function Dashboard() {
     await Promise.all([
       loadWeeklyReports(scId),
       loadMonthlyReports(scId),
+      loadAllReports(scId),
     ]);
   };
 
@@ -153,6 +156,29 @@ export default function Dashboard() {
     }
   };
 
+  const loadAllReports = async (scId: string) => {
+    try {
+      const [wRes, mRes] = await Promise.all([
+        supabase
+          .from('weekly_reports')
+          .select('id, service_centre_id, week_number, year, report_type, period_start, period_end, report_data, status, generated_at, downloaded_at')
+          .eq('service_centre_id', scId)
+          .order('generated_at', { ascending: false })
+          .limit(50),
+        supabase
+          .from('monthly_reports')
+          .select('id, service_centre_id, month, year, report_data, status, generated_at, downloaded_at')
+          .eq('service_centre_id', scId)
+          .order('generated_at', { ascending: false })
+          .limit(24),
+      ]);
+      setAllWeeklyReports((wRes.data || []) as WeeklyReportRecord[]);
+      setAllMonthlyReports((mRes.data || []) as MonthlyReportRecord[]);
+    } catch (err) {
+      console.error('Error loading all reports:', err);
+    }
+  };
+
   const handleDownloadMonthlyReport = async (report: MonthlyReportRecord) => {
     if (!user) return;
     setDownloadingReportId(report.id);
@@ -160,6 +186,7 @@ export default function Dashboard() {
       downloadMonthlyReport(report.report_data);
       await markMonthlyReportDownloaded(report.id, user.id);
       setMonthlyReports(prev => prev.filter(r => r.id !== report.id));
+      setAllMonthlyReports(prev => prev.map(r => r.id === report.id ? { ...r, status: 'downloaded' } : r));
     } catch (err) {
       console.error('Error downloading monthly report:', err);
     } finally {
@@ -174,6 +201,7 @@ export default function Dashboard() {
       downloadWeeklyReport(report.report_data);
       await markReportDownloaded(report.id, user.id);
       setWeeklyReports(prev => prev.filter(r => r.id !== report.id));
+      setAllWeeklyReports(prev => prev.map(r => r.id === report.id ? { ...r, status: 'downloaded' } : r));
     } catch (err) {
       console.error('Error downloading report:', err);
     } finally {
@@ -1068,6 +1096,86 @@ export default function Dashboard() {
     </div>
   );
 
+  const MONTH_NAMES_FULL = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  const renderReportsContent = () => (
+    <div className="space-y-4 px-4 py-4">
+      <div>
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Weekly Reports</p>
+        {allWeeklyReports.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">No weekly reports generated yet</p>
+        ) : (
+          <div className="space-y-2">
+            {allWeeklyReports.map(report => {
+              const reportTypeLbl = report.report_type === 'friday' ? 'Friday' : 'Tuesday';
+              const periodStart = new Date(report.period_start + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+              const periodEnd = new Date(report.period_end + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+              const isDownloading = downloadingReportId === report.id;
+              const isReady = report.status === 'ready';
+              return (
+                <div key={report.id} className={`rounded-lg px-3 py-2.5 border ${isReady ? 'bg-sky-50 border-sky-300' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="flex items-start gap-2">
+                    <FileText className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isReady ? 'text-sky-700' : 'text-gray-400'}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className={`text-xs font-bold uppercase ${isReady ? 'text-sky-800' : 'text-gray-600'}`}>{reportTypeLbl} — Week {report.week_number}, {report.year}</p>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isReady ? 'bg-sky-200 text-sky-800' : 'bg-gray-200 text-gray-500'}`}>{isReady ? 'Ready' : 'Downloaded'}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">{periodStart} – {periodEnd}</p>
+                    </div>
+                    <button
+                      onClick={() => handleDownloadReport(report)}
+                      disabled={isDownloading}
+                      className="flex items-center gap-1 px-2 py-1 bg-sky-700 hover:bg-sky-800 disabled:bg-sky-400 text-white text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0"
+                    >
+                      {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
+                      {isDownloading ? '' : 'Download'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div className="border-t border-gray-200 pt-4">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Monthly Reports</p>
+        {allMonthlyReports.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">No monthly reports generated yet</p>
+        ) : (
+          <div className="space-y-2">
+            {allMonthlyReports.map(report => {
+              const isDownloading = downloadingReportId === report.id;
+              const isReady = report.status === 'ready';
+              return (
+                <div key={report.id} className={`rounded-lg px-3 py-2.5 border ${isReady ? 'bg-teal-50 border-teal-300' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="flex items-start gap-2">
+                    <FileText className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isReady ? 'text-teal-700' : 'text-gray-400'}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className={`text-xs font-bold uppercase ${isReady ? 'text-teal-800' : 'text-gray-600'}`}>{MONTH_NAMES_FULL[report.month]} {report.year}</p>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isReady ? 'bg-teal-200 text-teal-800' : 'bg-gray-200 text-gray-500'}`}>{isReady ? 'Ready' : 'Downloaded'}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">{report.report_data?.production?.stationCount ?? 0} stations · {report.report_data?.completionPct ?? 0}% coverage</p>
+                    </div>
+                    <button
+                      onClick={() => handleDownloadMonthlyReport(report)}
+                      disabled={isDownloading}
+                      className="flex items-center gap-1 px-2 py-1 bg-teal-700 hover:bg-teal-800 disabled:bg-teal-400 text-white text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0"
+                    >
+                      {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
+                      {isDownloading ? '' : 'Download'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-full flex flex-col p-6 gap-6 overflow-hidden">
       <style dangerouslySetInnerHTML={{__html: `
@@ -1094,8 +1202,9 @@ export default function Dashboard() {
         <div className="flex flex-col flex-1 min-h-0">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden flex-1 min-h-0">
             <div className="flex flex-shrink-0 border-b border-gray-200 overflow-x-auto">
-              {(['cw', 'rw', 'kpis', 'alerts', 'followups'] as const).map((tab) => {
+              {(['cw', 'rw', 'kpis', 'reports', 'alerts', 'followups'] as const).map((tab) => {
                 const alertCount = weeklyReports.length + monthlyReports.length + alerts.length + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0);
+                const readyReportCount = allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length;
                 return (
                   <button
                     key={tab}
@@ -1111,8 +1220,12 @@ export default function Dashboard() {
                     {tab === 'cw' && 'CW Trends'}
                     {tab === 'rw' && 'RW Trends'}
                     {tab === 'kpis' && 'KPIs'}
+                    {tab === 'reports' && 'Reports'}
                     {tab === 'alerts' && 'Alerts'}
                     {tab === 'followups' && 'Follow-ups'}
+                    {tab === 'reports' && readyReportCount > 0 && (
+                      <span className="ml-0.5 bg-sky-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>{readyReportCount}</span>
+                    )}
                     {tab === 'alerts' && alertCount > 0 && (
                       <span className="ml-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>{alertCount}</span>
                     )}
@@ -1131,6 +1244,7 @@ export default function Dashboard() {
               {mergedTab === 'kpis' && (
                 <div className="flex items-center justify-center h-full min-h-[200px] text-gray-400 text-sm">KPIs coming soon</div>
               )}
+              {mergedTab === 'reports' && renderReportsContent()}
               {(mergedTab === 'alerts' || mergedTab === 'followups') && (
                 loading ? (
                   <div className="text-center py-8 text-gray-500 text-sm">Loading...</div>
@@ -1181,6 +1295,21 @@ export default function Dashboard() {
               >
                 KPIs
               </button>
+              <button
+                onClick={() => setTrendsTab('reports')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
+                  trendsTab === 'reports'
+                    ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Reports
+                {(allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length) > 0 && (
+                  <span className="ml-0.5 bg-sky-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>
+                    {allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length}
+                  </span>
+                )}
+              </button>
             </div>
             <div className="overflow-y-auto thin-scrollbar flex-1">
               {trendsTab === 'cw' && (
@@ -1196,6 +1325,7 @@ export default function Dashboard() {
                   KPIs coming soon
                 </div>
               )}
+              {trendsTab === 'reports' && renderReportsContent()}
             </div>
           </div>
         </div>
