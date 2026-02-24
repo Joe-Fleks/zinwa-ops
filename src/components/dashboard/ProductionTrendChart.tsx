@@ -1007,7 +1007,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                     }}
                     className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2.5 transition-colors ${
                       trendType === type
-                        ? 'bg-blue-50 text-blue-700 font-semibold'
+                        ? 'bg-blue-200 text-blue-900 font-semibold'
                         : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
@@ -1033,7 +1033,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                 onClick={() => setScopeMode('sc')}
                 className={`px-3 py-1.5 text-xs font-semibold transition-all rounded-l-lg ${
                   scopeMode === 'sc'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-blue-200 text-blue-900'
                     : 'bg-white text-gray-600 hover:bg-gray-50'
                 }`}
               >
@@ -1053,7 +1053,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                   }}
                   className={`px-3 py-1.5 text-xs font-semibold transition-all flex items-center gap-1 rounded-r-lg ${
                     scopeMode === 'station'
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-blue-200 text-blue-900'
                       : 'bg-white text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -1091,7 +1091,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                             }}
                             className={`w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors text-sm ${
                               selectedStation?.id === st.id
-                                ? 'bg-blue-50 text-blue-700 font-medium'
+                                ? 'bg-blue-200 text-blue-900 font-medium'
                                 : 'text-gray-700'
                             }`}
                           >
@@ -1117,7 +1117,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                     onClick={() => setViewMode(mode)}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                       viewMode === mode
-                        ? 'bg-blue-600 text-white shadow-sm'
+                        ? 'bg-blue-200 text-blue-900 shadow-sm'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -1136,7 +1136,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                       onClick={() => setViewMode(mode)}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                         viewMode === mode
-                          ? 'bg-blue-600 text-white shadow-sm'
+                          ? 'bg-blue-200 text-blue-900 shadow-sm'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
@@ -1172,7 +1172,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                         }
                       }}
                       className={`w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors text-sm ${
-                        year === selectedYear ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        year === selectedYear ? 'bg-blue-200 text-blue-900 font-medium' : 'text-gray-700'
                       }`}
                     >
                       {year}
@@ -1218,7 +1218,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                             onClick={() => handlePeriodSelect(opt.value)}
                             className={`w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors text-sm ${
                               opt.value === getSelectedPeriodValue()
-                                ? 'bg-blue-50 text-blue-700 font-medium'
+                                ? 'bg-blue-200 text-blue-900 font-medium'
                                 : 'text-gray-700'
                             }`}
                           >

@@ -200,7 +200,7 @@ export default function ChatPanel() {
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-105 ${
           isOpen
             ? 'bg-gray-700 text-white hover:bg-gray-800'
-            : 'bg-teal-600 text-white hover:bg-teal-700'
+            : 'bg-blue-200 text-blue-900 hover:bg-blue-300'
         }`}
         title={isOpen ? 'Close AI Assistant' : 'Open AI Assistant'}
       >
