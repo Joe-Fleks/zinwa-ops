@@ -860,7 +860,7 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 flex-1">
                             <span className="text-xs font-bold text-gray-800 w-14">Diesel</span>
-                            <span className={`text-sm ${fuelBalances.diesel !== null && fuelBalances.diesel < THRESHOLDS.FUEL_LOW_BALANCE_LITRES ? 'text-red-600' : 'text-green-700'}`}>
+                            <span className={`text-sm font-bold ${fuelBalances.diesel !== null && fuelBalances.diesel < THRESHOLDS.FUEL_LOW_BALANCE_LITRES ? 'text-red-600' : 'text-green-700'}`}>
                               {fuelBalances.diesel !== null ? `${fuelBalances.diesel.toFixed(1)} L` : 'N/A'}
                             </span>
                           </div>
@@ -872,7 +872,7 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 flex-1">
                             <span className="text-xs font-bold text-gray-800 w-14">Petrol</span>
-                            <span className={`text-sm ${fuelBalances.petrol !== null && fuelBalances.petrol < THRESHOLDS.FUEL_LOW_BALANCE_LITRES ? 'text-red-600' : 'text-green-700'}`}>
+                            <span className={`text-sm font-bold ${fuelBalances.petrol !== null && fuelBalances.petrol < THRESHOLDS.FUEL_LOW_BALANCE_LITRES ? 'text-red-600' : 'text-green-700'}`}>
                               {fuelBalances.petrol !== null ? `${fuelBalances.petrol.toFixed(1)} L` : 'N/A'}
                             </span>
                           </div>
