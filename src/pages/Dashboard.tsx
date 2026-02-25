@@ -96,6 +96,7 @@ export default function Dashboard() {
   const [reportSection, setReportSection] = useState<'midweek' | 'endofweek' | 'monthly' | 'quarterly' | 'yearly'>('endofweek');
   const [kpiSection, setKpiSection] = useState<'nrw' | 'chemical_usage'>('nrw');
   const [kpiSearch, setKpiSearch] = useState('');
+  const [kpiFilter, setKpiFilter] = useState<'all' | 'cw' | 'rw' | 'maintenance' | 'finance'>('all');
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 1024);
   const narrowRef = useRef(isNarrow);
 
@@ -1158,19 +1159,38 @@ export default function Dashboard() {
     );
   };
 
-  const KPI_ITEMS: { key: 'nrw' | 'chemical_usage'; label: string; icon: React.ReactNode }[] = [
-    { key: 'nrw', label: 'Non-Revenue Water (NRW)', icon: <Droplets className="w-3.5 h-3.5" /> },
-    { key: 'chemical_usage', label: 'Chemical Usage', icon: <TestTube className="w-3.5 h-3.5" /> },
+  const KPI_ITEMS: { key: 'nrw' | 'chemical_usage'; label: string; icon: React.ReactNode; category: 'cw' | 'rw' | 'maintenance' | 'finance' }[] = [
+    { key: 'nrw', label: 'Non-Revenue Water (NRW)', icon: <Droplets className="w-3.5 h-3.5" />, category: 'cw' },
+    { key: 'chemical_usage', label: 'Chemical Usage', icon: <TestTube className="w-3.5 h-3.5" />, category: 'cw' },
   ];
 
-  const filteredKpis = KPI_ITEMS.filter(k =>
-    k.label.toLowerCase().includes(kpiSearch.toLowerCase())
-  );
+  const KPI_FILTER_OPTIONS: { value: typeof kpiFilter; label: string }[] = [
+    { value: 'all', label: 'All KPIs' },
+    { value: 'cw', label: 'CW KPIs' },
+    { value: 'rw', label: 'RW KPIs' },
+    { value: 'maintenance', label: 'Maintenance KPIs' },
+    { value: 'finance', label: 'Finance KPIs' },
+  ];
+
+  const filteredKpis = KPI_ITEMS.filter(k => {
+    const matchesCategory = kpiFilter === 'all' || k.category === kpiFilter;
+    const matchesSearch = k.label.toLowerCase().includes(kpiSearch.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   const renderKpisContent = () => (
     <div className="flex h-full min-h-[400px]">
       <div className="w-44 flex-shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col">
-        <div className="p-2 border-b border-gray-200">
+        <div className="p-2 border-b border-gray-200 space-y-1.5">
+          <select
+            value={kpiFilter}
+            onChange={e => setKpiFilter(e.target.value as typeof kpiFilter)}
+            className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-700 font-medium"
+          >
+            {KPI_FILTER_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
