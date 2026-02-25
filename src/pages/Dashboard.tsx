@@ -1194,7 +1194,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     onClick={() => setViewingReport({ type: 'weekly', record: report })}
-                    className="flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                    className="flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap"
                   >
                     View
                   </button>
@@ -1316,7 +1316,7 @@ export default function Dashboard() {
         : `${(record as MonthlyReportRecord).report_data?.monthName} ${mr.year} — Monthly Operations Report`;
       const subtitle = isWeekly
         ? `${new Date(wr.period_start + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} – ${new Date(wr.period_end + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
-        : `${wr.report_type ? '' : ''}${record.report_data?.serviceCentreName ?? ''}`;
+        : record.report_data?.serviceCentreName ?? '';
       const reportData = record.report_data;
       const isRefreshing = refreshingReportId === record.id;
       const isDownloading = downloadingReportId === record.id;
@@ -1423,7 +1423,7 @@ export default function Dashboard() {
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           onClick={() => setViewingReport({ type: 'monthly', record: report })}
-                          className="flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                          className="flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap"
                         >
                           View
                         </button>

@@ -14,8 +14,9 @@ interface ReportViewerProps {
   isRefreshing?: boolean;
 }
 
-function fmt(n: number, decimals = 0): string {
-  return n.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+function fmt(n: number | null | undefined, decimals = 0): string {
+  if (n === null || n === undefined || isNaN(n)) return '0';
+  return Number(n).toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 function pct(n: number | null | undefined): string {
@@ -61,16 +62,23 @@ function KVRow({ label, value }: { label: string; value: string }) {
 }
 
 function WeeklyReportView({ data }: { data: WeeklyReportData }) {
+  if (!data) return <p className="text-xs text-gray-500 py-8 text-center">No report data available. Try refreshing.</p>;
   const reportTypeLbl = data.reportType === 'friday' ? 'Friday (End of Week)' : 'Tuesday (Mid-week)';
+  const prod = data.production || {} as any;
+  const cap = data.capacityUtilization || {} as any;
+  const pwr = data.powerSupply || {} as any;
+  const conn = data.connections || {} as any;
+  const chems = data.chemicals || [];
+  const bkd = data.breakdowns || [];
 
   return (
     <div>
       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
         <KVRow label="Report Type" value={reportTypeLbl} />
-        <KVRow label="Period" value={`${fmtDate(data.periodStart)} – ${fmtDate(data.periodEnd)}`} />
-        <KVRow label="Service Centre" value={data.serviceCentreName} />
-        <KVRow label="Week" value={`Week ${data.weekNumber}, ${data.year}`} />
-        <KVRow label="Data Coverage" value={`${data.totalActualLogs} of ${data.totalExpectedLogs} logs (${data.completionPct}%)`} />
+        <KVRow label="Period" value={`${fmtDate(data.periodStart || '')} – ${fmtDate(data.periodEnd || '')}`} />
+        <KVRow label="Service Centre" value={data.serviceCentreName || ''} />
+        <KVRow label="Week" value={`Week ${data.weekNumber ?? ''}, ${data.year ?? ''}`} />
+        <KVRow label="Data Coverage" value={`${data.totalActualLogs ?? 0} of ${data.totalExpectedLogs ?? 0} logs (${data.completionPct ?? 0}%)`} />
         <KVRow label="Generated" value={new Date(data.generatedAt).toLocaleString('en-GB')} />
       </div>
 
@@ -78,19 +86,19 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
       <table className="w-full border border-gray-200 rounded text-left mb-3">
         <tbody>
           {[
-            ['Total CW Volume', fmt(data.production.totalCWVolume) + ' m³'],
-            ['Total CW Volume YTD', fmt(data.production.totalCWVolumeYTD) + ' m³'],
-            ['CW Weekly Target', fmt(data.production.cwWeeklyTarget) + ' m³'],
-            ['CW Performance', pct(data.production.cwPerformancePct)],
-            ['Total RW Volume', fmt(data.production.totalRWVolume) + ' m³'],
-            ['CW Hours Run', fmt(data.production.totalCWHours, 1) + ' hrs'],
-            ['RW Hours Run', fmt(data.production.totalRWHours, 1) + ' hrs'],
-            ['Avg CW Pump Rate', data.production.avgCWPumpRate !== null ? fmt(data.production.avgCWPumpRate, 1) + ' m³/hr' : 'N/A'],
-            ['Avg Efficiency', pct(data.production.avgEfficiency)],
-            ['Load Shedding', fmt(data.production.totalLoadShedding, 1) + ' hrs'],
-            ['Other Downtime', fmt(data.production.totalOtherDowntime, 1) + ' hrs'],
-            ['Breakdown Hours Lost', fmt(data.production.totalBreakdownHoursLost, 1) + ' hrs'],
-            ['New Connections', String(data.production.totalNewConnections)],
+            ['Total CW Volume', fmt(prod.totalCWVolume) + ' m\u00b3'],
+            ['Total CW Volume YTD', fmt(prod.totalCWVolumeYTD) + ' m\u00b3'],
+            ['CW Weekly Target', fmt(prod.cwWeeklyTarget) + ' m\u00b3'],
+            ['CW Performance', pct(prod.cwPerformancePct)],
+            ['Total RW Volume', fmt(prod.totalRWVolume) + ' m\u00b3'],
+            ['CW Hours Run', fmt(prod.totalCWHours, 1) + ' hrs'],
+            ['RW Hours Run', fmt(prod.totalRWHours, 1) + ' hrs'],
+            ['Avg CW Pump Rate', prod.avgCWPumpRate != null ? fmt(prod.avgCWPumpRate, 1) + ' m\u00b3/hr' : 'N/A'],
+            ['Avg Efficiency', pct(prod.avgEfficiency)],
+            ['Load Shedding', fmt(prod.totalLoadShedding, 1) + ' hrs'],
+            ['Other Downtime', fmt(prod.totalOtherDowntime, 1) + ' hrs'],
+            ['Breakdown Hours Lost', fmt(prod.totalBreakdownHoursLost, 1) + ' hrs'],
+            ['New Connections', String(prod.totalNewConnections ?? 0)],
           ].map(([label, value], i) => (
             <tr key={label} className={TR_ALT(i)}>
               <td className={TD + ' font-medium text-gray-700 w-52'}>{label}</td>
@@ -100,20 +108,20 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
         </tbody>
       </table>
 
-      {data.production.stations.length > 0 && (
+      {(prod.stations || []).length > 0 && (
         <>
           <SubTitle>Station Production Detail</SubTitle>
           <div className="overflow-x-auto">
             <table className="w-full border border-gray-200 rounded text-left mb-3">
               <thead>
                 <tr>
-                  {['Station', 'Type', 'CW Vol (m³)', 'CW Hrs', 'Efficiency', 'Downtime (hrs)', 'New Conn.'].map(h => (
+                  {['Station', 'Type', 'CW Vol (m\u00b3)', 'CW Hrs', 'Efficiency', 'Downtime (hrs)', 'New Conn.'].map(h => (
                     <th key={h} className={HDR2}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {data.production.stations.map((st, i) => (
+                {(prod.stations || []).map((st: any, i: number) => (
                   <tr key={st.stationId} className={TR_ALT(i)}>
                     <td className={TD + ' font-medium'}>{st.stationName}</td>
                     <td className={TD}>{st.stationType}</td>
@@ -121,7 +129,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
                     <td className={TD + ' text-right'}>{fmt(st.cwHours, 1)}</td>
                     <td className={TD + ' text-right'}>{pct(st.efficiency)}</td>
                     <td className={TD + ' text-right'}>{fmt(st.totalDowntime, 1)}</td>
-                    <td className={TD + ' text-right'}>{st.newConnections}</td>
+                    <td className={TD + ' text-right'}>{st.newConnections ?? 0}</td>
                   </tr>
                 ))}
               </tbody>
@@ -133,10 +141,10 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
       <SectionTitle>2. Capacity Utilization</SectionTitle>
       <div className="grid grid-cols-2 gap-3 mb-3">
         {[
-          ['RW Installed Capacity', fmt(data.capacityUtilization.rwInstalledTotal) + ' m³/hr'],
-          ['RW Weekly Actual', data.capacityUtilization.rwWeeklyActualTotal !== null ? fmt(data.capacityUtilization.rwWeeklyActualTotal, 1) + ' m³/hr' : 'N/A'],
-          ['CW Installed Capacity', fmt(data.capacityUtilization.cwInstalledTotal) + ' m³/hr'],
-          ['CW Weekly Actual', data.capacityUtilization.cwWeeklyActualTotal !== null ? fmt(data.capacityUtilization.cwWeeklyActualTotal, 1) + ' m³/hr' : 'N/A'],
+          ['RW Installed Capacity', fmt(cap.rwInstalledTotal) + ' m\u00b3/hr'],
+          ['RW Weekly Actual', cap.rwWeeklyActualTotal != null ? fmt(cap.rwWeeklyActualTotal, 1) + ' m\u00b3/hr' : 'N/A'],
+          ['CW Installed Capacity', fmt(cap.cwInstalledTotal) + ' m\u00b3/hr'],
+          ['CW Weekly Actual', cap.cwWeeklyActualTotal != null ? fmt(cap.cwWeeklyActualTotal, 1) + ' m\u00b3/hr' : 'N/A'],
         ].map(([label, value]) => (
           <div key={label} className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
             <p className="text-[10px] text-gray-500 uppercase font-semibold">{label}</p>
@@ -148,9 +156,9 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
       <SectionTitle>3. Power Supply</SectionTitle>
       <div className="grid grid-cols-3 gap-3 mb-3">
         {[
-          ['Required Hours', fmt(data.powerSupply.totalRequiredHours, 0) + ' hrs'],
-          ['Actual Hours', fmt(data.powerSupply.totalActualHours, 0) + ' hrs'],
-          ['Availability', pct(data.powerSupply.overallAvailabilityPct)],
+          ['Required Hours', fmt(pwr.totalRequiredHours, 0) + ' hrs'],
+          ['Actual Hours', fmt(pwr.totalActualHours, 0) + ' hrs'],
+          ['Availability', pct(pwr.overallAvailabilityPct)],
         ].map(([label, value]) => (
           <div key={label} className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
             <p className="text-[10px] text-gray-500 uppercase font-semibold">{label}</p>
@@ -162,10 +170,10 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
       <SectionTitle>4. Connections</SectionTitle>
       <div className="grid grid-cols-2 gap-3 mb-3">
         {[
-          ['Total Connections', fmt(data.connections.totalCurrentConnections)],
-          ['New This Week', String(data.connections.totalNewThisWeek)],
-          ['New Total', String(data.connections.totalNewTotal)],
-          ['YTD New Connections', String(data.connections.totalYTDNew)],
+          ['Total Connections', fmt(conn.totalCurrentConnections)],
+          ['New This Week', String(conn.totalNewThisWeek ?? 0)],
+          ['New Total', String(conn.totalNewTotal ?? 0)],
+          ['YTD New Connections', String(conn.totalYTDNew ?? 0)],
         ].map(([label, value]) => (
           <div key={label} className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
             <p className="text-[10px] text-gray-500 uppercase font-semibold">{label}</p>
@@ -175,7 +183,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
       </div>
 
       <SectionTitle>5. Breakdowns</SectionTitle>
-      {data.breakdowns.length > 0 ? (
+      {bkd.length > 0 ? (
         <div className="overflow-x-auto mb-3">
           <table className="w-full border border-gray-200 rounded text-left">
             <thead>
@@ -186,7 +194,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
               </tr>
             </thead>
             <tbody>
-              {data.breakdowns.map((b, i) => (
+              {bkd.map((b: any, i: number) => (
                 <tr key={i} className={TR_ALT(i)}>
                   <td className={TD + ' font-medium'}>{b.stationName}</td>
                   <td className={TD}>{b.component}</td>
@@ -208,7 +216,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
       )}
 
       <SectionTitle>6. Downtime by Station</SectionTitle>
-      {data.production.stations.filter(s => s.totalDowntime > 0).length > 0 ? (
+      {(prod.stations || []).filter((s: any) => s.totalDowntime > 0).length > 0 ? (
         <div className="overflow-x-auto mb-3">
           <table className="w-full border border-gray-200 rounded text-left">
             <thead>
@@ -219,7 +227,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
               </tr>
             </thead>
             <tbody>
-              {data.production.stations.filter(s => s.totalDowntime > 0).map((st, i) => (
+              {(prod.stations || []).filter((s: any) => s.totalDowntime > 0).map((st: any, i: number) => (
                 <tr key={st.stationId} className={TR_ALT(i)}>
                   <td className={TD + ' font-medium'}>{st.stationName}</td>
                   <td className={TD + ' text-right'}>{fmt(st.loadSheddingHours, 1)}</td>
@@ -235,7 +243,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
       )}
 
       <SectionTitle>7. Chemical Stock Status</SectionTitle>
-      {data.chemicals.map((chem, ci) => (
+      {chems.map((chem: any, ci: number) => (
         <div key={chem.chemicalType} className="mb-4">
           <SubTitle>{ci + 1}. {chem.label}</SubTitle>
           <table className="w-full border border-gray-200 rounded text-left mb-2">
@@ -273,27 +281,34 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
 }
 
 function MonthlyReportView({ data }: { data: MonthlyReportData }) {
+  if (!data) return <p className="text-xs text-gray-500 py-8 text-center">No report data available. Try refreshing.</p>;
+  const prod = data.production || {} as any;
+  const sales = data.sales || {} as any;
+  const nrw = data.nrw || {} as any;
+  const chems = data.chemicals || [];
+  const bkd = data.breakdowns || [];
+
   return (
     <div>
       <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
-        <KVRow label="Service Centre" value={data.serviceCentreName} />
-        <KVRow label="Reporting Month" value={`${data.monthName} ${data.year}`} />
-        <KVRow label="Active Stations" value={String(data.production.stationCount)} />
-        <KVRow label="Data Completeness" value={`${data.totalActualLogs} of ${data.totalExpectedLogs} logs (${data.completionPct}%)`} />
-        <KVRow label="Generated" value={new Date(data.generatedAt).toLocaleString('en-GB')} />
+        <KVRow label="Service Centre" value={data.serviceCentreName || ''} />
+        <KVRow label="Reporting Month" value={`${data.monthName || ''} ${data.year ?? ''}`} />
+        <KVRow label="Active Stations" value={String(prod.stationCount ?? 0)} />
+        <KVRow label="Data Completeness" value={`${data.totalActualLogs ?? 0} of ${data.totalExpectedLogs ?? 0} logs (${data.completionPct ?? 0}%)`} />
+        <KVRow label="Generated" value={data.generatedAt ? new Date(data.generatedAt).toLocaleString('en-GB') : 'N/A'} />
       </div>
 
       <SectionTitle>1. Executive Summary</SectionTitle>
       <div className="grid grid-cols-2 gap-2 mb-4">
         {[
-          ['Total CW Volume', fmt(data.production.totalCWVolume) + ' m³'],
-          ['Total Sales Volume', fmt(data.sales.totalEffectiveSalesVolume) + ' m³'],
-          ['Sales Achievement', pct(data.sales.overallAchievementPct)],
-          ['Total NRW Losses', fmt(data.nrw.totalLossVol) + ' m³ (' + pct(data.nrw.totalLossPct) + ')'],
-          ['New Connections', String(data.production.totalNewConnections)],
-          ['New Connections YTD', String(data.production.totalNewConnectionsYTD)],
-          ['Total Breakdowns', String(data.breakdowns.length)],
-          ['Breakdown Hrs Lost', fmt(data.production.totalBreakdownHoursLost, 1) + ' hrs'],
+          ['Total CW Volume', fmt(prod.totalCWVolume) + ' m\u00b3'],
+          ['Total Sales Volume', fmt(sales.totalEffectiveSalesVolume) + ' m\u00b3'],
+          ['Sales Achievement', pct(sales.overallAchievementPct)],
+          ['Total NRW Losses', fmt(nrw.totalLossVol) + ' m\u00b3 (' + pct(nrw.totalLossPct) + ')'],
+          ['New Connections', String(prod.totalNewConnections ?? 0)],
+          ['New Connections YTD', String(prod.totalNewConnectionsYTD ?? 0)],
+          ['Total Breakdowns', String(bkd.length)],
+          ['Breakdown Hrs Lost', fmt(prod.totalBreakdownHoursLost, 1) + ' hrs'],
         ].map(([label, value]) => (
           <div key={label} className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
             <p className="text-[10px] text-gray-500 uppercase font-semibold">{label}</p>
@@ -306,18 +321,18 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
       <table className="w-full border border-gray-200 rounded text-left mb-3">
         <tbody>
           {[
-            ['Total CW Volume', fmt(data.production.totalCWVolume) + ' m³'],
-            ['Total RW Volume', fmt(data.production.totalRWVolume) + ' m³'],
-            ['Total CW Hours Run', fmt(data.production.totalCWHours, 1) + ' hrs'],
-            ['Total RW Hours Run', fmt(data.production.totalRWHours, 1) + ' hrs'],
-            ['Avg CW Pump Rate', data.production.avgCWPumpRate !== null ? fmt(data.production.avgCWPumpRate, 1) + ' m³/hr' : 'N/A'],
-            ['Average Efficiency', pct(data.production.avgEfficiency)],
-            ['Load Shedding Hours', fmt(data.production.totalLoadShedding, 1) + ' hrs'],
-            ['Other Downtime Hours', fmt(data.production.totalOtherDowntime, 1) + ' hrs'],
-            ['Total Downtime', fmt(data.production.totalDowntime, 1) + ' hrs'],
-            ['New Connections', String(data.production.totalNewConnections)],
-            ['New Connections YTD', String(data.production.totalNewConnectionsYTD)],
-            ['Breakdown Hours Lost', fmt(data.production.totalBreakdownHoursLost, 1) + ' hrs'],
+            ['Total CW Volume', fmt(prod.totalCWVolume) + ' m\u00b3'],
+            ['Total RW Volume', fmt(prod.totalRWVolume) + ' m\u00b3'],
+            ['Total CW Hours Run', fmt(prod.totalCWHours, 1) + ' hrs'],
+            ['Total RW Hours Run', fmt(prod.totalRWHours, 1) + ' hrs'],
+            ['Avg CW Pump Rate', prod.avgCWPumpRate != null ? fmt(prod.avgCWPumpRate, 1) + ' m\u00b3/hr' : 'N/A'],
+            ['Average Efficiency', pct(prod.avgEfficiency)],
+            ['Load Shedding Hours', fmt(prod.totalLoadShedding, 1) + ' hrs'],
+            ['Other Downtime Hours', fmt(prod.totalOtherDowntime, 1) + ' hrs'],
+            ['Total Downtime', fmt(prod.totalDowntime, 1) + ' hrs'],
+            ['New Connections', String(prod.totalNewConnections ?? 0)],
+            ['New Connections YTD', String(prod.totalNewConnectionsYTD ?? 0)],
+            ['Breakdown Hours Lost', fmt(prod.totalBreakdownHoursLost, 1) + ' hrs'],
           ].map(([label, value], i) => (
             <tr key={label} className={TR_ALT(i)}>
               <td className={TD + ' font-medium text-gray-700 w-52'}>{label}</td>
@@ -327,20 +342,20 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
         </tbody>
       </table>
 
-      {data.production.stations.length > 0 && (
+      {(prod.stations || []).length > 0 && (
         <>
           <SubTitle>Station Production Detail</SubTitle>
           <div className="overflow-x-auto mb-3">
             <table className="w-full border border-gray-200 rounded text-left">
               <thead>
                 <tr>
-                  {['Station', 'Type', 'CW Vol (m³)', 'CW Hrs', 'Efficiency', 'Downtime (hrs)', 'New Conn.'].map(h => (
+                  {['Station', 'Type', 'CW Vol (m\u00b3)', 'CW Hrs', 'Efficiency', 'Downtime (hrs)', 'New Conn.'].map(h => (
                     <th key={h} className={HDR2}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {data.production.stations.map((st, i) => (
+                {(prod.stations || []).map((st: any, i: number) => (
                   <tr key={st.stationId} className={TR_ALT(i)}>
                     <td className={TD + ' font-medium'}>{st.stationName}</td>
                     <td className={TD}>{st.stationType}</td>
@@ -348,7 +363,7 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
                     <td className={TD + ' text-right'}>{fmt(st.cwHours, 1)}</td>
                     <td className={TD + ' text-right'}>{pct(st.efficiency)}</td>
                     <td className={TD + ' text-right'}>{fmt(st.totalDowntime, 1)}</td>
-                    <td className={TD + ' text-right'}>{st.newConnections}</td>
+                    <td className={TD + ' text-right'}>{st.newConnections ?? 0}</td>
                   </tr>
                 ))}
               </tbody>
@@ -361,10 +376,10 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
       <table className="w-full border border-gray-200 rounded text-left mb-3">
         <tbody>
           {[
-            ['Total Sales Volume', fmt(data.sales.totalEffectiveSalesVolume) + ' m³'],
-            ['Total Target', fmt(data.sales.totalTargetVolume) + ' m³'],
-            ['Variance', (data.sales.overallVarianceM3 >= 0 ? '+' : '') + fmt(data.sales.overallVarianceM3) + ' m³'],
-            ['Achievement', pct(data.sales.overallAchievementPct)],
+            ['Total Sales Volume', fmt(sales.totalEffectiveSalesVolume) + ' m\u00b3'],
+            ['Total Target', fmt(sales.totalTargetVolume) + ' m\u00b3'],
+            ['Variance', ((sales.overallVarianceM3 ?? 0) >= 0 ? '+' : '') + fmt(sales.overallVarianceM3) + ' m\u00b3'],
+            ['Achievement', pct(sales.overallAchievementPct)],
           ].map(([label, value], i) => (
             <tr key={label} className={TR_ALT(i)}>
               <td className={TD + ' font-medium text-gray-700 w-52'}>{label}</td>
@@ -374,7 +389,7 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
         </tbody>
       </table>
 
-      {data.sales.stations.length > 0 && (
+      {(sales.stations || []).length > 0 && (
         <div className="overflow-x-auto mb-3">
           <table className="w-full border border-gray-200 rounded text-left">
             <thead>
@@ -385,15 +400,15 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
               </tr>
             </thead>
             <tbody>
-              {data.sales.stations.map((st, i) => {
-                const achShade = st.achievementPct === null ? TR_ALT(i)
+              {(sales.stations || []).map((st: any, i: number) => {
+                const achShade = st.achievementPct == null ? TR_ALT(i)
                   : st.achievementPct >= 100 ? 'bg-green-50' : st.achievementPct >= 80 ? 'bg-yellow-50' : 'bg-red-50';
                 return (
                   <tr key={st.stationId} className={TR_ALT(i)}>
                     <td className={TD + ' font-medium'}>{st.stationName}</td>
                     <td className={TD + ' text-right'}>{fmt(st.effectiveSalesVolume)}</td>
                     <td className={TD + ' text-right'}>{fmt(st.targetVolume)}</td>
-                    <td className={TD + ' text-right'}>{(st.varianceM3 >= 0 ? '+' : '') + fmt(st.varianceM3)}</td>
+                    <td className={TD + ' text-right'}>{((st.varianceM3 ?? 0) >= 0 ? '+' : '') + fmt(st.varianceM3)}</td>
                     <td className={`${TD} text-right ${achShade}`}>{pct(st.achievementPct)}</td>
                     <td className={TD + ' text-center text-[10px]'}>{st.usingSageData ? 'Sage' : 'Returns'}</td>
                   </tr>
@@ -408,15 +423,15 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
       <table className="w-full border border-gray-200 rounded text-left mb-3">
         <tbody>
           {[
-            ['Total RW Abstracted', fmt(data.nrw.totalRWVolume) + ' m³'],
-            ['Total CW Produced', fmt(data.nrw.totalCWVolume) + ' m³'],
-            ['Total Sales Volume', fmt(data.nrw.totalSalesVolume) + ' m³'],
-            ['Station Loss (Treatment)', fmt(data.nrw.stationLossVol) + ' m³ (' + pct(data.nrw.stationLossPct) + ')'],
-            ['Distribution Loss', fmt(data.nrw.distributionLossVol) + ' m³ (' + pct(data.nrw.distributionLossPct) + ')'],
-            ['Total NRW Loss', fmt(data.nrw.totalLossVol) + ' m³ (' + pct(data.nrw.totalLossPct) + ')'],
+            ['Total RW Abstracted', fmt(nrw.totalRWVolume) + ' m\u00b3'],
+            ['Total CW Produced', fmt(nrw.totalCWVolume) + ' m\u00b3'],
+            ['Total Sales Volume', fmt(nrw.totalSalesVolume) + ' m\u00b3'],
+            ['Station Loss (Treatment)', fmt(nrw.stationLossVol) + ' m\u00b3 (' + pct(nrw.stationLossPct) + ')'],
+            ['Distribution Loss', fmt(nrw.distributionLossVol) + ' m\u00b3 (' + pct(nrw.distributionLossPct) + ')'],
+            ['Total NRW Loss', fmt(nrw.totalLossVol) + ' m\u00b3 (' + pct(nrw.totalLossPct) + ')'],
           ].map(([label, value], i) => {
             const isLoss = (label as string).includes('Loss');
-            const nrwShade = isLoss && data.nrw.totalLossPct > 20 ? 'bg-red-50' : isLoss && data.nrw.totalLossPct > 10 ? 'bg-yellow-50' : TR_ALT(i);
+            const nrwShade = isLoss && (nrw.totalLossPct ?? 0) > 20 ? 'bg-red-50' : isLoss && (nrw.totalLossPct ?? 0) > 10 ? 'bg-yellow-50' : TR_ALT(i);
             return (
               <tr key={label} className={isLoss ? nrwShade : TR_ALT(i)}>
                 <td className={TD + ' font-medium text-gray-700 w-52'}>{label}</td>
@@ -428,7 +443,7 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
       </table>
 
       <SectionTitle>5. Chemical Stock</SectionTitle>
-      {data.chemicals.map((chem, ci) => (
+      {chems.map((chem: any, ci: number) => (
         <div key={chem.chemicalType} className="mb-4">
           <SubTitle>{ci + 1}. {chem.label}</SubTitle>
           <table className="w-full border border-gray-200 rounded text-left mb-2">
@@ -487,7 +502,7 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
       ))}
 
       <SectionTitle>6. Breakdowns & Maintenance</SectionTitle>
-      {data.breakdowns.length > 0 ? (
+      {bkd.length > 0 ? (
         <div className="overflow-x-auto mb-3">
           <table className="w-full border border-gray-200 rounded text-left">
             <thead>
@@ -498,7 +513,7 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
               </tr>
             </thead>
             <tbody>
-              {data.breakdowns.map((b, i) => (
+              {bkd.map((b: any, i: number) => (
                 <tr key={i} className={TR_ALT(i)}>
                   <td className={TD + ' font-medium'}>{b.stationName}</td>
                   <td className={TD}>{b.component}</td>
