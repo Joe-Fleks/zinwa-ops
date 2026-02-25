@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter, DateRange } from '../metricsConfig';
 import { roundTo } from '../metricsConfig';
-import { applyScopeToQuery } from './scopeFilter';
+import { applyScopeToQuery, fetchStationIdsByScope } from './scopeFilter';
 import {
   computeDowntime,
   computeProductionEfficiency,
@@ -142,4 +142,88 @@ export async function fetchStationProductionMetrics(
     cwPumpRate: computePumpRate(d.cwVol, d.cwHrs),
     rwPumpRate: computePumpRate(d.rwVol, d.rwHrs),
   }));
+}
+
+export interface LabourStationMetrics {
+  stationId: string;
+  stationName: string;
+  cwVolume: number;
+  rwVolume: number;
+  totalVolume: number;
+  operatorCount: number;
+  m3PerOperator: number | null;
+}
+
+export interface LabourSummaryMetrics {
+  totalVolume: number;
+  totalOperators: number;
+  scM3PerOperator: number | null;
+  stations: LabourStationMetrics[];
+}
+
+export async function fetchLabourMetrics(
+  scope: ScopeFilter,
+  year: number,
+  months: number[]
+): Promise<LabourSummaryMetrics> {
+  let stationsQuery = supabase
+    .from('stations')
+    .select('id, station_name, operator_count, service_centre_id')
+    .order('station_name');
+  stationsQuery = applyScopeToQuery(stationsQuery, scope);
+  const { data: stationsData, error: stErr } = await stationsQuery;
+  if (stErr) throw stErr;
+  const stations = stationsData || [];
+  if (stations.length === 0) return { totalVolume: 0, totalOperators: 0, scM3PerOperator: null, stations: [] };
+
+  const stationIds = stations.map((s: any) => s.id);
+
+  const volByStation = new Map<string, { cw: number; rw: number }>();
+  for (const m of months) {
+    const startDate = `${year}-${String(m).padStart(2, '0')}-01`;
+    const endDate = new Date(year, m, 0).toISOString().split('T')[0];
+    const { data, error } = await supabase
+      .from('production_logs')
+      .select('station_id, cw_volume_m3, rw_volume_m3')
+      .in('station_id', stationIds)
+      .gte('date', startDate)
+      .lte('date', endDate);
+    if (error) throw error;
+    for (const log of data || []) {
+      const existing = volByStation.get(log.station_id) || { cw: 0, rw: 0 };
+      existing.cw += Number(log.cw_volume_m3) || 0;
+      existing.rw += Number(log.rw_volume_m3) || 0;
+      volByStation.set(log.station_id, existing);
+    }
+  }
+
+  const stationMetrics: LabourStationMetrics[] = stations.map((s: any) => {
+    const vol = volByStation.get(s.id) || { cw: 0, rw: 0 };
+    const totalVol = vol.cw + vol.rw;
+    const ops = Number(s.operator_count) || 0;
+    return {
+      stationId: s.id,
+      stationName: s.station_name,
+      cwVolume: roundTo(vol.cw, 0),
+      rwVolume: roundTo(vol.rw, 0),
+      totalVolume: roundTo(totalVol, 0),
+      operatorCount: ops,
+      m3PerOperator: ops > 0 && totalVol > 0 ? roundTo(totalVol / ops, 1) : null,
+    };
+  }).sort((a, b) => {
+    if (a.m3PerOperator === null && b.m3PerOperator === null) return 0;
+    if (a.m3PerOperator === null) return 1;
+    if (b.m3PerOperator === null) return -1;
+    return a.m3PerOperator - b.m3PerOperator;
+  });
+
+  const totalVol = stationMetrics.reduce((s, r) => s + r.totalVolume, 0);
+  const totalOps = stationMetrics.reduce((s, r) => s + r.operatorCount, 0);
+
+  return {
+    totalVolume: totalVol,
+    totalOperators: totalOps,
+    scM3PerOperator: totalOps > 0 && totalVol > 0 ? roundTo(totalVol / totalOps, 1) : null,
+    stations: stationMetrics,
+  };
 }

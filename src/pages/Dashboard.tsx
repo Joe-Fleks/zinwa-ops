@@ -10,6 +10,7 @@ import { fetchDailyDemandByStationId } from '../lib/metrics/demandMetrics';
 import ProductionTrendChart from '../components/dashboard/ProductionTrendChart';
 import ChemicalDosageKPI from '../components/dashboard/ChemicalDosageKPI';
 import NRWDashboardKPI from '../components/dashboard/NRWDashboardKPI';
+import LabourKPI from '../components/dashboard/LabourKPI';
 import { fetchPendingWeeklyReports, markReportDownloaded, checkAndTriggerWeeklyReport, type WeeklyReportRecord } from '../lib/weeklyReportService';
 import { downloadWeeklyReport } from '../lib/weeklyReportDocument';
 import { fetchPendingMonthlyReports, markMonthlyReportDownloaded, checkAndTriggerMonthlyReport, type MonthlyReportRecord } from '../lib/monthlyReportService';
@@ -94,7 +95,7 @@ export default function Dashboard() {
   const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis' | 'reports'>('cw');
   const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'alerts' | 'followups'>('cw');
   const [reportSection, setReportSection] = useState<'midweek' | 'endofweek' | 'monthly' | 'quarterly' | 'yearly'>('endofweek');
-  const [kpiSection, setKpiSection] = useState<'nrw' | 'chemical_usage'>('nrw');
+  const [kpiSection, setKpiSection] = useState<'nrw' | 'chemical_usage' | 'labour'>('nrw');
   const [kpiSearch, setKpiSearch] = useState('');
   const [kpiFilter, setKpiFilter] = useState<'all' | 'cw' | 'rw' | 'maintenance' | 'finance'>('all');
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 1024);
@@ -1159,9 +1160,10 @@ export default function Dashboard() {
     );
   };
 
-  const KPI_ITEMS: { key: 'nrw' | 'chemical_usage'; label: string; icon: React.ReactNode; category: 'cw' | 'rw' | 'maintenance' | 'finance' }[] = [
+  const KPI_ITEMS: { key: 'nrw' | 'chemical_usage' | 'labour'; label: string; icon: React.ReactNode; category: 'cw' | 'rw' | 'maintenance' | 'finance' }[] = [
     { key: 'nrw', label: 'Non-Revenue Water (NRW)', icon: <Droplets className="w-3.5 h-3.5" />, category: 'cw' },
-    { key: 'chemical_usage', label: 'Chemical Usage', icon: <TestTube className="w-3.5 h-3.5" />, category: 'cw' },
+    { key: 'chemical_usage', label: 'Chemical Dosage', icon: <TestTube className="w-3.5 h-3.5" />, category: 'cw' },
+    { key: 'labour', label: 'Labour Productivity', icon: <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px] font-bold">L</span>, category: 'cw' },
   ];
 
   const KPI_FILTER_OPTIONS: { value: typeof kpiFilter; label: string }[] = [
@@ -1184,7 +1186,12 @@ export default function Dashboard() {
         <div className="p-2 border-b border-gray-200 space-y-1.5">
           <select
             value={kpiFilter}
-            onChange={e => setKpiFilter(e.target.value as typeof kpiFilter)}
+            onChange={e => {
+              const newFilter = e.target.value as typeof kpiFilter;
+              setKpiFilter(newFilter);
+              const firstMatch = KPI_ITEMS.find(k => newFilter === 'all' || k.category === newFilter);
+              if (firstMatch) setKpiSection(firstMatch.key);
+            }}
             className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-700 font-medium"
           >
             {KPI_FILTER_OPTIONS.map(opt => (
@@ -1204,7 +1211,7 @@ export default function Dashboard() {
         </div>
         <div className="flex-1 py-1 overflow-y-auto thin-scrollbar">
           {filteredKpis.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-4 px-2">No KPIs match</p>
+            <p className="text-xs text-gray-400 text-center py-4 px-2">No KPIs available</p>
           ) : (
             filteredKpis.map(kpi => {
               const isActive = kpiSection === kpi.key;
@@ -1227,8 +1234,18 @@ export default function Dashboard() {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto thin-scrollbar px-4 py-4">
-        {kpiSection === 'nrw' && <NRWDashboardKPI />}
-        {kpiSection === 'chemical_usage' && <ChemicalDosageKPI />}
+        {filteredKpis.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
+            <p className="text-sm font-medium">No KPIs available</p>
+            <p className="text-xs mt-1">No KPIs have been added to this category yet.</p>
+          </div>
+        ) : (
+          <>
+            {kpiSection === 'nrw' && filteredKpis.some(k => k.key === 'nrw') && <NRWDashboardKPI />}
+            {kpiSection === 'chemical_usage' && filteredKpis.some(k => k.key === 'chemical_usage') && <ChemicalDosageKPI />}
+            {kpiSection === 'labour' && filteredKpis.some(k => k.key === 'labour') && <LabourKPI />}
+          </>
+        )}
       </div>
     </div>
   );

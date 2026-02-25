@@ -18,8 +18,8 @@ export {
 } from './coreCalculations';
 export type { StationClientFields, NonFunctionalInput, NRWLossResult } from './coreCalculations';
 
-export { fetchProductionSummary, fetchStationProductionMetrics } from './productionMetrics';
-export type { ProductionSummaryMetrics, StationProductionMetrics } from './productionMetrics';
+export { fetchProductionSummary, fetchStationProductionMetrics, fetchLabourMetrics } from './productionMetrics';
+export type { ProductionSummaryMetrics, StationProductionMetrics, LabourSummaryMetrics, LabourStationMetrics } from './productionMetrics';
 
 export { fetchChemicalStationMetrics, fetchChemicalSummary, fetchChemicalDosageRates } from './chemicalMetrics';
 export type { ChemicalStationMetrics, ChemicalSummaryMetrics, ChemicalDosageSummary, ChemicalDosageStation } from './chemicalMetrics';
