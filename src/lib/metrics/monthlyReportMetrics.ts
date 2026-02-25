@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter } from '../metricsConfig';
-import { roundTo, CHEMICAL_PROD_FIELDS, CHEMICAL_TYPES, buildMonthDateRange } from '../metricsConfig';
+import { roundTo, CHEMICAL_PROD_FIELDS, CHEMICAL_TYPES, buildMonthDateRange, getPreviousMonthPeriod } from '../metricsConfig';
 import { applyScopeToQuery } from './scopeFilter';
 import {
   computeDowntime,
@@ -190,7 +190,10 @@ export async function fetchMonthlyReportData(
   const ytdStartDate = `${year}-01-01`;
   const ytdEndDate = dateRange.end;
 
-  const [logsRes, ytdLogsRes, breakdownsRes, salesRes, targetsRes, balancesRes, receiptsRes] = await Promise.all([
+  const prevPeriod = getPreviousMonthPeriod(year, month);
+  const prevDateRange = buildMonthDateRange(prevPeriod.year, prevPeriod.month);
+
+  const [logsRes, ytdLogsRes, breakdownsRes, salesRes, targetsRes, balancesRes, receiptsRes, prevProdRes] = await Promise.all([
     supabase
       .from('production_logs')
       .select('station_id, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, load_shedding_hours, other_downtime_hours, alum_kg, hth_kg, activated_carbon_kg, new_connections')
@@ -235,10 +238,17 @@ export async function fetchMonthlyReportData(
       .in('chemical_type', ['aluminium_sulphate', 'hth', 'activated_carbon'])
       .eq('year', year)
       .eq('month', month),
+    supabase
+      .from('production_logs')
+      .select('station_id, cw_volume_m3, rw_volume_m3')
+      .in('station_id', stationIds)
+      .gte('date', prevDateRange.start)
+      .lt('date', prevDateRange.end),
   ]);
 
   const logs = logsRes.data || [];
   const ytdLogs = ytdLogsRes.data || [];
+  const prevProdLogs = prevProdRes.data || [];
 
   const stationAgg = new Map<string, {
     cwVol: number; rwVol: number; cwHrs: number; rwHrs: number;
@@ -396,15 +406,24 @@ export async function fetchMonthlyReportData(
     stations: salesStations,
   };
 
+  const prevProdAgg = new Map<string, { rwVol: number; cwVol: number }>();
+  for (const log of prevProdLogs) {
+    const sid = log.station_id;
+    const ex = prevProdAgg.get(sid) || { rwVol: 0, cwVol: 0 };
+    ex.rwVol += Number(log.rw_volume_m3) || 0;
+    ex.cwVol += Number(log.cw_volume_m3) || 0;
+    prevProdAgg.set(sid, ex);
+  }
+
   const stationAggForNRW = new Map<string, { rw: number; cw: number; sales: number }>();
   for (const station of allStations) {
-    const agg = stationAgg.get(station.id);
+    const prevProd = prevProdAgg.get(station.id);
     const sale = salesMap.get(station.id);
     const usingSage = sale && sale.sage > 0;
     const salesVol = sale ? (usingSage ? sale.sage : sale.returns) : 0;
     stationAggForNRW.set(station.id, {
-      rw: agg?.rwVol || 0,
-      cw: agg?.cwVol || 0,
+      rw: prevProd?.rwVol || 0,
+      cw: prevProd?.cwVol || 0,
       sales: salesVol,
     });
   }
