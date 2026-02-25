@@ -47,6 +47,7 @@ export interface MonthlyProductionSummary {
   avgCWPumpRate: number | null;
   totalNewConnections: number;
   totalNewConnectionsYTD: number;
+  totalBreakdownHoursLost: number;
   stations: MonthlyStationProduction[];
 }
 
@@ -313,6 +314,7 @@ export async function fetchMonthlyReportData(
     avgCWPumpRate: computePumpRate(totCWVol, totCWHrs),
     totalNewConnections: totConn,
     totalNewConnectionsYTD: totConnYTD,
+    totalBreakdownHoursLost: 0,
     stations: stationList,
   };
 
@@ -505,6 +507,15 @@ export async function fetchMonthlyReportData(
     hoursLost: Number(b.hours_lost) || 0,
   }));
 
+  const totalBreakdownHoursLost = roundTo(
+    breakdowns
+      .filter(b => b.impact === 'Stopped pumping')
+      .reduce((sum, b) => sum + b.hoursLost, 0),
+    1
+  );
+
+  production.totalBreakdownHoursLost = totalBreakdownHoursLost;
+
   return {
     serviceCentreName,
     serviceCentreId: scope.scopeId || '',
@@ -540,7 +551,7 @@ function buildEmptyMonthlyReport(
       totalCWVolume: 0, totalRWVolume: 0, totalCWHours: 0, totalRWHours: 0,
       totalLoadShedding: 0, totalOtherDowntime: 0, totalDowntime: 0,
       stationCount: 0, logCount: 0, avgEfficiency: 0, avgCWPumpRate: null,
-      totalNewConnections: 0, totalNewConnectionsYTD: 0, stations: [],
+      totalNewConnections: 0, totalNewConnectionsYTD: 0, totalBreakdownHoursLost: 0, stations: [],
     },
     sales: {
       totalEffectiveSalesVolume: 0, totalTargetVolume: 0, overallVarianceM3: 0,

@@ -181,6 +181,14 @@ function buildProductionSection(data: WeeklyReportData): string {
         { text: 'New Connections', shade: 'EBF5FB' },
         { text: String(p.totalNewConnections), align: 'right' },
       ])}
+      ${tableRow([
+        { text: 'CW Production YTD', shade: 'FFFFFF' },
+        { text: formatNum(p.totalCWVolumeYTD, 0) + ' m\u00B3', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'Pumping Hours Lost (Breakdowns)', shade: 'EBF5FB' },
+        { text: p.totalBreakdownHoursLost > 0 ? formatNum(p.totalBreakdownHoursLost, 1) + ' hrs' : '\u2014', align: 'right' },
+      ])}
     </w:tbl>`);
 
   if (p.stations.length > 0) {
@@ -191,6 +199,7 @@ function buildProductionSection(data: WeeklyReportData): string {
           { text: 'Station', shade: '2E6FA3', bold: true },
           { text: 'Type', shade: '2E6FA3', bold: true },
           { text: 'CW Vol (m\u00B3)', shade: '2E6FA3', bold: true, align: 'right' },
+          { text: 'CW YTD (m\u00B3)', shade: '2E6FA3', bold: true, align: 'right' },
           { text: 'CW Hrs', shade: '2E6FA3', bold: true, align: 'right' },
           { text: 'Downtime', shade: '2E6FA3', bold: true, align: 'right' },
           { text: 'Eff. (%)', shade: '2E6FA3', bold: true, align: 'right' },
@@ -199,6 +208,7 @@ function buildProductionSection(data: WeeklyReportData): string {
           { text: st.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
           { text: st.stationType, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
           { text: formatNum(st.cwVolume, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: formatNum(st.cwVolumeYTD, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
           { text: formatNum(st.cwHours, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
           { text: formatNum(st.totalDowntime, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
           { text: formatNum(st.efficiency, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
@@ -416,6 +426,7 @@ function buildBreakdownsSection(data: WeeklyReportData): string {
           { text: 'Component', shade: '1A3A5C', bold: true },
           { text: 'Impact', shade: '1A3A5C', bold: true },
           { text: 'Date Reported', shade: '1A3A5C', bold: true },
+          { text: 'Hrs Lost', shade: '1A3A5C', bold: true, align: 'right' },
           { text: 'Status', shade: '1A3A5C', bold: true, align: 'center' },
         ], true)}
         ${data.breakdowns.map((b, i) => {
@@ -426,6 +437,7 @@ function buildBreakdownsSection(data: WeeklyReportData): string {
             { text: b.component, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
             { text: b.impact, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
             { text: formatDate(b.dateReported), shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+            { text: b.hoursLost > 0 ? formatNum(b.hoursLost, 1) : '\u2014', align: 'right', shade: b.hoursLost > 0 && b.impact === 'Stopped pumping' ? 'FFE5E5' : (i % 2 === 0 ? 'EBF5FB' : 'FFFFFF') },
             { text: statusLabel, align: 'center', shade: statusShade },
           ]);
         }).join('')}

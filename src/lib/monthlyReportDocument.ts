@@ -135,6 +135,7 @@ function buildContent(d: MonthlyReportData): string {
   parts.push(kv('Total Breakdowns', String(d.breakdowns.length)));
   parts.push(kv('New Connections (Month)', String(d.production.totalNewConnections)));
   parts.push(kv('New Connections (YTD)', String(d.production.totalNewConnectionsYTD)));
+  parts.push(kv('Pumping Hours Lost (Breakdowns)', d.production.totalBreakdownHoursLost > 0 ? fmt(d.production.totalBreakdownHoursLost, 1) + ' hrs' : 'None'));
 
   parts.push(hline());
 
@@ -153,6 +154,7 @@ function buildContent(d: MonthlyReportData): string {
     ['Average Efficiency', pct(d.production.avgEfficiency)],
     ['New Connections', String(d.production.totalNewConnections)],
     ['New Connections (YTD)', String(d.production.totalNewConnectionsYTD)],
+    ['Pumping Hours Lost (Breakdowns)', d.production.totalBreakdownHoursLost > 0 ? fmt(d.production.totalBreakdownHoursLost, 1) + ' hrs' : 'None'],
   ];
   prodRows.forEach(([label, value], i) => {
     parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: rowAlt(i) }]));
@@ -329,10 +331,20 @@ function buildContent(d: MonthlyReportData): string {
         { text: b.component, shade: rowAlt(i) },
         { text: b.impact, shade: rowAlt(i) },
         { text: formatDate(b.dateReported), shade: rowAlt(i) },
-        { text: b.hoursLost > 0 ? fmt(b.hoursLost, 1) : '—', align: 'right', shade: rowAlt(i) },
+        { text: b.hoursLost > 0 ? fmt(b.hoursLost, 1) : '\u2014', align: 'right', shade: b.hoursLost > 0 && b.impact === 'Stopped pumping' ? 'FFE5E5' : rowAlt(i) },
         { text: b.isResolved ? 'RESOLVED' : 'OPEN', align: 'center', shade: b.isResolved ? 'E8F5E9' : 'FFE5E5' },
       ]));
     });
+    if (d.production.totalBreakdownHoursLost > 0) {
+      parts.push(trow([
+        { text: 'TOTAL PUMPING HRS LOST', shade: 'FFF3CD', bold: true },
+        { text: '', shade: 'FFF3CD' },
+        { text: 'Stopped pumping', shade: 'FFF3CD' },
+        { text: '', shade: 'FFF3CD' },
+        { text: fmt(d.production.totalBreakdownHoursLost, 1), align: 'right', shade: 'FFE5E5', bold: true },
+        { text: '', shade: 'FFF3CD' },
+      ]));
+    }
     parts.push('</w:tbl>');
   } else {
     parts.push(para('No breakdowns recorded during this month.'));

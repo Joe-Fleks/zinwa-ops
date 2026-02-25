@@ -20,6 +20,7 @@ export interface WeeklyStationProduction {
   stationType: string;
   logCount: number;
   cwVolume: number;
+  cwVolumeYTD: number;
   rwVolume: number;
   cwHours: number;
   rwHours: number;
@@ -30,10 +31,12 @@ export interface WeeklyStationProduction {
   cwPumpRate: number | null;
   rwPumpRate: number | null;
   newConnections: number;
+  breakdownHoursLost: number;
 }
 
 export interface WeeklyProductionSummary {
   totalCWVolume: number;
+  totalCWVolumeYTD: number;
   totalRWVolume: number;
   totalCWHours: number;
   totalRWHours: number;
@@ -48,6 +51,7 @@ export interface WeeklyProductionSummary {
   totalNewConnections: number;
   cwWeeklyTarget: number;
   cwPerformancePct: number | null;
+  totalBreakdownHoursLost: number;
   stations: WeeklyStationProduction[];
 }
 
@@ -59,6 +63,7 @@ export interface WeeklyBreakdown {
   isResolved: boolean;
   dateResolved: string | null;
   impact: string;
+  hoursLost: number;
 }
 
 export interface WeeklyChemicalSummary {
@@ -186,7 +191,7 @@ export async function fetchWeeklyReportData(
       .order('date', { ascending: true }),
     supabase
       .from('station_breakdowns')
-      .select('station_id, nature_of_breakdown, description, date_reported, is_resolved, date_resolved, breakdown_impact')
+      .select('station_id, nature_of_breakdown, description, date_reported, is_resolved, date_resolved, breakdown_impact, hours_lost')
       .in('station_id', stationIds)
       .gte('date_reported', dateRange.start)
       .lte('date_reported', dateRange.end),
@@ -210,7 +215,7 @@ export async function fetchWeeklyReportData(
       .select('station_id, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, new_connections')
       .in('station_id', stationIds)
       .gte('date', ytdStart)
-      .lt('date', dateRange.start),
+      .lte('date', dateRange.end),
   ]);
 
   const logs = logsRes.data || [];
@@ -243,33 +248,46 @@ export async function fetchWeeklyReportData(
     stationAgg.set(sid, existing);
   }
 
-  const ytdPriorAgg = new Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: number; connections: number }>();
+  const ytdFullAgg = new Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: number; connections: number }>();
   for (const log of ytdPriorLogs) {
     const sid = log.station_id;
-    const existing = ytdPriorAgg.get(sid) || { cwVol: 0, rwVol: 0, cwHrs: 0, rwHrs: 0, connections: 0 };
+    const existing = ytdFullAgg.get(sid) || { cwVol: 0, rwVol: 0, cwHrs: 0, rwHrs: 0, connections: 0 };
     existing.cwVol += Number(log.cw_volume_m3) || 0;
     existing.rwVol += Number(log.rw_volume_m3) || 0;
     existing.cwHrs += Number(log.cw_hours_run) || 0;
     existing.rwHrs += Number(log.rw_hours_run) || 0;
     existing.connections += Number(log.new_connections) || 0;
-    ytdPriorAgg.set(sid, existing);
+    ytdFullAgg.set(sid, existing);
+  }
+
+  const breakdownHoursLostByStation = new Map<string, number>();
+  for (const b of (breakdownsRes.data || [])) {
+    if (b.breakdown_impact === 'Stopped pumping') {
+      const sid = b.station_id;
+      breakdownHoursLostByStation.set(sid, (breakdownHoursLostByStation.get(sid) || 0) + (Number(b.hours_lost) || 0));
+    }
   }
 
   const stationMetrics: WeeklyStationProduction[] = [];
   let totalCWVol = 0, totalRWVol = 0, totalCWHrs = 0, totalRWHrs = 0;
   let totalLS = 0, totalOther = 0, totalLogCount = 0, totalConnections = 0;
+  let totalBreakdownHoursLost = 0;
 
   for (const station of allStations) {
     const agg = stationAgg.get(station.id);
     if (!agg) continue;
     const downtime = agg.ls + agg.other;
+    const ytdFull = ytdFullAgg.get(station.id);
+    const cwVolumeYTD = roundTo(ytdFull?.cwVol || 0, 0);
+    const stBreakdownHrs = roundTo(breakdownHoursLostByStation.get(station.id) || 0, 1);
     stationMetrics.push({
       stationId: station.id,
       stationName: station.station_name,
       stationType: station.station_type,
       logCount: agg.count,
-      cwVolume: roundTo(agg.cwVol, 2),
-      rwVolume: roundTo(agg.rwVol, 2),
+      cwVolume: roundTo(agg.cwVol, 0),
+      cwVolumeYTD,
+      rwVolume: roundTo(agg.rwVol, 0),
       cwHours: roundTo(agg.cwHrs, 2),
       rwHours: roundTo(agg.rwHrs, 2),
       loadSheddingHours: roundTo(agg.ls, 1),
@@ -279,6 +297,7 @@ export async function fetchWeeklyReportData(
       cwPumpRate: computePumpRate(agg.cwVol, agg.cwHrs),
       rwPumpRate: computePumpRate(agg.rwVol, agg.rwHrs),
       newConnections: agg.connections,
+      breakdownHoursLost: stBreakdownHrs,
     });
     totalCWVol += agg.cwVol;
     totalRWVol += agg.rwVol;
@@ -288,6 +307,7 @@ export async function fetchWeeklyReportData(
     totalOther += agg.other;
     totalLogCount += agg.count;
     totalConnections += agg.connections;
+    totalBreakdownHoursLost += stBreakdownHrs;
   }
 
   stationMetrics.sort((a, b) => b.cwVolume - a.cwVolume);
@@ -299,8 +319,14 @@ export async function fetchWeeklyReportData(
   const cwWeeklyTarget = computeCWWeeklyTarget(targetsRes.data || [], dateRange, periodDays);
   const cwPerformancePct = cwWeeklyTarget > 0 ? roundTo((totalCWVol / cwWeeklyTarget) * 100, 1) : null;
 
+  let totalCWVolYTD = 0;
+  for (const [, ytdEntry] of ytdFullAgg) {
+    totalCWVolYTD += ytdEntry.cwVol;
+  }
+
   const production: WeeklyProductionSummary = {
     totalCWVolume: roundTo(totalCWVol, 2),
+    totalCWVolumeYTD: roundTo(totalCWVolYTD, 0),
     totalRWVolume: roundTo(totalRWVol, 2),
     totalCWHours: roundTo(totalCWHrs, 2),
     totalRWHours: roundTo(totalRWHrs, 2),
@@ -315,6 +341,7 @@ export async function fetchWeeklyReportData(
     totalNewConnections: totalConnections,
     cwWeeklyTarget: roundTo(cwWeeklyTarget, 0),
     cwPerformancePct,
+    totalBreakdownHoursLost: roundTo(totalBreakdownHoursLost, 1),
     stations: stationMetrics,
   };
 
@@ -326,6 +353,7 @@ export async function fetchWeeklyReportData(
     isResolved: !!b.is_resolved,
     dateResolved: b.date_resolved || null,
     impact: b.breakdown_impact || '',
+    hoursLost: Number(b.hours_lost) || 0,
   }));
 
   const now = new Date();
@@ -412,9 +440,9 @@ export async function fetchWeeklyReportData(
       totalLogged: sIds.length,
     }));
 
-  const capacityUtilization = buildCapacityUtilization(allStations, stationAgg, ytdPriorAgg);
+  const capacityUtilization = buildCapacityUtilization(allStations, stationAgg, ytdFullAgg);
   const powerSupply = buildPowerSupply(allStations, stationAgg, periodDays);
-  const connections = buildConnections(allStations, stationAgg, ytdPriorAgg);
+  const connections = buildConnections(allStations, stationAgg, ytdFullAgg);
 
   const totalExpectedLogs = allStations.length * periodDays;
   const completionPct = totalExpectedLogs > 0
@@ -479,7 +507,7 @@ type AggMap = Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: 
 function buildCapacityUtilization(
   allStations: StationRow[],
   weekAgg: AggMap,
-  ytdPriorAgg: Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: number; connections: number }>
+  ytdFullAgg: Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: number; connections: number }>
 ): CapacityUtilizationSummary {
   const stationsResult: CapacityUtilizationStation[] = [];
   let rwInstalledTotal = 0, cwInstalledTotal = 0;
@@ -491,16 +519,16 @@ function buildCapacityUtilization(
   for (const station of allStations) {
     const installed = Number(station.design_capacity_m3_hr) || 0;
     const agg = weekAgg.get(station.id);
-    const ytd = ytdPriorAgg.get(station.id);
+    const ytd = ytdFullAgg.get(station.id);
 
     const weekCW = agg && agg.cwHrs > 0 ? roundTo(agg.cwVol / agg.cwHrs, 2) : null;
     const weekRW = (station.station_type === 'Full Treatment' && agg && agg.rwHrs > 0)
       ? roundTo(agg.rwVol / agg.rwHrs, 2) : null;
 
-    const ytdCWVol = (ytd?.cwVol || 0) + (agg?.cwVol || 0);
-    const ytdCWHrs = (ytd?.cwHrs || 0) + (agg?.cwHrs || 0);
-    const ytdRWVol = (ytd?.rwVol || 0) + (agg?.rwVol || 0);
-    const ytdRWHrs = (ytd?.rwHrs || 0) + (agg?.rwHrs || 0);
+    const ytdCWVol = ytd?.cwVol || 0;
+    const ytdCWHrs = ytd?.cwHrs || 0;
+    const ytdRWVol = ytd?.rwVol || 0;
+    const ytdRWHrs = ytd?.rwHrs || 0;
 
     const ytdCW = ytdCWHrs > 0 ? roundTo(ytdCWVol / ytdCWHrs, 2) : null;
     const ytdRW = (station.station_type === 'Full Treatment' && ytdRWHrs > 0)
@@ -580,7 +608,7 @@ function buildPowerSupply(
 function buildConnections(
   allStations: StationRow[],
   weekAgg: AggMap,
-  ytdPriorAgg: Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: number; connections: number }>
+  ytdFullAgg: Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: number; connections: number }>
 ): ConnectionsSummary {
   const stationsResult: ConnectionStation[] = [];
   let totalCurrent = 0, totalNewWeek = 0, totalYTD = 0;
@@ -598,9 +626,8 @@ function buildConnections(
 
     const agg = weekAgg.get(station.id);
     const newWeek = agg?.connections || 0;
-    const ytdPrior = ytdPriorAgg.get(station.id);
-    const ytdPriorConns = ytdPrior?.connections || 0;
-    const ytdNew = ytdPriorConns + newWeek;
+    const ytdEntry = ytdFullAgg.get(station.id);
+    const ytdNew = ytdEntry?.connections || 0;
 
     totalCurrent += currentConns;
     totalNewWeek += newWeek;
@@ -645,11 +672,11 @@ function buildEmptyReport(
     periodEnd: dateRange.end,
     generatedAt: new Date().toISOString(),
     production: {
-      totalCWVolume: 0, totalRWVolume: 0, totalCWHours: 0, totalRWHours: 0,
+      totalCWVolume: 0, totalCWVolumeYTD: 0, totalRWVolume: 0, totalCWHours: 0, totalRWHours: 0,
       totalLoadShedding: 0, totalOtherDowntime: 0, totalDowntime: 0,
       stationCount: 0, logCount: 0, avgEfficiency: 0,
       avgCWPumpRate: null, avgRWPumpRate: null, totalNewConnections: 0,
-      cwWeeklyTarget: 0, cwPerformancePct: null, stations: [],
+      cwWeeklyTarget: 0, cwPerformancePct: null, totalBreakdownHoursLost: 0, stations: [],
     },
     breakdowns: [],
     chemicals: [],
