@@ -8,6 +8,8 @@ import { THRESHOLDS, CHEMICAL_PROD_FIELDS, CHEMICAL_TYPES } from '../lib/metrics
 import { computeReceiptTotal, computeChemicalBalance, computeAvgUsagePerDay, computeDaysRemaining, isChemicalLowStock, isChemicalCriticalStock, computeTotalClients, computeDowntime, isStationNonFunctional } from '../lib/metrics';
 import { fetchDailyDemandByStationId } from '../lib/metrics/demandMetrics';
 import ProductionTrendChart from '../components/dashboard/ProductionTrendChart';
+import ChemicalDosageKPI from '../components/dashboard/ChemicalDosageKPI';
+import NRWDashboardKPI from '../components/dashboard/NRWDashboardKPI';
 import { fetchPendingWeeklyReports, markReportDownloaded, checkAndTriggerWeeklyReport, type WeeklyReportRecord } from '../lib/weeklyReportService';
 import { downloadWeeklyReport } from '../lib/weeklyReportDocument';
 import { fetchPendingMonthlyReports, markMonthlyReportDownloaded, checkAndTriggerMonthlyReport, type MonthlyReportRecord } from '../lib/monthlyReportService';
@@ -1205,20 +1207,8 @@ export default function Dashboard() {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto thin-scrollbar px-4 py-4">
-        {kpiSection === 'nrw' && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Droplets className="w-10 h-10 text-gray-200 mb-3" />
-            <p className="text-sm font-medium text-gray-400">NRW KPI</p>
-            <p className="text-xs text-gray-300 mt-1">Dashboard coming soon</p>
-          </div>
-        )}
-        {kpiSection === 'chemical_usage' && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <TestTube className="w-10 h-10 text-gray-200 mb-3" />
-            <p className="text-sm font-medium text-gray-400">Chemical Usage KPI</p>
-            <p className="text-xs text-gray-300 mt-1">Dashboard coming soon</p>
-          </div>
-        )}
+        {kpiSection === 'nrw' && <NRWDashboardKPI />}
+        {kpiSection === 'chemical_usage' && <ChemicalDosageKPI />}
       </div>
     </div>
   );

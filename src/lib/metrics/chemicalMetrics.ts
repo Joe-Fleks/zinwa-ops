@@ -131,6 +131,109 @@ export async function fetchChemicalStationMetrics(
   });
 }
 
+export interface ChemicalDosageStation {
+  stationId: string;
+  stationName: string;
+  alumDosage: number | null;
+  hthDosage: number | null;
+  acDosage: number | null;
+  cwVolume: number;
+}
+
+export interface ChemicalDosageSummary {
+  scAlumDosage: number | null;
+  scHthDosage: number | null;
+  scAcDosage: number | null;
+  stations: ChemicalDosageStation[];
+}
+
+export async function fetchChemicalDosageRates(
+  scope: ScopeFilter,
+  year: number,
+  monthsOrNull: number[] | null,
+): Promise<ChemicalDosageSummary> {
+  const stationIds = await fetchStationIdsByScope(scope, 'Full Treatment');
+  if (stationIds.length === 0) {
+    return { scAlumDosage: null, scHthDosage: null, scAcDosage: null, stations: [] };
+  }
+
+  let stationQuery = supabase.from('stations').select('id, station_name').in('id', stationIds);
+  const { data: stationsData } = await stationQuery;
+  const stationNameMap = new Map((stationsData || []).map((s: any) => [s.id, s.station_name]));
+
+  let prodQuery = supabase
+    .from('production_logs')
+    .select('station_id, cw_volume_m3, alum_kg, hth_kg, activated_carbon_kg, date')
+    .in('station_id', stationIds);
+
+  if (monthsOrNull === null || monthsOrNull.length === 0) {
+    prodQuery = prodQuery.gte('date', `${year}-01-01`).lte('date', `${year}-12-31`);
+  } else {
+    const starts = monthsOrNull.map(m => `${year}-${String(m).padStart(2, '0')}-01`);
+    const ends = monthsOrNull.map(m => {
+      const endM = m === 12 ? 1 : m + 1;
+      const endY = m === 12 ? year + 1 : year;
+      return `${endY}-${String(endM).padStart(2, '0')}-01`;
+    });
+    const minStart = starts.reduce((a, b) => a < b ? a : b);
+    const maxEnd = ends.reduce((a, b) => a > b ? a : b);
+    prodQuery = prodQuery.gte('date', minStart).lt('date', maxEnd);
+    const validMonths = monthsOrNull;
+    const { data: rawLogs } = await prodQuery;
+    const filteredLogs = (rawLogs || []).filter((r: any) => {
+      const m = parseInt(r.date.split('-')[1], 10);
+      return validMonths.includes(m);
+    });
+    return buildDosageSummary(filteredLogs, stationIds, stationNameMap);
+  }
+
+  const { data: rawLogs } = await prodQuery;
+  return buildDosageSummary(rawLogs || [], stationIds, stationNameMap);
+}
+
+function buildDosageSummary(
+  logs: any[],
+  stationIds: string[],
+  stationNameMap: Map<string, string>
+): ChemicalDosageSummary {
+  const agg = new Map<string, { cwVol: number; alum: number; hth: number; ac: number }>();
+  for (const r of logs) {
+    const sid = r.station_id;
+    const e = agg.get(sid) || { cwVol: 0, alum: 0, hth: 0, ac: 0 };
+    e.cwVol += Number(r.cw_volume_m3) || 0;
+    e.alum += Number(r.alum_kg) || 0;
+    e.hth += Number(r.hth_kg) || 0;
+    e.ac += Number(r.activated_carbon_kg) || 0;
+    agg.set(sid, e);
+  }
+
+  let totCW = 0, totAlum = 0, totHth = 0, totAc = 0;
+  const stations: ChemicalDosageStation[] = stationIds.map(sid => {
+    const e = agg.get(sid) || { cwVol: 0, alum: 0, hth: 0, ac: 0 };
+    totCW += e.cwVol;
+    totAlum += e.alum;
+    totHth += e.hth;
+    totAc += e.ac;
+    return {
+      stationId: sid,
+      stationName: stationNameMap.get(sid) || '',
+      alumDosage: e.cwVol > 0 ? roundTo((e.alum / e.cwVol) * 1000, 3) : null,
+      hthDosage: e.cwVol > 0 ? roundTo((e.hth / e.cwVol) * 1000, 3) : null,
+      acDosage: e.cwVol > 0 ? roundTo((e.ac / e.cwVol) * 1000, 3) : null,
+      cwVolume: roundTo(e.cwVol, 0),
+    };
+  });
+
+  stations.sort((a, b) => b.cwVolume - a.cwVolume);
+
+  return {
+    scAlumDosage: totCW > 0 ? roundTo((totAlum / totCW) * 1000, 3) : null,
+    scHthDosage: totCW > 0 ? roundTo((totHth / totCW) * 1000, 3) : null,
+    scAcDosage: totCW > 0 ? roundTo((totAc / totCW) * 1000, 3) : null,
+    stations,
+  };
+}
+
 export async function fetchChemicalSummary(
   scope: ScopeFilter,
   chemicalType: string,
