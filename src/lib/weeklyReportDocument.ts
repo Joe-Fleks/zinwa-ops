@@ -461,12 +461,14 @@ function buildChemicalsSection(data: WeeklyReportData): string {
       ${tableStart()}
         ${tableRow([
           { text: 'Total Used (kg)', shade: '2E6FA3', bold: true },
-          { text: 'Current Balance (kg)', shade: '2E6FA3', bold: true },
+          { text: 'Used per m\u00b3 (g/m\u00b3)', shade: '2E6FA3', bold: true, align: 'right' },
+          { text: 'Current Balance (kg)', shade: '2E6FA3', bold: true, align: 'right' },
           { text: 'Low Stock Stations', shade: '2E6FA3', bold: true, align: 'center' },
         ], true)}
         ${tableRow([
           { text: formatNum(chem.totalUsed, 1), shade: 'EBF5FB' },
-          { text: formatNum(chem.totalBalance, 1), shade: 'EBF5FB' },
+          { text: chem.usedPerM3 !== null && chem.usedPerM3 !== undefined ? formatNum(chem.usedPerM3, 2) : 'N/A', align: 'right', shade: 'EBF5FB' },
+          { text: formatNum(chem.totalBalance, 1), align: 'right', shade: 'EBF5FB' },
           { text: String(chem.lowStockCount), align: 'center', shade: chem.lowStockCount > 0 ? 'FFE5E5' : 'E8F5E9' },
         ])}
       </w:tbl>`);

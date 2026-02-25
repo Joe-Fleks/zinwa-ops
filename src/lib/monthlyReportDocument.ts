@@ -274,6 +274,7 @@ function buildContent(d: MonthlyReportData): string {
       ['Opening Balance', fmt(chem.totalOpening, 1)],
       ['Total Received', fmt(chem.totalReceived, 1)],
       ['Total Used', fmt(chem.totalUsed, 1)],
+      ['Used per m\u00b3 Produced', chem.usedPerM3 !== null && chem.usedPerM3 !== undefined ? fmt(chem.usedPerM3, 2) + ' g/m\u00b3' : 'N/A'],
       ['Closing Balance', fmt(chem.totalClosingBalance, 1)],
     ];
     chemRows.forEach(([label, value], i) => {
@@ -288,6 +289,7 @@ function buildContent(d: MonthlyReportData): string {
         { text: 'Opening (kg)', shade: '2E6FA3', align: 'right' },
         { text: 'Received (kg)', shade: '2E6FA3', align: 'right' },
         { text: 'Used (kg)', shade: '2E6FA3', align: 'right' },
+        { text: 'g/m\u00b3', shade: '2E6FA3', align: 'right' },
         { text: 'Closing (kg)', shade: '2E6FA3', align: 'right' },
         { text: 'Days Rem.', shade: '2E6FA3', align: 'right' },
       ], true));
@@ -299,6 +301,7 @@ function buildContent(d: MonthlyReportData): string {
           { text: fmt(st.opening, 1), align: 'right', shade: rowAlt(i) },
           { text: fmt(st.received, 1), align: 'right', shade: rowAlt(i) },
           { text: fmt(st.used, 1), align: 'right', shade: rowAlt(i) },
+          { text: (st as any).usedPerM3 !== null && (st as any).usedPerM3 !== undefined ? fmt((st as any).usedPerM3, 2) : 'N/A', align: 'right', shade: rowAlt(i) },
           { text: fmt(st.closing, 1), align: 'right', shade: rowAlt(i) },
           { text: st.daysRemaining !== null ? String(Math.round(st.daysRemaining)) : 'N/A', align: 'right', shade: drShade },
         ]));
@@ -352,7 +355,85 @@ function buildContent(d: MonthlyReportData): string {
 
   parts.push(hline());
 
-  parts.push(heading1('7. OBSERVATIONS & RECOMMENDATIONS'));
+  parts.push(heading1('7. KPI SUMMARY ANALYSIS'));
+  parts.push(para('The table below identifies the worst-performing station under each key performance indicator for the reporting month.'));
+
+  const kpi = d.kpiAnalysis;
+  const kpiItems: Array<{ label: string; station: string; value: string; context: string }> = [];
+
+  if (kpi.worstNRW) {
+    kpiItems.push({
+      label: 'Highest NRW Rate',
+      station: kpi.worstNRW.stationName,
+      value: `${kpi.worstNRW.value.toFixed(1)}${kpi.worstNRW.unit}`,
+      context: kpi.worstNRW.context || '',
+    });
+  }
+  if (kpi.worstFinancialLoss) {
+    kpiItems.push({
+      label: 'Highest Water Loss Volume',
+      station: kpi.worstFinancialLoss.stationName,
+      value: `${fmt(kpi.worstFinancialLoss.value, 0)} ${kpi.worstFinancialLoss.unit}`,
+      context: kpi.worstFinancialLoss.context || '',
+    });
+  }
+  if (kpi.worstSalesAchievement) {
+    kpiItems.push({
+      label: 'Lowest Sales Achievement',
+      station: kpi.worstSalesAchievement.stationName,
+      value: `${kpi.worstSalesAchievement.value.toFixed(1)}${kpi.worstSalesAchievement.unit}`,
+      context: kpi.worstSalesAchievement.context || '',
+    });
+  }
+  if (kpi.worstEfficiency) {
+    kpiItems.push({
+      label: 'Lowest Production Efficiency',
+      station: kpi.worstEfficiency.stationName,
+      value: `${kpi.worstEfficiency.value.toFixed(1)}${kpi.worstEfficiency.unit}`,
+      context: kpi.worstEfficiency.context || '',
+    });
+  }
+  if (kpi.worstDowntime) {
+    kpiItems.push({
+      label: 'Highest Total Downtime',
+      station: kpi.worstDowntime.stationName,
+      value: `${kpi.worstDowntime.value.toFixed(1)} ${kpi.worstDowntime.unit}`,
+      context: kpi.worstDowntime.context || '',
+    });
+  }
+  if (kpi.mostBreakdowns) {
+    kpiItems.push({
+      label: 'Most Breakdowns Recorded',
+      station: kpi.mostBreakdowns.stationName,
+      value: `${kpi.mostBreakdowns.value} ${kpi.mostBreakdowns.unit}`,
+      context: kpi.mostBreakdowns.context || '',
+    });
+  }
+
+  if (kpiItems.length > 0) {
+    parts.push(tblStart());
+    parts.push(trow([
+      { text: 'KPI', shade: '1A3A5C' },
+      { text: 'Worst Station', shade: '1A3A5C' },
+      { text: 'Value', shade: '1A3A5C', align: 'right' },
+      { text: 'Context / Detail', shade: '1A3A5C' },
+    ], true));
+    kpiItems.forEach((item, i) => {
+      parts.push(trow([
+        { text: item.label, shade: rowAlt(i), bold: true },
+        { text: item.station, shade: rowAlt(i) },
+        { text: item.value, align: 'right', shade: rowAlt(i) },
+        { text: item.context, shade: rowAlt(i) },
+      ]));
+    });
+    parts.push('</w:tbl>');
+  } else {
+    parts.push(para('Insufficient data to perform KPI analysis for this month.'));
+  }
+
+  parts.push(hline());
+
+  parts.push(heading1('8. OBSERVATIONS & RECOMMENDATIONS'));
   for (let i = 0; i < 5; i++) {
     parts.push(`<w:p>
       <w:pPr><w:spacing w:after="0"/>

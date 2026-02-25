@@ -113,6 +113,30 @@ export async function generateAndSaveWeeklyReport(
   return data as WeeklyReportRecord;
 }
 
+export async function refreshWeeklyReportData(
+  scope: ScopeFilter,
+  reportId: string,
+  serviceCentreName: string,
+  weekNumber: number,
+  year: number,
+  reportType: 'friday' | 'tuesday',
+  periodStart: string,
+  periodEnd: string
+): Promise<WeeklyReportData> {
+  const dateRange = { start: periodStart, end: periodEnd };
+  const reportData = await fetchWeeklyReportData(
+    scope, dateRange, weekNumber, year, reportType, serviceCentreName
+  );
+
+  const { error } = await supabase
+    .from('weekly_reports')
+    .update({ report_data: reportData, generated_at: new Date().toISOString() })
+    .eq('id', reportId);
+
+  if (error) throw error;
+  return reportData;
+}
+
 export async function checkAndTriggerWeeklyReport(
   scope: ScopeFilter,
   serviceCentreId: string,

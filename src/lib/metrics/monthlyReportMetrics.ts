@@ -93,6 +93,7 @@ export interface MonthlyChemicalSummary {
   totalReceived: number;
   totalUsed: number;
   totalClosingBalance: number;
+  usedPerM3: number | null;
   lowStockCount: number;
   lowStockStations: Array<{ stationName: string; daysRemaining: number }>;
   stations: Array<{
@@ -102,6 +103,8 @@ export interface MonthlyChemicalSummary {
     used: number;
     closing: number;
     daysRemaining: number | null;
+    usedPerM3: number | null;
+    cwVolume: number;
   }>;
 }
 
@@ -114,6 +117,22 @@ export interface MonthlyBreakdown {
   dateResolved: string | null;
   impact: string;
   hoursLost: number;
+}
+
+export interface KPIWorstStation {
+  stationName: string;
+  value: number;
+  unit: string;
+  context?: string;
+}
+
+export interface KPISummaryAnalysis {
+  worstNRW: KPIWorstStation | null;
+  worstSalesAchievement: KPIWorstStation | null;
+  worstEfficiency: KPIWorstStation | null;
+  worstDowntime: KPIWorstStation | null;
+  worstFinancialLoss: KPIWorstStation | null;
+  mostBreakdowns: KPIWorstStation | null;
 }
 
 export interface MonthlyReportData {
@@ -131,6 +150,7 @@ export interface MonthlyReportData {
   totalExpectedLogs: number;
   totalActualLogs: number;
   completionPct: number;
+  kpiAnalysis: KPISummaryAnalysis;
 }
 
 const MONTH_NAMES = [
@@ -412,6 +432,22 @@ export async function fetchMonthlyReportData(
 
   const nrwTotalDenominator = nrwSurfaceRW + nrwBoreholeCW;
 
+  const nrwStationBreakdown: Array<{ stationName: string; totalLossPct: number; totalLossVol: number }> = [];
+  for (const station of allStations) {
+    const vol = stationAggForNRW.get(station.id) || { rw: 0, cw: 0, sales: 0 };
+    const isBorehole = station.station_type === 'Borehole';
+    const losses = computeNRWLosses(vol.rw, vol.cw, vol.sales, isBorehole);
+    const denominator = isBorehole ? vol.cw : vol.rw;
+    const pct = denominator > 0 ? roundTo((losses.totalLossVol / denominator) * 100, 1) : 0;
+    if (denominator > 0) {
+      nrwStationBreakdown.push({
+        stationName: station.station_name,
+        totalLossPct: pct,
+        totalLossVol: losses.totalLossVol,
+      });
+    }
+  }
+
   const nrw: MonthlyNRWSummary = {
     totalRWVolume: roundTo(nrwRWTot, 0),
     totalCWVolume: roundTo(nrwCWTot, 0),
@@ -458,6 +494,9 @@ export async function fetchMonthlyReportData(
       const avgUsage = computeAvgUsagePerDay(used, prodDays);
       const daysRemaining = computeDaysRemaining(closing, avgUsage);
 
+      const stCWVol = stationAgg.get(sid)?.cwVol || 0;
+      const stUsedPerM3 = used > 0 && stCWVol > 0 ? roundTo((used * 1000) / stCWVol, 2) : null;
+
       totOpening += opening;
       totReceived += received;
       totUsed += used;
@@ -470,6 +509,8 @@ export async function fetchMonthlyReportData(
         used: roundTo(used, 1),
         closing: roundTo(closing, 1),
         daysRemaining,
+        usedPerM3: stUsedPerM3,
+        cwVolume: roundTo(stCWVol, 0),
       });
 
       if (daysRemaining !== null && isChemicalLowStock(daysRemaining)) {
@@ -482,6 +523,11 @@ export async function fetchMonthlyReportData(
 
     lowStockStations.sort((a, b) => a.daysRemaining - b.daysRemaining);
 
+    const totalCWVolForChem = stationRows.reduce((s, r) => s + r.cwVolume, 0);
+    const totalUsedPerM3 = totUsed > 0 && totalCWVolForChem > 0
+      ? roundTo((totUsed * 1000) / totalCWVolForChem, 2)
+      : null;
+
     chemicals.push({
       chemicalType: chemType,
       label: CHEM_LABELS[chemType] || chemType,
@@ -489,6 +535,7 @@ export async function fetchMonthlyReportData(
       totalReceived: roundTo(totReceived, 1),
       totalUsed: roundTo(totUsed, 1),
       totalClosingBalance: roundTo(totBalance, 1),
+      usedPerM3: totalUsedPerM3,
       lowStockCount: lowStockStations.length,
       lowStockStations,
       stations: stationRows,
@@ -516,6 +563,13 @@ export async function fetchMonthlyReportData(
 
   production.totalBreakdownHoursLost = totalBreakdownHoursLost;
 
+  const kpiAnalysis = computeKPISummaryAnalysis(
+    production.stations,
+    sales.stations,
+    nrwStationBreakdown,
+    breakdowns
+  );
+
   return {
     serviceCentreName,
     serviceCentreId: scope.scopeId || '',
@@ -531,7 +585,99 @@ export async function fetchMonthlyReportData(
     totalExpectedLogs,
     totalActualLogs: totLogCount,
     completionPct: totalExpectedLogs > 0 ? roundTo((totLogCount / totalExpectedLogs) * 100, 1) : 0,
+    kpiAnalysis,
   };
+}
+
+function computeKPISummaryAnalysis(
+  productionStations: MonthlyStationProduction[],
+  salesStations: MonthlySalesStation[],
+  nrwStations: Array<{ stationName: string; totalLossPct: number; totalLossVol: number }>,
+  breakdowns: MonthlyBreakdown[]
+): KPISummaryAnalysis {
+  let worstNRW: KPIWorstStation | null = null;
+  if (nrwStations.length > 0) {
+    const worst = nrwStations.reduce((a, b) => b.totalLossPct > a.totalLossPct ? b : a);
+    if (worst.totalLossPct > 0) {
+      worstNRW = {
+        stationName: worst.stationName,
+        value: worst.totalLossPct,
+        unit: '%',
+        context: `${worst.totalLossVol.toLocaleString(undefined, { maximumFractionDigits: 0 })} m\u00b3 lost`,
+      };
+    }
+  }
+
+  let worstSalesAchievement: KPIWorstStation | null = null;
+  const eligibleSales = salesStations.filter(s => s.targetVolume > 0 && s.achievementPct !== null);
+  if (eligibleSales.length > 0) {
+    const worst = eligibleSales.reduce((a, b) => (b.achievementPct! < a.achievementPct! ? b : a));
+    worstSalesAchievement = {
+      stationName: worst.stationName,
+      value: worst.achievementPct!,
+      unit: '%',
+      context: `${worst.varianceM3 < 0 ? '' : '+'}${worst.varianceM3.toLocaleString(undefined, { maximumFractionDigits: 0 })} m\u00b3 vs target`,
+    };
+  }
+
+  let worstEfficiency: KPIWorstStation | null = null;
+  const eligibleEff = productionStations.filter(s => s.cwHours > 0);
+  if (eligibleEff.length > 0) {
+    const worst = eligibleEff.reduce((a, b) => b.efficiency < a.efficiency ? b : a);
+    worstEfficiency = {
+      stationName: worst.stationName,
+      value: roundTo(worst.efficiency, 1),
+      unit: '%',
+      context: `${worst.cwVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })} m\u00b3 produced`,
+    };
+  }
+
+  let worstDowntime: KPIWorstStation | null = null;
+  const eligibleDt = productionStations.filter(s => s.totalDowntime > 0);
+  if (eligibleDt.length > 0) {
+    const worst = eligibleDt.reduce((a, b) => b.totalDowntime > a.totalDowntime ? b : a);
+    worstDowntime = {
+      stationName: worst.stationName,
+      value: roundTo(worst.totalDowntime, 1),
+      unit: 'hrs',
+      context: `${roundTo(worst.loadSheddingHours, 1)} hrs load shedding, ${roundTo(worst.otherDowntimeHours, 1)} hrs other`,
+    };
+  }
+
+  let worstFinancialLoss: KPIWorstStation | null = null;
+  if (nrwStations.length > 0) {
+    const worst = nrwStations.reduce((a, b) => b.totalLossVol > a.totalLossVol ? b : a);
+    if (worst.totalLossVol > 0) {
+      worstFinancialLoss = {
+        stationName: worst.stationName,
+        value: worst.totalLossVol,
+        unit: 'm\u00b3',
+        context: `Highest unaccounted water volume`,
+      };
+    }
+  }
+
+  let mostBreakdowns: KPIWorstStation | null = null;
+  if (breakdowns.length > 0) {
+    const countByStation = new Map<string, number>();
+    for (const b of breakdowns) {
+      countByStation.set(b.stationName, (countByStation.get(b.stationName) || 0) + 1);
+    }
+    let topStation = '';
+    let topCount = 0;
+    for (const [name, count] of countByStation) {
+      if (count > topCount) { topStation = name; topCount = count; }
+    }
+    const openCount = breakdowns.filter(b => b.stationName === topStation && !b.isResolved).length;
+    mostBreakdowns = {
+      stationName: topStation,
+      value: topCount,
+      unit: 'breakdown(s)',
+      context: `${openCount} unresolved`,
+    };
+  }
+
+  return { worstNRW, worstSalesAchievement, worstEfficiency, worstDowntime, worstFinancialLoss, mostBreakdowns };
 }
 
 function buildEmptyMonthlyReport(
@@ -567,5 +713,13 @@ function buildEmptyMonthlyReport(
     totalExpectedLogs: 0,
     totalActualLogs: 0,
     completionPct: 0,
+    kpiAnalysis: {
+      worstNRW: null,
+      worstSalesAchievement: null,
+      worstEfficiency: null,
+      worstDowntime: null,
+      worstFinancialLoss: null,
+      mostBreakdowns: null,
+    },
   };
 }

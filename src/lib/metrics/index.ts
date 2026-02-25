@@ -66,6 +66,19 @@ export type {
   ConnectionStation,
 } from './weeklyReportMetrics';
 
+export {
+  fetchFuelWeeklyAnalysis,
+  fetchFuelMonthlyAnalysis,
+  fetchFuelQuarterlyAnalysis,
+  fetchFuelAnalysis,
+} from './fuelMetrics';
+export type {
+  FuelType,
+  FuelPeriodRow,
+  FuelAnalysisTable,
+  FuelFullAnalysis,
+} from './fuelMetrics';
+
 export { fetchDemandByStation } from './demandMetrics';
 export type { StationDemandRow, DemandSummary } from './demandMetrics';
 export { DEMAND_CATEGORY_LABELS } from './demandMetrics';

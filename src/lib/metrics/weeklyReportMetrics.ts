@@ -71,6 +71,7 @@ export interface WeeklyChemicalSummary {
   label: string;
   totalUsed: number;
   totalBalance: number;
+  usedPerM3: number | null;
   lowStockCount: number;
   lowStockStations: Array<{ stationName: string; daysRemaining: number }>;
 }
@@ -415,11 +416,16 @@ export async function fetchWeeklyReportData(
 
     lowStockStations.sort((a, b) => a.daysRemaining - b.daysRemaining);
 
+    const usedPerM3 = totalUsed > 0 && totalCWVol > 0
+      ? roundTo((totalUsed * 1000) / totalCWVol, 2)
+      : null;
+
     chemicals.push({
       chemicalType: chemType,
       label: chemLabels[chemType] || chemType,
       totalUsed: roundTo(totalUsed, 1),
       totalBalance: roundTo(totalBalance, 1),
+      usedPerM3,
       lowStockCount: lowStockStations.length,
       lowStockStations,
     });

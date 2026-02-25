@@ -78,6 +78,24 @@ export async function generateAndSaveMonthlyReport(
   return data as MonthlyReportRecord;
 }
 
+export async function refreshMonthlyReportData(
+  scope: ScopeFilter,
+  reportId: string,
+  serviceCentreName: string,
+  year: number,
+  month: number
+): Promise<MonthlyReportData> {
+  const reportData = await fetchMonthlyReportData(scope, year, month, serviceCentreName);
+
+  const { error } = await supabase
+    .from('monthly_reports')
+    .update({ report_data: reportData, generated_at: new Date().toISOString() })
+    .eq('id', reportId);
+
+  if (error) throw error;
+  return reportData;
+}
+
 export async function checkAndTriggerMonthlyReport(
   scope: ScopeFilter,
   serviceCentreId: string,

@@ -11,10 +11,11 @@ import ProductionTrendChart from '../components/dashboard/ProductionTrendChart';
 import ChemicalDosageKPI from '../components/dashboard/ChemicalDosageKPI';
 import NRWDashboardKPI from '../components/dashboard/NRWDashboardKPI';
 import LabourKPI from '../components/dashboard/LabourKPI';
-import { fetchPendingWeeklyReports, markReportDownloaded, checkAndTriggerWeeklyReport, type WeeklyReportRecord } from '../lib/weeklyReportService';
+import { fetchPendingWeeklyReports, markReportDownloaded, checkAndTriggerWeeklyReport, refreshWeeklyReportData, type WeeklyReportRecord } from '../lib/weeklyReportService';
 import { downloadWeeklyReport } from '../lib/weeklyReportDocument';
-import { fetchPendingMonthlyReports, markMonthlyReportDownloaded, checkAndTriggerMonthlyReport, type MonthlyReportRecord } from '../lib/monthlyReportService';
+import { fetchPendingMonthlyReports, markMonthlyReportDownloaded, checkAndTriggerMonthlyReport, refreshMonthlyReportData, type MonthlyReportRecord } from '../lib/monthlyReportService';
 import { downloadMonthlyReport } from '../lib/monthlyReportDocument';
+import ReportViewer from '../components/reports/ReportViewer';
 
 interface Alert {
   id: string;
@@ -91,6 +92,8 @@ export default function Dashboard() {
   const [allWeeklyReports, setAllWeeklyReports] = useState<WeeklyReportRecord[]>([]);
   const [allMonthlyReports, setAllMonthlyReports] = useState<MonthlyReportRecord[]>([]);
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
+  const [refreshingReportId, setRefreshingReportId] = useState<string | null>(null);
+  const [viewingReport, setViewingReport] = useState<{ type: 'weekly' | 'monthly'; record: WeeklyReportRecord | MonthlyReportRecord } | null>(null);
   const [alertsTab, setAlertsTab] = useState<'alerts' | 'followups'>('alerts');
   const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis' | 'reports'>('cw');
   const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'alerts' | 'followups'>('cw');
@@ -209,10 +212,54 @@ export default function Dashboard() {
       await markReportDownloaded(report.id, user.id);
       setWeeklyReports(prev => prev.filter(r => r.id !== report.id));
       setAllWeeklyReports(prev => prev.map(r => r.id === report.id ? { ...r, status: 'downloaded' } : r));
+      if (viewingReport?.record.id === report.id) {
+        setViewingReport(prev => prev ? { ...prev, record: { ...report, status: 'downloaded' } } : null);
+      }
     } catch (err) {
       console.error('Error downloading report:', err);
     } finally {
       setDownloadingReportId(null);
+    }
+  };
+
+  const handleRefreshWeeklyReport = async (report: WeeklyReportRecord) => {
+    if (!accessContext) return;
+    setRefreshingReportId(report.id);
+    try {
+      const scope = { isSCScoped: accessContext.isSCScoped, scopeId: accessContext.scopeId, allowedServiceCentreIds: [] as string[] };
+      const scName = accessContext.serviceCentre?.name ?? '';
+      const newData = await refreshWeeklyReportData(
+        scope, report.id, scName, report.week_number, report.year,
+        report.report_type, report.period_start, report.period_end
+      );
+      const updated = { ...report, report_data: newData };
+      setAllWeeklyReports(prev => prev.map(r => r.id === report.id ? updated : r));
+      if (viewingReport?.record.id === report.id) {
+        setViewingReport({ type: 'weekly', record: updated });
+      }
+    } catch (err) {
+      console.error('Error refreshing weekly report:', err);
+    } finally {
+      setRefreshingReportId(null);
+    }
+  };
+
+  const handleRefreshMonthlyReport = async (report: MonthlyReportRecord) => {
+    if (!accessContext) return;
+    setRefreshingReportId(report.id);
+    try {
+      const scope = { isSCScoped: accessContext.isSCScoped, scopeId: accessContext.scopeId, allowedServiceCentreIds: [] as string[] };
+      const scName = accessContext.serviceCentre?.name ?? '';
+      const newData = await refreshMonthlyReportData(scope, report.id, scName, report.year, report.month);
+      const updated = { ...report, report_data: newData };
+      setAllMonthlyReports(prev => prev.map(r => r.id === report.id ? updated : r));
+      if (viewingReport?.record.id === report.id) {
+        setViewingReport({ type: 'monthly', record: updated });
+      }
+    } catch (err) {
+      console.error('Error refreshing monthly report:', err);
+    } finally {
+      setRefreshingReportId(null);
     }
   };
 
@@ -1144,14 +1191,22 @@ export default function Dashboard() {
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">{periodStart} – {periodEnd}</p>
                 </div>
-                <button
-                  onClick={() => handleDownloadReport(report)}
-                  disabled={isDownloading}
-                  className={`flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0`}
-                >
-                  {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
-                  {isDownloading ? '' : 'Download'}
-                </button>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => setViewingReport({ type: 'weekly', record: report })}
+                    className="flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                  >
+                    View
+                  </button>
+                  <button
+                    onClick={() => handleDownloadReport(report)}
+                    disabled={isDownloading}
+                    className="flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                  >
+                    {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
+                    {isDownloading ? '' : 'Download'}
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -1250,7 +1305,41 @@ export default function Dashboard() {
     </div>
   );
 
-  const renderReportsContent = () => (
+  const renderReportsContent = () => {
+    if (viewingReport) {
+      const { type, record } = viewingReport;
+      const isWeekly = type === 'weekly';
+      const wr = record as WeeklyReportRecord;
+      const mr = record as MonthlyReportRecord;
+      const title = isWeekly
+        ? `Week ${wr.week_number}, ${wr.year} — ${wr.report_type === 'friday' ? 'End of Week' : 'Mid-week'} Report`
+        : `${(record as MonthlyReportRecord).report_data?.monthName} ${mr.year} — Monthly Operations Report`;
+      const subtitle = isWeekly
+        ? `${new Date(wr.period_start + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} – ${new Date(wr.period_end + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+        : `${wr.report_type ? '' : ''}${record.report_data?.serviceCentreName ?? ''}`;
+      const reportData = record.report_data;
+      const isRefreshing = refreshingReportId === record.id;
+      const isDownloading = downloadingReportId === record.id;
+
+      return (
+        <ReportViewer
+          reportType={type}
+          reportData={reportData}
+          title={title}
+          subtitle={subtitle}
+          onBack={() => setViewingReport(null)}
+          onDownload={() => isWeekly ? handleDownloadReport(wr) : handleDownloadMonthlyReport(mr)}
+          onRefresh={isWeekly
+            ? () => handleRefreshWeeklyReport(wr)
+            : () => handleRefreshMonthlyReport(mr)
+          }
+          isDownloading={isDownloading}
+          isRefreshing={isRefreshing}
+        />
+      );
+    }
+
+    return (
     <div className="flex h-full min-h-[400px]">
       <div className="w-44 flex-shrink-0 border-r border-gray-200 bg-gray-50 py-3">
         {REPORT_SECTIONS.map(section => {
@@ -1331,14 +1420,22 @@ export default function Dashboard() {
                         </div>
                         <p className="text-xs text-gray-500 mt-0.5">{report.report_data?.production?.stationCount ?? 0} stations · {report.report_data?.completionPct ?? 0}% coverage</p>
                       </div>
-                      <button
-                        onClick={() => handleDownloadMonthlyReport(report)}
-                        disabled={isDownloading}
-                        className="flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap flex-shrink-0"
-                      >
-                        {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
-                        {isDownloading ? '' : 'Download'}
-                      </button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => setViewingReport({ type: 'monthly', record: report })}
+                          className="flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDownloadMonthlyReport(report)}
+                          disabled={isDownloading}
+                          className="flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                        >
+                          {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
+                          {isDownloading ? '' : 'Download'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1358,7 +1455,8 @@ export default function Dashboard() {
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="h-full flex flex-col p-6 gap-6 overflow-hidden">
