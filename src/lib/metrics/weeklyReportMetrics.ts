@@ -3,7 +3,6 @@ import type { ScopeFilter, DateRange } from '../metricsConfig';
 import { roundTo, CHEMICAL_PROD_FIELDS, CHEMICAL_TYPES } from '../metricsConfig';
 import { applyScopeToQuery } from './scopeFilter';
 import {
-  computeDowntime,
   computeProductionEfficiency,
   computePumpRate,
   computeChemicalBalance,
@@ -12,6 +11,8 @@ import {
   computeDaysRemaining,
   isChemicalLowStock,
 } from './coreCalculations';
+
+const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
 export interface WeeklyStationProduction {
   stationId: string;
@@ -45,6 +46,8 @@ export interface WeeklyProductionSummary {
   avgCWPumpRate: number | null;
   avgRWPumpRate: number | null;
   totalNewConnections: number;
+  cwWeeklyTarget: number;
+  cwPerformancePct: number | null;
   stations: WeeklyStationProduction[];
 }
 
@@ -73,6 +76,59 @@ export interface WeeklyNonFunctionalDay {
   totalLogged: number;
 }
 
+export interface CapacityUtilizationStation {
+  stationId: string;
+  stationName: string;
+  stationType: string;
+  installedCapacity: number;
+  weeklyRWCapacity: number | null;
+  weeklyCWCapacity: number | null;
+  ytdRWCapacity: number | null;
+  ytdCWCapacity: number | null;
+}
+
+export interface CapacityUtilizationSummary {
+  rwInstalledTotal: number;
+  rwWeeklyActualTotal: number | null;
+  rwYtdAvgTotal: number | null;
+  cwInstalledTotal: number;
+  cwWeeklyActualTotal: number | null;
+  cwYtdAvgTotal: number | null;
+  stations: CapacityUtilizationStation[];
+}
+
+export interface PowerSupplyStation {
+  stationId: string;
+  stationName: string;
+  requiredHours: number;
+  actualHoursRun: number;
+  powerAvailabilityPct: number;
+}
+
+export interface PowerSupplySummary {
+  totalRequiredHours: number;
+  totalActualHours: number;
+  overallAvailabilityPct: number;
+  stations: PowerSupplyStation[];
+}
+
+export interface ConnectionStation {
+  stationId: string;
+  stationName: string;
+  currentConnections: number;
+  newConnectionsThisWeek: number;
+  newTotal: number;
+  ytdNewConnections: number;
+}
+
+export interface ConnectionsSummary {
+  totalCurrentConnections: number;
+  totalNewThisWeek: number;
+  totalNewTotal: number;
+  totalYTDNew: number;
+  stations: ConnectionStation[];
+}
+
 export interface WeeklyReportData {
   serviceCentreName: string;
   serviceCentreId: string;
@@ -86,6 +142,9 @@ export interface WeeklyReportData {
   breakdowns: WeeklyBreakdown[];
   chemicals: WeeklyChemicalSummary[];
   nonFunctionalByDay: WeeklyNonFunctionalDay[];
+  capacityUtilization: CapacityUtilizationSummary;
+  powerSupply: PowerSupplySummary;
+  connections: ConnectionsSummary;
   totalExpectedLogs: number;
   totalActualLogs: number;
   completionPct: number;
@@ -101,7 +160,7 @@ export async function fetchWeeklyReportData(
 ): Promise<WeeklyReportData> {
   let stationsQuery = supabase
     .from('stations')
-    .select('id, station_name, station_type, service_centre_id');
+    .select('id, station_name, station_type, service_centre_id, design_capacity_m3_hr, target_daily_hours, clients_domestic, clients_school, clients_business, clients_industry, clients_church, clients_parastatal, clients_government, clients_other');
   stationsQuery = applyScopeToQuery(stationsQuery, scope);
 
   const { data: stations, error: stErr } = await stationsQuery;
@@ -115,7 +174,9 @@ export async function fetchWeeklyReportData(
     return buildEmptyReport(scope.scopeId || '', serviceCentreName, weekNumber, year, reportType, dateRange);
   }
 
-  const [logsRes, breakdownsRes, balancesRes, receiptsRes] = await Promise.all([
+  const ytdStart = `${year}-01-01`;
+
+  const [logsRes, breakdownsRes, balancesRes, receiptsRes, targetsRes, ytdLogsRes] = await Promise.all([
     supabase
       .from('production_logs')
       .select('station_id, date, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, load_shedding_hours, other_downtime_hours, alum_kg, hth_kg, activated_carbon_kg, new_connections')
@@ -139,9 +200,21 @@ export async function fetchWeeklyReportData(
       .select('station_id, chemical_type, quantity, receipt_type, year, month')
       .in('station_id', stationIds)
       .in('chemical_type', ['aluminium_sulphate', 'hth', 'activated_carbon']),
+    supabase
+      .from('cw_production_targets')
+      .select('station_id, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
+      .in('station_id', stationIds)
+      .eq('year', year),
+    supabase
+      .from('production_logs')
+      .select('station_id, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, new_connections')
+      .in('station_id', stationIds)
+      .gte('date', ytdStart)
+      .lt('date', dateRange.start),
   ]);
 
   const logs = logsRes.data || [];
+  const ytdPriorLogs = ytdLogsRes.data || [];
 
   const stationAgg = new Map<string, {
     cwVol: number; rwVol: number; cwHrs: number; rwHrs: number;
@@ -168,6 +241,18 @@ export async function fetchWeeklyReportData(
     existing.hthUsed += Number(log.hth_kg) || 0;
     existing.acUsed += Number(log.activated_carbon_kg) || 0;
     stationAgg.set(sid, existing);
+  }
+
+  const ytdPriorAgg = new Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: number; connections: number }>();
+  for (const log of ytdPriorLogs) {
+    const sid = log.station_id;
+    const existing = ytdPriorAgg.get(sid) || { cwVol: 0, rwVol: 0, cwHrs: 0, rwHrs: 0, connections: 0 };
+    existing.cwVol += Number(log.cw_volume_m3) || 0;
+    existing.rwVol += Number(log.rw_volume_m3) || 0;
+    existing.cwHrs += Number(log.cw_hours_run) || 0;
+    existing.rwHrs += Number(log.rw_hours_run) || 0;
+    existing.connections += Number(log.new_connections) || 0;
+    ytdPriorAgg.set(sid, existing);
   }
 
   const stationMetrics: WeeklyStationProduction[] = [];
@@ -207,6 +292,13 @@ export async function fetchWeeklyReportData(
 
   stationMetrics.sort((a, b) => b.cwVolume - a.cwVolume);
 
+  const periodDays = Math.round(
+    (new Date(dateRange.end).getTime() - new Date(dateRange.start).getTime()) / 86400000
+  ) + 1;
+
+  const cwWeeklyTarget = computeCWWeeklyTarget(targetsRes.data || [], dateRange, periodDays);
+  const cwPerformancePct = cwWeeklyTarget > 0 ? roundTo((totalCWVol / cwWeeklyTarget) * 100, 1) : null;
+
   const production: WeeklyProductionSummary = {
     totalCWVolume: roundTo(totalCWVol, 2),
     totalRWVolume: roundTo(totalRWVol, 2),
@@ -221,6 +313,8 @@ export async function fetchWeeklyReportData(
     avgCWPumpRate: computePumpRate(totalCWVol, totalCWHrs),
     avgRWPumpRate: computePumpRate(totalRWVol, totalRWHrs),
     totalNewConnections: totalConnections,
+    cwWeeklyTarget: roundTo(cwWeeklyTarget, 0),
+    cwPerformancePct,
     stations: stationMetrics,
   };
 
@@ -312,15 +406,16 @@ export async function fetchWeeklyReportData(
 
   const nonFunctionalByDay: WeeklyNonFunctionalDay[] = Array.from(datesByDay.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, stationIds]) => ({
+    .map(([date, sIds]) => ({
       date,
       nonFunctionalCount: 0,
-      totalLogged: stationIds.length,
+      totalLogged: sIds.length,
     }));
 
-  const periodDays = Math.round(
-    (new Date(dateRange.end).getTime() - new Date(dateRange.start).getTime()) / 86400000
-  ) + 1;
+  const capacityUtilization = buildCapacityUtilization(allStations, stationAgg, ytdPriorAgg);
+  const powerSupply = buildPowerSupply(allStations, stationAgg, periodDays);
+  const connections = buildConnections(allStations, stationAgg, ytdPriorAgg);
+
   const totalExpectedLogs = allStations.length * periodDays;
   const completionPct = totalExpectedLogs > 0
     ? roundTo((totalLogCount / totalExpectedLogs) * 100, 1)
@@ -339,9 +434,196 @@ export async function fetchWeeklyReportData(
     breakdowns,
     chemicals,
     nonFunctionalByDay,
+    capacityUtilization,
+    powerSupply,
+    connections,
     totalExpectedLogs,
     totalActualLogs: totalLogCount,
     completionPct,
+  };
+}
+
+function computeCWWeeklyTarget(
+  targetsData: any[],
+  dateRange: DateRange,
+  periodDays: number
+): number {
+  if (targetsData.length === 0) return 0;
+
+  const startDate = new Date(dateRange.start + 'T12:00:00');
+  const endDate = new Date(dateRange.end + 'T12:00:00');
+
+  const daysByMonth = new Map<number, number>();
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const mIdx = d.getMonth();
+    daysByMonth.set(mIdx, (daysByMonth.get(mIdx) || 0) + 1);
+  }
+
+  let weeklyTarget = 0;
+  for (const [mIdx, daysInWeek] of daysByMonth.entries()) {
+    const monthKey = MONTH_KEYS[mIdx];
+    const daysInMonth = new Date(startDate.getFullYear(), mIdx + 1, 0).getDate();
+    let monthTarget = 0;
+    for (const t of targetsData) {
+      monthTarget += Number(t[monthKey]) || 0;
+    }
+    weeklyTarget += (monthTarget / daysInMonth) * daysInWeek;
+  }
+
+  return weeklyTarget;
+}
+
+type StationRow = any;
+type AggMap = Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: number; [k: string]: any }>;
+
+function buildCapacityUtilization(
+  allStations: StationRow[],
+  weekAgg: AggMap,
+  ytdPriorAgg: Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: number; connections: number }>
+): CapacityUtilizationSummary {
+  const stationsResult: CapacityUtilizationStation[] = [];
+  let rwInstalledTotal = 0, cwInstalledTotal = 0;
+  let rwWeeklyNumer = 0, rwWeeklyDenom = 0;
+  let cwWeeklyNumer = 0, cwWeeklyDenom = 0;
+  let rwYtdNumer = 0, rwYtdDenom = 0;
+  let cwYtdNumer = 0, cwYtdDenom = 0;
+
+  for (const station of allStations) {
+    const installed = Number(station.design_capacity_m3_hr) || 0;
+    const agg = weekAgg.get(station.id);
+    const ytd = ytdPriorAgg.get(station.id);
+
+    const weekCW = agg && agg.cwHrs > 0 ? roundTo(agg.cwVol / agg.cwHrs, 2) : null;
+    const weekRW = (station.station_type === 'Full Treatment' && agg && agg.rwHrs > 0)
+      ? roundTo(agg.rwVol / agg.rwHrs, 2) : null;
+
+    const ytdCWVol = (ytd?.cwVol || 0) + (agg?.cwVol || 0);
+    const ytdCWHrs = (ytd?.cwHrs || 0) + (agg?.cwHrs || 0);
+    const ytdRWVol = (ytd?.rwVol || 0) + (agg?.rwVol || 0);
+    const ytdRWHrs = (ytd?.rwHrs || 0) + (agg?.rwHrs || 0);
+
+    const ytdCW = ytdCWHrs > 0 ? roundTo(ytdCWVol / ytdCWHrs, 2) : null;
+    const ytdRW = (station.station_type === 'Full Treatment' && ytdRWHrs > 0)
+      ? roundTo(ytdRWVol / ytdRWHrs, 2) : null;
+
+    if (station.station_type === 'Full Treatment') {
+      rwInstalledTotal += installed;
+      if (agg && agg.rwHrs > 0) { rwWeeklyNumer += agg.rwVol; rwWeeklyDenom += agg.rwHrs; }
+      if (ytdRWHrs > 0) { rwYtdNumer += ytdRWVol; rwYtdDenom += ytdRWHrs; }
+    }
+    cwInstalledTotal += installed;
+    if (agg && agg.cwHrs > 0) { cwWeeklyNumer += agg.cwVol; cwWeeklyDenom += agg.cwHrs; }
+    if (ytdCWHrs > 0) { cwYtdNumer += ytdCWVol; cwYtdDenom += ytdCWHrs; }
+
+    stationsResult.push({
+      stationId: station.id,
+      stationName: station.station_name,
+      stationType: station.station_type,
+      installedCapacity: installed,
+      weeklyRWCapacity: weekRW,
+      weeklyCWCapacity: weekCW,
+      ytdRWCapacity: ytdRW,
+      ytdCWCapacity: ytdCW,
+    });
+  }
+
+  stationsResult.sort((a, b) => b.installedCapacity - a.installedCapacity);
+
+  return {
+    rwInstalledTotal: roundTo(rwInstalledTotal, 2),
+    rwWeeklyActualTotal: rwWeeklyDenom > 0 ? roundTo(rwWeeklyNumer / rwWeeklyDenom, 2) : null,
+    rwYtdAvgTotal: rwYtdDenom > 0 ? roundTo(rwYtdNumer / rwYtdDenom, 2) : null,
+    cwInstalledTotal: roundTo(cwInstalledTotal, 2),
+    cwWeeklyActualTotal: cwWeeklyDenom > 0 ? roundTo(cwWeeklyNumer / cwWeeklyDenom, 2) : null,
+    cwYtdAvgTotal: cwYtdDenom > 0 ? roundTo(cwYtdNumer / cwYtdDenom, 2) : null,
+    stations: stationsResult,
+  };
+}
+
+function buildPowerSupply(
+  allStations: StationRow[],
+  weekAgg: AggMap,
+  periodDays: number
+): PowerSupplySummary {
+  const stationsResult: PowerSupplyStation[] = [];
+  let totalRequired = 0, totalActual = 0;
+
+  for (const station of allStations) {
+    const targetDaily = Number(station.target_daily_hours) || 0;
+    const required = targetDaily * periodDays;
+    const agg = weekAgg.get(station.id);
+    const actual = agg ? agg.cwHrs : 0;
+    const availability = required > 0 ? roundTo((actual / required) * 100, 1) : 0;
+
+    totalRequired += required;
+    totalActual += actual;
+
+    stationsResult.push({
+      stationId: station.id,
+      stationName: station.station_name,
+      requiredHours: roundTo(required, 1),
+      actualHoursRun: roundTo(actual, 1),
+      powerAvailabilityPct: availability,
+    });
+  }
+
+  stationsResult.sort((a, b) => a.powerAvailabilityPct - b.powerAvailabilityPct);
+
+  return {
+    totalRequiredHours: roundTo(totalRequired, 1),
+    totalActualHours: roundTo(totalActual, 1),
+    overallAvailabilityPct: totalRequired > 0 ? roundTo((totalActual / totalRequired) * 100, 1) : 0,
+    stations: stationsResult,
+  };
+}
+
+function buildConnections(
+  allStations: StationRow[],
+  weekAgg: AggMap,
+  ytdPriorAgg: Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: number; connections: number }>
+): ConnectionsSummary {
+  const stationsResult: ConnectionStation[] = [];
+  let totalCurrent = 0, totalNewWeek = 0, totalYTD = 0;
+
+  for (const station of allStations) {
+    const currentConns =
+      (Number(station.clients_domestic) || 0) +
+      (Number(station.clients_school) || 0) +
+      (Number(station.clients_business) || 0) +
+      (Number(station.clients_industry) || 0) +
+      (Number(station.clients_church) || 0) +
+      (Number(station.clients_parastatal) || 0) +
+      (Number(station.clients_government) || 0) +
+      (Number(station.clients_other) || 0);
+
+    const agg = weekAgg.get(station.id);
+    const newWeek = agg?.connections || 0;
+    const ytdPrior = ytdPriorAgg.get(station.id);
+    const ytdPriorConns = ytdPrior?.connections || 0;
+    const ytdNew = ytdPriorConns + newWeek;
+
+    totalCurrent += currentConns;
+    totalNewWeek += newWeek;
+    totalYTD += ytdNew;
+
+    stationsResult.push({
+      stationId: station.id,
+      stationName: station.station_name,
+      currentConnections: currentConns,
+      newConnectionsThisWeek: newWeek,
+      newTotal: currentConns + newWeek,
+      ytdNewConnections: ytdNew,
+    });
+  }
+
+  stationsResult.sort((a, b) => b.newConnectionsThisWeek - a.newConnectionsThisWeek);
+
+  return {
+    totalCurrentConnections: totalCurrent,
+    totalNewThisWeek: totalNewWeek,
+    totalNewTotal: totalCurrent + totalNewWeek,
+    totalYTDNew: totalYTD,
+    stations: stationsResult,
   };
 }
 
@@ -366,11 +648,23 @@ function buildEmptyReport(
       totalCWVolume: 0, totalRWVolume: 0, totalCWHours: 0, totalRWHours: 0,
       totalLoadShedding: 0, totalOtherDowntime: 0, totalDowntime: 0,
       stationCount: 0, logCount: 0, avgEfficiency: 0,
-      avgCWPumpRate: null, avgRWPumpRate: null, totalNewConnections: 0, stations: [],
+      avgCWPumpRate: null, avgRWPumpRate: null, totalNewConnections: 0,
+      cwWeeklyTarget: 0, cwPerformancePct: null, stations: [],
     },
     breakdowns: [],
     chemicals: [],
     nonFunctionalByDay: [],
+    capacityUtilization: {
+      rwInstalledTotal: 0, rwWeeklyActualTotal: null, rwYtdAvgTotal: null,
+      cwInstalledTotal: 0, cwWeeklyActualTotal: null, cwYtdAvgTotal: null,
+      stations: [],
+    },
+    powerSupply: {
+      totalRequiredHours: 0, totalActualHours: 0, overallAvailabilityPct: 0, stations: [],
+    },
+    connections: {
+      totalCurrentConnections: 0, totalNewThisWeek: 0, totalNewTotal: 0, totalYTDNew: 0, stations: [],
+    },
     totalExpectedLogs: 0,
     totalActualLogs: 0,
     completionPct: 0,

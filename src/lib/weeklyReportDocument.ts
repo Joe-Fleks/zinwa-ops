@@ -79,7 +79,7 @@ function tableRow(cells: Array<{ text: string; bold?: boolean; shade?: string; a
     const shading = cell.shade ? `<w:shd w:val="clear" w:color="auto" w:fill="${cell.shade}"/>` : '';
     const justification = cell.align === 'right' ? '<w:jc w:val="right"/>' : (cell.align === 'center' ? '<w:jc w:val="center"/>' : '');
     const bold = (cell.bold || isHeader) ? '<w:b/>' : '';
-    const fontSize = isHeader ? '<w:sz w:val="18"/><w:szCs w:val="18"/>' : '<w:sz w:val="18"/><w:szCs w:val="18"/>';
+    const fontSize = '<w:sz w:val="18"/><w:szCs w:val="18"/>';
     return `
       <w:tc>
         <w:tcPr>
@@ -106,11 +106,375 @@ function tableRow(cells: Array<{ text: string; bold?: boolean; shade?: string; a
   return `<w:tr>${cellsXml}</w:tr>`;
 }
 
+function tableStart(): string {
+  return `<w:tbl>
+      <w:tblPr>
+        <w:tblStyle w:val="TableGrid"/>
+        <w:tblW w:w="9000" w:type="dxa"/>
+        <w:tblBorders>
+          <w:insideH w:val="single" w:sz="4" w:color="CCCCCC"/>
+          <w:insideV w:val="single" w:sz="4" w:color="CCCCCC"/>
+        </w:tblBorders>
+      </w:tblPr>`;
+}
+
+function buildProductionSection(data: WeeklyReportData): string {
+  const p = data.production;
+  const parts: string[] = [];
+
+  parts.push(heading1('2. PRODUCTION OVERVIEW'));
+  parts.push(`
+    ${tableStart()}
+      ${tableRow([
+        { text: 'Metric', shade: '1A3A5C', bold: true },
+        { text: 'Value', shade: '1A3A5C', bold: true, align: 'right' },
+      ], true)}
+      ${tableRow([
+        { text: 'Total CW Volume Produced', shade: 'EBF5FB' },
+        { text: formatNum(p.totalCWVolume, 0) + ' m\u00B3', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'Total RW Volume Abstracted', shade: 'FFFFFF' },
+        { text: formatNum(p.totalRWVolume, 0) + ' m\u00B3', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'Total CW Hours Run', shade: 'EBF5FB' },
+        { text: formatNum(p.totalCWHours, 1) + ' hrs', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'Total RW Hours Run', shade: 'FFFFFF' },
+        { text: formatNum(p.totalRWHours, 1) + ' hrs', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'Average CW Pump Rate', shade: 'EBF5FB' },
+        { text: p.avgCWPumpRate !== null ? formatNum(p.avgCWPumpRate, 1) + ' m\u00B3/hr' : 'N/A', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'Average RW Pump Rate', shade: 'FFFFFF' },
+        { text: p.avgRWPumpRate !== null ? formatNum(p.avgRWPumpRate, 1) + ' m\u00B3/hr' : 'N/A', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'CW Weekly Target', shade: 'EBF5FB' },
+        { text: p.cwWeeklyTarget > 0 ? formatNum(p.cwWeeklyTarget, 0) + ' m\u00B3' : 'Not Set', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'CW Performance vs Weekly Target', shade: 'FFFFFF' },
+        { text: p.cwPerformancePct !== null ? formatNum(p.cwPerformancePct, 1) + '%' : 'N/A', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'Load Shedding Hours', shade: 'EBF5FB' },
+        { text: formatNum(p.totalLoadShedding, 1) + ' hrs', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'Other Downtime Hours', shade: 'FFFFFF' },
+        { text: formatNum(p.totalOtherDowntime, 1) + ' hrs', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'Total Downtime', shade: 'EBF5FB' },
+        { text: formatNum(p.totalDowntime, 1) + ' hrs', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'Average Production Efficiency', shade: 'FFFFFF' },
+        { text: formatNum(p.avgEfficiency, 1) + '%', align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'New Connections', shade: 'EBF5FB' },
+        { text: String(p.totalNewConnections), align: 'right' },
+      ])}
+    </w:tbl>`);
+
+  if (p.stations.length > 0) {
+    parts.push(heading2('2.1 Station-Level Production'));
+    parts.push(`
+      ${tableStart()}
+        ${tableRow([
+          { text: 'Station', shade: '2E6FA3', bold: true },
+          { text: 'Type', shade: '2E6FA3', bold: true },
+          { text: 'CW Vol (m\u00B3)', shade: '2E6FA3', bold: true, align: 'right' },
+          { text: 'CW Hrs', shade: '2E6FA3', bold: true, align: 'right' },
+          { text: 'Downtime', shade: '2E6FA3', bold: true, align: 'right' },
+          { text: 'Eff. (%)', shade: '2E6FA3', bold: true, align: 'right' },
+        ], true)}
+        ${p.stations.map((st, i) => tableRow([
+          { text: st.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: st.stationType, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: formatNum(st.cwVolume, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: formatNum(st.cwHours, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: formatNum(st.totalDowntime, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: formatNum(st.efficiency, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        ])).join('')}
+      </w:tbl>`);
+  }
+
+  return parts.join('\n');
+}
+
+function buildCapacitySection(data: WeeklyReportData): string {
+  const cap = data.capacityUtilization;
+  const parts: string[] = [];
+
+  parts.push(horizontalLine());
+  parts.push(heading1('3. CAPACITY UTILIZATION'));
+
+  parts.push(heading2('3.1 RW Pumping Capacity (Full Treatment Stations)'));
+  const ftStations = cap.stations.filter(s => s.stationType === 'Full Treatment');
+
+  parts.push(`
+    ${tableStart()}
+      ${tableRow([
+        { text: 'Station', shade: '1A3A5C', bold: true },
+        { text: 'Installed (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'Weekly RW (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'YTD Avg RW (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
+      ], true)}
+      ${ftStations.map((st, i) => tableRow([
+        { text: st.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: st.installedCapacity > 0 ? formatNum(st.installedCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: st.weeklyRWCapacity !== null ? formatNum(st.weeklyRWCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: st.ytdRWCapacity !== null ? formatNum(st.ytdRWCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+      ])).join('')}
+      ${tableRow([
+        { text: 'Total / Avg', shade: 'D6EAF8', bold: true },
+        { text: cap.rwInstalledTotal > 0 ? formatNum(cap.rwInstalledTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
+        { text: cap.rwWeeklyActualTotal !== null ? formatNum(cap.rwWeeklyActualTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
+        { text: cap.rwYtdAvgTotal !== null ? formatNum(cap.rwYtdAvgTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
+      ])}
+    </w:tbl>`);
+
+  parts.push(heading2('3.2 CW Pumping Capacity (All Stations)'));
+  parts.push(`
+    ${tableStart()}
+      ${tableRow([
+        { text: 'Station', shade: '1A3A5C', bold: true },
+        { text: 'Type', shade: '1A3A5C', bold: true },
+        { text: 'Installed (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'Weekly CW (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'YTD Avg CW (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
+      ], true)}
+      ${cap.stations.map((st, i) => tableRow([
+        { text: st.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: st.stationType, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: st.installedCapacity > 0 ? formatNum(st.installedCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: st.weeklyCWCapacity !== null ? formatNum(st.weeklyCWCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: st.ytdCWCapacity !== null ? formatNum(st.ytdCWCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+      ])).join('')}
+      ${tableRow([
+        { text: 'Total / Avg', shade: 'D6EAF8', bold: true },
+        { text: '', shade: 'D6EAF8' },
+        { text: cap.cwInstalledTotal > 0 ? formatNum(cap.cwInstalledTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
+        { text: cap.cwWeeklyActualTotal !== null ? formatNum(cap.cwWeeklyActualTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
+        { text: cap.cwYtdAvgTotal !== null ? formatNum(cap.cwYtdAvgTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
+      ])}
+    </w:tbl>`);
+
+  return parts.join('\n');
+}
+
+function buildPowerSupplySection(data: WeeklyReportData): string {
+  const ps = data.powerSupply;
+  const parts: string[] = [];
+
+  parts.push(horizontalLine());
+  parts.push(heading1('4. POWER SUPPLY & HOURS'));
+
+  parts.push(`
+    ${tableStart()}
+      ${tableRow([
+        { text: 'Station', shade: '1A3A5C', bold: true },
+        { text: 'Required Hours', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'Actual Hours Run', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'Power Availability (%)', shade: '1A3A5C', bold: true, align: 'right' },
+      ], true)}
+      ${ps.stations.map((st, i) => {
+        const shade = st.powerAvailabilityPct < 50 ? 'FFE5E5' : (i % 2 === 0 ? 'EBF5FB' : 'FFFFFF');
+        return tableRow([
+          { text: st.stationName, shade },
+          { text: formatNum(st.requiredHours, 1), align: 'right', shade },
+          { text: formatNum(st.actualHoursRun, 1), align: 'right', shade },
+          { text: formatNum(st.powerAvailabilityPct, 1) + '%', align: 'right', shade },
+        ]);
+      }).join('')}
+      ${tableRow([
+        { text: 'TOTAL', shade: 'D6EAF8', bold: true },
+        { text: formatNum(ps.totalRequiredHours, 1), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: formatNum(ps.totalActualHours, 1), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: formatNum(ps.overallAvailabilityPct, 1) + '%', align: 'right', shade: 'D6EAF8', bold: true },
+      ])}
+    </w:tbl>`);
+
+  return parts.join('\n');
+}
+
+function buildConnectionsSection(data: WeeklyReportData): string {
+  const conn = data.connections;
+  const parts: string[] = [];
+
+  parts.push(horizontalLine());
+  parts.push(heading1('5. CONNECTIONS'));
+
+  parts.push(`
+    ${tableStart()}
+      ${tableRow([
+        { text: 'Metric', shade: '1A3A5C', bold: true },
+        { text: 'Value', shade: '1A3A5C', bold: true, align: 'right' },
+      ], true)}
+      ${tableRow([
+        { text: 'Total Current Connections', shade: 'EBF5FB' },
+        { text: formatNum(conn.totalCurrentConnections, 0), align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'New Connections This Week', shade: 'FFFFFF' },
+        { text: formatNum(conn.totalNewThisWeek, 0), align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'New Total Connections', shade: 'EBF5FB' },
+        { text: formatNum(conn.totalNewTotal, 0), align: 'right' },
+      ])}
+      ${tableRow([
+        { text: 'Year-to-Date New Connections', shade: 'FFFFFF' },
+        { text: formatNum(conn.totalYTDNew, 0), align: 'right' },
+      ])}
+    </w:tbl>`);
+
+  const stationsWithNew = conn.stations.filter(s => s.newConnectionsThisWeek > 0);
+  if (stationsWithNew.length > 0) {
+    parts.push(heading2('5.1 Stations with New Connections'));
+    parts.push(`
+      ${tableStart()}
+        ${tableRow([
+          { text: 'Station', shade: '2E6FA3', bold: true },
+          { text: 'Current', shade: '2E6FA3', bold: true, align: 'right' },
+          { text: 'New (Week)', shade: '2E6FA3', bold: true, align: 'right' },
+          { text: 'New Total', shade: '2E6FA3', bold: true, align: 'right' },
+          { text: 'YTD New', shade: '2E6FA3', bold: true, align: 'right' },
+        ], true)}
+        ${stationsWithNew.map((st, i) => tableRow([
+          { text: st.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: formatNum(st.currentConnections, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: formatNum(st.newConnectionsThisWeek, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: formatNum(st.newTotal, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: formatNum(st.ytdNewConnections, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        ])).join('')}
+      </w:tbl>`);
+  } else {
+    parts.push(para('No new connections recorded this week.'));
+  }
+
+  return parts.join('\n');
+}
+
+function buildDowntimeSection(data: WeeklyReportData): string {
+  const parts: string[] = [];
+
+  parts.push(horizontalLine());
+  parts.push(heading1('6. DOWNTIME ANALYSIS'));
+
+  const highDowntimeStations = data.production.stations
+    .filter(s => s.totalDowntime > 0)
+    .sort((a, b) => b.totalDowntime - a.totalDowntime);
+
+  if (highDowntimeStations.length > 0) {
+    parts.push(`
+      ${tableStart()}
+        ${tableRow([
+          { text: 'Station', shade: '1A3A5C', bold: true },
+          { text: 'Load Shedding (hrs)', shade: '1A3A5C', bold: true, align: 'right' },
+          { text: 'Other Downtime (hrs)', shade: '1A3A5C', bold: true, align: 'right' },
+          { text: 'Total (hrs)', shade: '1A3A5C', bold: true, align: 'right' },
+          { text: 'Status', shade: '1A3A5C', bold: true, align: 'center' },
+        ], true)}
+        ${highDowntimeStations.map((st, i) => {
+          const statusLabel = st.totalDowntime > 48 ? 'CRITICAL' : st.totalDowntime > 24 ? 'WARNING' : 'NORMAL';
+          const statusShade = st.totalDowntime > 48 ? 'FFE5E5' : st.totalDowntime > 24 ? 'FFF3CD' : 'E8F5E9';
+          return tableRow([
+            { text: st.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+            { text: formatNum(st.loadSheddingHours, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+            { text: formatNum(st.otherDowntimeHours, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+            { text: formatNum(st.totalDowntime, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+            { text: statusLabel, align: 'center', shade: statusShade },
+          ]);
+        }).join('')}
+      </w:tbl>`);
+  } else {
+    parts.push(para('No downtime recorded during this period.'));
+  }
+
+  return parts.join('\n');
+}
+
+function buildBreakdownsSection(data: WeeklyReportData): string {
+  const parts: string[] = [];
+
+  parts.push(horizontalLine());
+  parts.push(heading1('7. BREAKDOWNS'));
+
+  if (data.breakdowns.length > 0) {
+    parts.push(`
+      ${tableStart()}
+        ${tableRow([
+          { text: 'Station', shade: '1A3A5C', bold: true },
+          { text: 'Component', shade: '1A3A5C', bold: true },
+          { text: 'Impact', shade: '1A3A5C', bold: true },
+          { text: 'Date Reported', shade: '1A3A5C', bold: true },
+          { text: 'Status', shade: '1A3A5C', bold: true, align: 'center' },
+        ], true)}
+        ${data.breakdowns.map((b, i) => {
+          const statusLabel = b.isResolved ? 'RESOLVED' : 'OPEN';
+          const statusShade = b.isResolved ? 'E8F5E9' : 'FFE5E5';
+          return tableRow([
+            { text: b.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+            { text: b.component, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+            { text: b.impact, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+            { text: formatDate(b.dateReported), shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+            { text: statusLabel, align: 'center', shade: statusShade },
+          ]);
+        }).join('')}
+      </w:tbl>`);
+  } else {
+    parts.push(para('No breakdowns reported during this period.'));
+  }
+
+  return parts.join('\n');
+}
+
+function buildChemicalsSection(data: WeeklyReportData): string {
+  const parts: string[] = [];
+
+  parts.push(horizontalLine());
+  parts.push(heading1('8. CHEMICAL STOCK STATUS'));
+
+  for (const chem of data.chemicals) {
+    parts.push(heading2('8.' + (data.chemicals.indexOf(chem) + 1) + ' ' + chem.label));
+    parts.push(`
+      ${tableStart()}
+        ${tableRow([
+          { text: 'Total Used (kg)', shade: '2E6FA3', bold: true },
+          { text: 'Current Balance (kg)', shade: '2E6FA3', bold: true },
+          { text: 'Low Stock Stations', shade: '2E6FA3', bold: true, align: 'center' },
+        ], true)}
+        ${tableRow([
+          { text: formatNum(chem.totalUsed, 1), shade: 'EBF5FB' },
+          { text: formatNum(chem.totalBalance, 1), shade: 'EBF5FB' },
+          { text: String(chem.lowStockCount), align: 'center', shade: chem.lowStockCount > 0 ? 'FFE5E5' : 'E8F5E9' },
+        ])}
+      </w:tbl>`);
+
+    if (chem.lowStockStations.length > 0) {
+      parts.push(para('Low Stock Alerts:', true, 'C0392B'));
+      for (const st of chem.lowStockStations) {
+        parts.push(para(`  \u2022 ${st.stationName}: ${st.daysRemaining} day${st.daysRemaining !== 1 ? 's' : ''} remaining`));
+      }
+    }
+  }
+
+  return parts.join('\n');
+}
+
 function buildDocumentContent(data: WeeklyReportData): string {
   const reportTypeLbl = data.reportType === 'friday' ? 'Friday' : 'Tuesday';
-  const reportTitle = `WEEKLY OPERATIONS REPORT — ${reportTypeLbl.toUpperCase()} REPORT`;
+  const reportTitle = `WEEKLY OPERATIONS REPORT \u2014 ${reportTypeLbl.toUpperCase()} REPORT`;
   const subTitle = `Week ${data.weekNumber}, ${data.year} | ${data.serviceCentreName}`;
-  const periodStr = `${formatDate(data.periodStart)} – ${formatDate(data.periodEnd)}`;
+  const periodStr = `${formatDate(data.periodStart)} \u2013 ${formatDate(data.periodEnd)}`;
 
   const parts: string[] = [];
 
@@ -185,196 +549,16 @@ function buildDocumentContent(data: WeeklyReportData): string {
   parts.push(keyValue('Active Stations', `${data.production.stationCount}`));
   parts.push(keyValue('Total Breakdowns Reported', `${data.breakdowns.length}`));
 
-  parts.push(horizontalLine());
-
-  parts.push(heading1('2. PRODUCTION OVERVIEW'));
-
-  parts.push(`
-    <w:tbl>
-      <w:tblPr>
-        <w:tblStyle w:val="TableGrid"/>
-        <w:tblW w:w="9000" w:type="dxa"/>
-        <w:tblBorders>
-          <w:insideH w:val="single" w:sz="4" w:color="CCCCCC"/>
-          <w:insideV w:val="single" w:sz="4" w:color="CCCCCC"/>
-        </w:tblBorders>
-      </w:tblPr>
-      ${tableRow([
-        { text: 'Metric', shade: '1A3A5C', bold: true },
-        { text: 'Value', shade: '1A3A5C', bold: true, align: 'right' },
-      ], true)}
-      ${tableRow([
-        { text: 'Total CW Volume Produced', shade: 'EBF5FB' },
-        { text: formatNum(data.production.totalCWVolume, 0) + ' m³', align: 'right' },
-      ])}
-      ${tableRow([
-        { text: 'Total RW Volume Abstracted', shade: 'FFFFFF' },
-        { text: formatNum(data.production.totalRWVolume, 0) + ' m³', align: 'right' },
-      ])}
-      ${tableRow([
-        { text: 'Total CW Hours Run', shade: 'EBF5FB' },
-        { text: formatNum(data.production.totalCWHours, 1) + ' hrs', align: 'right' },
-      ])}
-      ${tableRow([
-        { text: 'Total RW Hours Run', shade: 'FFFFFF' },
-        { text: formatNum(data.production.totalRWHours, 1) + ' hrs', align: 'right' },
-      ])}
-      ${tableRow([
-        { text: 'Average CW Pump Rate', shade: 'EBF5FB' },
-        { text: data.production.avgCWPumpRate !== null ? formatNum(data.production.avgCWPumpRate, 1) + ' m³/hr' : 'N/A', align: 'right' },
-      ])}
-      ${tableRow([
-        { text: 'Load Shedding Hours', shade: 'FFFFFF' },
-        { text: formatNum(data.production.totalLoadShedding, 1) + ' hrs', align: 'right' },
-      ])}
-      ${tableRow([
-        { text: 'Other Downtime Hours', shade: 'EBF5FB' },
-        { text: formatNum(data.production.totalOtherDowntime, 1) + ' hrs', align: 'right' },
-      ])}
-      ${tableRow([
-        { text: 'Total Downtime', shade: 'FFFFFF' },
-        { text: formatNum(data.production.totalDowntime, 1) + ' hrs', align: 'right' },
-      ])}
-      ${tableRow([
-        { text: 'Average Production Efficiency', shade: 'EBF5FB' },
-        { text: formatNum(data.production.avgEfficiency, 1) + '%', align: 'right' },
-      ])}
-      ${tableRow([
-        { text: 'New Connections', shade: 'FFFFFF' },
-        { text: String(data.production.totalNewConnections), align: 'right' },
-      ])}
-    </w:tbl>`);
-
-  if (data.production.stations.length > 0) {
-    parts.push(heading2('2.1 Station-Level Production'));
-    parts.push(`
-      <w:tbl>
-        <w:tblPr>
-          <w:tblStyle w:val="TableGrid"/>
-          <w:tblW w:w="9000" w:type="dxa"/>
-        </w:tblPr>
-        ${tableRow([
-          { text: 'Station', shade: '2E6FA3', bold: true },
-          { text: 'Type', shade: '2E6FA3', bold: true },
-          { text: 'CW Volume (m³)', shade: '2E6FA3', bold: true, align: 'right' },
-          { text: 'CW Hours', shade: '2E6FA3', bold: true, align: 'right' },
-          { text: 'Downtime (hrs)', shade: '2E6FA3', bold: true, align: 'right' },
-          { text: 'Efficiency (%)', shade: '2E6FA3', bold: true, align: 'right' },
-        ], true)}
-        ${data.production.stations.map((st, i) => tableRow([
-          { text: st.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-          { text: st.stationType, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-          { text: formatNum(st.cwVolume, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-          { text: formatNum(st.cwHours, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-          { text: formatNum(st.totalDowntime, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-          { text: formatNum(st.efficiency, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-        ])).join('')}
-      </w:tbl>`);
-  }
+  parts.push(buildProductionSection(data));
+  parts.push(buildCapacitySection(data));
+  parts.push(buildPowerSupplySection(data));
+  parts.push(buildConnectionsSection(data));
+  parts.push(buildDowntimeSection(data));
+  parts.push(buildBreakdownsSection(data));
+  parts.push(buildChemicalsSection(data));
 
   parts.push(horizontalLine());
-  parts.push(heading1('3. DOWNTIME ANALYSIS'));
-
-  const highDowntimeStations = data.production.stations
-    .filter(s => s.totalDowntime > 0)
-    .sort((a, b) => b.totalDowntime - a.totalDowntime);
-
-  if (highDowntimeStations.length > 0) {
-    parts.push(`
-      <w:tbl>
-        <w:tblPr>
-          <w:tblStyle w:val="TableGrid"/>
-          <w:tblW w:w="9000" w:type="dxa"/>
-        </w:tblPr>
-        ${tableRow([
-          { text: 'Station', shade: '1A3A5C', bold: true },
-          { text: 'Load Shedding (hrs)', shade: '1A3A5C', bold: true, align: 'right' },
-          { text: 'Other Downtime (hrs)', shade: '1A3A5C', bold: true, align: 'right' },
-          { text: 'Total (hrs)', shade: '1A3A5C', bold: true, align: 'right' },
-          { text: 'Status', shade: '1A3A5C', bold: true, align: 'center' },
-        ], true)}
-        ${highDowntimeStations.map((st, i) => {
-          const statusLabel = st.totalDowntime > 48 ? 'CRITICAL' : st.totalDowntime > 24 ? 'WARNING' : 'NORMAL';
-          const statusShade = st.totalDowntime > 48 ? 'FFE5E5' : st.totalDowntime > 24 ? 'FFF3CD' : 'E8F5E9';
-          return tableRow([
-            { text: st.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-            { text: formatNum(st.loadSheddingHours, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-            { text: formatNum(st.otherDowntimeHours, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-            { text: formatNum(st.totalDowntime, 1), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-            { text: statusLabel, align: 'center', shade: statusShade },
-          ]);
-        }).join('')}
-      </w:tbl>`);
-  } else {
-    parts.push(para('No downtime recorded during this period.'));
-  }
-
-  parts.push(horizontalLine());
-  parts.push(heading1('4. BREAKDOWNS'));
-
-  if (data.breakdowns.length > 0) {
-    parts.push(`
-      <w:tbl>
-        <w:tblPr>
-          <w:tblStyle w:val="TableGrid"/>
-          <w:tblW w:w="9000" w:type="dxa"/>
-        </w:tblPr>
-        ${tableRow([
-          { text: 'Station', shade: '1A3A5C', bold: true },
-          { text: 'Component', shade: '1A3A5C', bold: true },
-          { text: 'Impact', shade: '1A3A5C', bold: true },
-          { text: 'Date Reported', shade: '1A3A5C', bold: true },
-          { text: 'Status', shade: '1A3A5C', bold: true, align: 'center' },
-        ], true)}
-        ${data.breakdowns.map((b, i) => {
-          const statusLabel = b.isResolved ? 'RESOLVED' : 'OPEN';
-          const statusShade = b.isResolved ? 'E8F5E9' : 'FFE5E5';
-          return tableRow([
-            { text: b.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-            { text: b.component, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-            { text: b.impact, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-            { text: formatDate(b.dateReported), shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
-            { text: statusLabel, align: 'center', shade: statusShade },
-          ]);
-        }).join('')}
-      </w:tbl>`);
-  } else {
-    parts.push(para('No breakdowns reported during this period.'));
-  }
-
-  parts.push(horizontalLine());
-  parts.push(heading1('5. CHEMICAL STOCK STATUS'));
-
-  for (const chem of data.chemicals) {
-    parts.push(heading2('5.' + (data.chemicals.indexOf(chem) + 1) + ' ' + chem.label));
-    parts.push(`
-      <w:tbl>
-        <w:tblPr>
-          <w:tblStyle w:val="TableGrid"/>
-          <w:tblW w:w="9000" w:type="dxa"/>
-        </w:tblPr>
-        ${tableRow([
-          { text: 'Total Used (kg)', shade: '2E6FA3', bold: true },
-          { text: 'Current Balance (kg)', shade: '2E6FA3', bold: true },
-          { text: 'Low Stock Stations', shade: '2E6FA3', bold: true, align: 'center' },
-        ], true)}
-        ${tableRow([
-          { text: formatNum(chem.totalUsed, 1), shade: 'EBF5FB' },
-          { text: formatNum(chem.totalBalance, 1), shade: 'EBF5FB' },
-          { text: String(chem.lowStockCount), align: 'center', shade: chem.lowStockCount > 0 ? 'FFE5E5' : 'E8F5E9' },
-        ])}
-      </w:tbl>`);
-
-    if (chem.lowStockStations.length > 0) {
-      parts.push(para('Low Stock Alerts:', true, 'C0392B'));
-      for (const st of chem.lowStockStations) {
-        parts.push(para(`  • ${st.stationName}: ${st.daysRemaining} day${st.daysRemaining !== 1 ? 's' : ''} remaining`));
-      }
-    }
-  }
-
-  parts.push(horizontalLine());
-  parts.push(heading1('6. NOTES & OBSERVATIONS'));
+  parts.push(heading1('9. NOTES & OBSERVATIONS'));
   parts.push(para('Please add any operational notes, incidents, or observations for this week below:'));
   for (let i = 0; i < 4; i++) {
     parts.push(`

@@ -58,6 +58,12 @@ export type {
   WeeklyBreakdown,
   WeeklyChemicalSummary,
   WeeklyNonFunctionalDay,
+  CapacityUtilizationSummary,
+  CapacityUtilizationStation,
+  PowerSupplySummary,
+  PowerSupplyStation,
+  ConnectionsSummary,
+  ConnectionStation,
 } from './weeklyReportMetrics';
 
 export { fetchDemandByStation } from './demandMetrics';
