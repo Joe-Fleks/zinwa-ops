@@ -81,9 +81,13 @@ export default function NRWDashboardKPI() {
   useEffect(() => {
     if (!accessContext) return;
     const scope = resolveScopeFilter(accessContext);
-    let q = supabase.from('tariffs').select('category, lower_limit, upper_limit, rate_per_m3').eq('is_active', true);
-    q = applyScopeToQuery(q, scope);
-    q.then(({ data }) => setTariffBands(data || []));
+
+    supabase
+      .from('tariffs')
+      .select('band_min_m3, band_max_m3, tariff_usd_per_m3, sort_order, category')
+      .eq('tariff_type', 'CW')
+      .order('sort_order')
+      .then(({ data }) => setTariffBands(data || []));
 
     let sq = supabase.from('stations').select('id');
     sq = applyScopeToQuery(sq, scope);
