@@ -1,7 +1,7 @@
 import { Trash2 } from 'lucide-react';
 import {
-  VehicleRow, ServiceCentreOption, VEHICLE_TYPES, FUEL_TYPES,
-  TRANSMISSIONS, VEHICLE_STATUSES, CONDITIONS,
+  BikeRow, StationOption, BIKE_TYPES, BIKE_FUEL_TYPES,
+  VEHICLE_STATUSES, CONDITIONS,
 } from '../equipmentConfig';
 
 const inputCls = 'w-full px-1.5 py-1 text-xs border-0 bg-transparent focus:ring-1 focus:ring-blue-400 focus:bg-white rounded';
@@ -35,23 +35,23 @@ function expiryDateBadge(dateStr: string) {
 }
 
 interface Props {
-  rows: VehicleRow[];
-  serviceCentres: ServiceCentreOption[];
+  rows: BikeRow[];
+  stations: StationOption[];
   editing: boolean;
-  editRows: VehicleRow[];
+  editRows: BikeRow[];
   onCellChange: (idx: number, field: string, value: any) => void;
-  onDelete: (row: VehicleRow) => void;
+  onDelete: (row: BikeRow) => void;
 }
 
-export default function VehiclesTable({ rows, serviceCentres, editing, editRows, onCellChange, onDelete }: Props) {
+export default function BikesTable({ rows, stations, editing, editRows, onCellChange, onDelete }: Props) {
   if (!editing && rows.length === 0) {
-    return <div className="text-center py-12 text-gray-500 text-sm">No vehicle records found. Click "Edit / Add Equipment" to add vehicles.</div>;
+    return <div className="text-center py-12 text-gray-500 text-sm">No bike records found. Click "Edit / Add Equipment" to add motorbikes or bicycles.</div>;
   }
 
   const headers = [
-    'Service Centre', 'Plate #', 'Type', 'Make', 'Model', 'Year',
-    'Engine #', 'Chassis #', 'Fuel', 'Trans.', 'Odometer (km)',
-    'Status', 'ZINARA Exp.', 'Condition', 'Condition Notes', 'Assigned To', 'Notes',
+    'Station', 'Type', 'Make', 'Model', 'Plate #', 'Engine #', 'Chassis #',
+    'Year', 'Fuel', 'Odometer (km)', 'Status', 'ZINARA Exp.',
+    'Condition', 'Condition Notes', 'Assigned To', 'Notes',
   ];
 
   if (editing) {
@@ -66,7 +66,7 @@ export default function VehiclesTable({ rows, serviceCentres, editing, editRows,
           </tr>
         </thead>
         <tbody>
-          {(rows as VehicleRow[]).map(row => {
+          {(rows as BikeRow[]).map(row => {
             const idx = editRows.indexOf(row);
             const realIdx = idx >= 0 ? idx : editRows.findIndex(r => r.id === row.id);
             if (realIdx < 0) return null;
@@ -76,34 +76,28 @@ export default function VehiclesTable({ rows, serviceCentres, editing, editRows,
                   <button onClick={() => onDelete(row)} className="text-gray-400 hover:text-red-500 transition-colors p-0.5"><Trash2 className="w-3.5 h-3.5" /></button>
                 </td>
                 <td className="px-1 py-0.5">
-                  <select value={row.service_centre_id} onChange={e => onCellChange(realIdx, 'service_centre_id', e.target.value)} className={selectCls} style={{ minWidth: 140 }}>
+                  <select value={row.station_id} onChange={e => onCellChange(realIdx, 'station_id', e.target.value)} className={selectCls} style={{ minWidth: 130 }}>
                     <option value="">Select...</option>
-                    {serviceCentres.map(sc => <option key={sc.id} value={sc.id}>{sc.short_name}</option>)}
+                    {stations.map(s => <option key={s.id} value={s.id}>{s.station_name}</option>)}
                   </select>
                 </td>
-                <td className="px-1 py-0.5"><input value={row.number_plate} onChange={e => onCellChange(realIdx, 'number_plate', e.target.value.toUpperCase())} className={inputCls} style={{ minWidth: 90 }} placeholder="e.g. ABC 1234" /></td>
                 <td className="px-1 py-0.5">
-                  <select value={row.vehicle_type} onChange={e => onCellChange(realIdx, 'vehicle_type', e.target.value)} className={selectCls} style={{ minWidth: 100 }}>
-                    <option value="">Select...</option>
-                    {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  <select value={row.bike_type} onChange={e => onCellChange(realIdx, 'bike_type', e.target.value)} className={selectCls} style={{ minWidth: 90 }}>
+                    {BIKE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </td>
                 <td className="px-1 py-0.5"><input value={row.make} onChange={e => onCellChange(realIdx, 'make', e.target.value)} className={inputCls} style={{ minWidth: 90 }} /></td>
                 <td className="px-1 py-0.5"><input value={row.model} onChange={e => onCellChange(realIdx, 'model', e.target.value)} className={inputCls} style={{ minWidth: 90 }} /></td>
+                <td className="px-1 py-0.5"><input value={row.number_plate} onChange={e => onCellChange(realIdx, 'number_plate', e.target.value.toUpperCase())} className={inputCls} style={{ minWidth: 90 }} placeholder="Motorbikes only" /></td>
+                <td className="px-1 py-0.5"><input value={row.engine_number} onChange={e => onCellChange(realIdx, 'engine_number', e.target.value)} className={inputCls} style={{ minWidth: 90 }} /></td>
+                <td className="px-1 py-0.5"><input value={row.chassis_number} onChange={e => onCellChange(realIdx, 'chassis_number', e.target.value)} className={inputCls} style={{ minWidth: 90 }} /></td>
                 <td className="px-1 py-0.5"><input type="number" value={row.year_of_manufacture || ''} onChange={e => onCellChange(realIdx, 'year_of_manufacture', e.target.value ? parseInt(e.target.value) : 0)} className={inputCls} style={{ minWidth: 60 }} /></td>
-                <td className="px-1 py-0.5"><input value={row.engine_number} onChange={e => onCellChange(realIdx, 'engine_number', e.target.value)} className={inputCls} style={{ minWidth: 100 }} /></td>
-                <td className="px-1 py-0.5"><input value={row.chassis_number} onChange={e => onCellChange(realIdx, 'chassis_number', e.target.value)} className={inputCls} style={{ minWidth: 100 }} /></td>
                 <td className="px-1 py-0.5">
                   <select value={row.fuel_type} onChange={e => onCellChange(realIdx, 'fuel_type', e.target.value)} className={selectCls} style={{ minWidth: 70 }}>
-                    {FUEL_TYPES.map(f => <option key={f} value={f}>{f}</option>)}
+                    {BIKE_FUEL_TYPES.map(f => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </td>
-                <td className="px-1 py-0.5">
-                  <select value={row.transmission} onChange={e => onCellChange(realIdx, 'transmission', e.target.value)} className={selectCls} style={{ minWidth: 80 }}>
-                    {TRANSMISSIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </td>
-                <td className="px-1 py-0.5"><input type="number" value={row.odometer_km || ''} onChange={e => onCellChange(realIdx, 'odometer_km', e.target.value ? parseFloat(e.target.value) : 0)} className={inputCls} style={{ minWidth: 80 }} /></td>
+                <td className="px-1 py-0.5"><input type="number" value={row.odometer_km || ''} onChange={e => onCellChange(realIdx, 'odometer_km', e.target.value ? parseFloat(e.target.value) : 0)} className={inputCls} style={{ minWidth: 70 }} /></td>
                 <td className="px-1 py-0.5">
                   <select value={row.status} onChange={e => onCellChange(realIdx, 'status', e.target.value)} className={selectCls} style={{ minWidth: 90 }}>
                     {VEHICLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -138,16 +132,15 @@ export default function VehiclesTable({ rows, serviceCentres, editing, editRows,
       <tbody>
         {rows.map((row, i) => (
           <tr key={row.id} className={`border-b border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-blue-50/30 transition-colors`}>
-            <td className="px-3 py-2 font-medium text-gray-900 whitespace-nowrap">{row.sc_name}</td>
-            <td className="px-3 py-2 text-gray-900 font-mono font-semibold">{row.number_plate || '--'}</td>
-            <td className="px-3 py-2 text-gray-700">{row.vehicle_type || '--'}</td>
+            <td className="px-3 py-2 font-medium text-gray-900 whitespace-nowrap">{row.station_name}</td>
+            <td className="px-3 py-2">{row.bike_type === 'Motorbike' ? <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800">Motorbike</span> : <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-teal-100 text-teal-800">Bicycle</span>}</td>
             <td className="px-3 py-2 text-gray-700">{row.make || '--'}</td>
             <td className="px-3 py-2 text-gray-700">{row.model || '--'}</td>
-            <td className="px-3 py-2 text-right text-gray-600">{row.year_of_manufacture || '--'}</td>
+            <td className="px-3 py-2 text-gray-900 font-mono font-semibold">{row.number_plate || '--'}</td>
             <td className="px-3 py-2 text-gray-500 font-mono text-[10px]">{row.engine_number || '--'}</td>
             <td className="px-3 py-2 text-gray-500 font-mono text-[10px]">{row.chassis_number || '--'}</td>
+            <td className="px-3 py-2 text-right text-gray-600">{row.year_of_manufacture || '--'}</td>
             <td className="px-3 py-2 text-gray-600">{row.fuel_type || '--'}</td>
-            <td className="px-3 py-2 text-gray-600">{row.transmission || '--'}</td>
             <td className="px-3 py-2 text-right text-gray-700">{row.odometer_km ? Number(row.odometer_km).toLocaleString() : '--'}</td>
             <td className="px-3 py-2">{statusBadge(row.status)}</td>
             <td className="px-3 py-2 whitespace-nowrap">{expiryDateBadge(row.zinara_expiry)}</td>

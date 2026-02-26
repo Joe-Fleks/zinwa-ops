@@ -5,19 +5,21 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNetwork } from '../../contexts/NetworkContext';
 import {
   EquipmentCategory, EQUIPMENT_CATEGORIES, TABLE_NAMES,
-  StationOption, ServiceCentreOption, PumpRow, MotorRow, BearingRow, VehicleRow,
+  StationOption, ServiceCentreOption, PumpRow, MotorRow, BearingRow, VehicleRow, BikeRow,
   computeDesignLifeExpiry, createEmptyPump, createEmptyMotor, createEmptyBearing,
-  createEmptyVehicle, shortenSCName,
+  createEmptyVehicle, createEmptyBike, shortenSCName,
 } from './equipmentConfig';
 import PumpsTable from './tables/PumpsTable';
 import MotorsTable from './tables/MotorsTable';
 import BearingsTable from './tables/BearingsTable';
 import VehiclesTable from './tables/VehiclesTable';
+import BikesTable from './tables/BikesTable';
 import DesignLifeCalendar from './DesignLifeCalendar';
 
 type ViewMode = 'registry' | 'calendar';
 
 const DATE_FIELDS = ['installation_date', 'design_life_expiry', 'zinara_expiry', 'insurance_expiry', 'fitness_expiry'];
+const SC_CATEGORIES: EquipmentCategory[] = ['vehicles'];
 
 export default function EquipmentRegistry() {
   const { user, accessContext } = useAuth();
@@ -42,13 +44,17 @@ export default function EquipmentRegistry() {
   const [motors, setMotors] = useState<MotorRow[]>([]);
   const [bearings, setBearings] = useState<BearingRow[]>([]);
   const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
+  const [bikes, setBikes] = useState<BikeRow[]>([]);
   const [editPumps, setEditPumps] = useState<PumpRow[]>([]);
   const [editMotors, setEditMotors] = useState<MotorRow[]>([]);
   const [editBearings, setEditBearings] = useState<BearingRow[]>([]);
   const [editVehicles, setEditVehicles] = useState<VehicleRow[]>([]);
+  const [editBikes, setEditBikes] = useState<BikeRow[]>([]);
 
   const allowedSCIds = useMemo(() => accessContext?.allowedServiceCentreIds || [], [accessContext]);
   const serviceCentreId = accessContext?.isSCScoped ? accessContext.scopeId : null;
+
+  const isSCCategory = SC_CATEGORIES.includes(category);
 
   useEffect(() => {
     loadStations();
@@ -56,7 +62,7 @@ export default function EquipmentRegistry() {
   }, [allowedSCIds]);
 
   useEffect(() => {
-    if (category === 'vehicles') {
+    if (isSCCategory) {
       if (serviceCentres.length > 0) loadEquipment();
     } else {
       if (stations.length > 0) loadEquipment();
@@ -101,12 +107,20 @@ export default function EquipmentRegistry() {
           ...r,
           sc_name: scMap.get(r.service_centre_id) || 'Unknown',
           zinara_expiry: r.zinara_expiry || '',
-          insurance_expiry: r.insurance_expiry || '',
-          fitness_expiry: r.fitness_expiry || '',
           _isNew: false,
           _isDirty: false,
         }));
         setVehicles(rows);
+      } else if (category === 'bikes') {
+        const stMap = new Map(stations.map(s => [s.id, s.station_name]));
+        const rows = (data || []).map((r: any) => ({
+          ...r,
+          station_name: stMap.get(r.station_id) || 'Unknown',
+          zinara_expiry: r.zinara_expiry || '',
+          _isNew: false,
+          _isDirty: false,
+        }));
+        setBikes(rows);
       } else {
         const stMap = new Map(stations.map(s => [s.id, s.station_name]));
         const rows = (data || []).map((r: any) => ({
@@ -128,27 +142,68 @@ export default function EquipmentRegistry() {
     }
   };
 
+  const syncVehicleBreakdowns = async (dirtyVehicles: VehicleRow[]) => {
+    if (!user) return;
+    const scId = serviceCentreId || allowedSCIds[0] || null;
+    if (!scId) return;
+
+    for (const v of dirtyVehicles) {
+      if (!v.id && v._isNew) continue;
+      const vehicleId = v.id;
+
+      const { data: existing } = await supabase
+        .from('station_breakdowns')
+        .select('id, is_resolved')
+        .eq('vehicle_id', vehicleId)
+        .eq('is_resolved', false)
+        .maybeSingle();
+
+      if (v.status === 'Non-Runner' && !existing) {
+        const { data: anyStation } = await supabase
+          .from('stations')
+          .select('id')
+          .eq('service_centre_id', scId)
+          .limit(1)
+          .maybeSingle();
+        if (!anyStation) continue;
+
+        await supabase.from('station_breakdowns').insert([{
+          station_id: anyStation.id,
+          vehicle_id: vehicleId,
+          date_reported: new Date().toISOString().split('T')[0],
+          nature_of_breakdown: `Vehicle ${v.number_plate || 'Unknown'} - Non-Runner`,
+          breakdown_impact: 'Not Significant',
+          description: `Vehicle ${v.number_plate || ''} (${v.make} ${v.model}) marked as Non-Runner`,
+          is_resolved: false,
+          reported_by: user.id,
+          service_centre_id: scId,
+        }]);
+      } else if (v.status === 'Runner' && existing) {
+        await supabase.from('station_breakdowns').update({
+          is_resolved: true,
+          date_resolved: new Date().toISOString().split('T')[0],
+          resolved_by: user.id,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existing.id);
+      }
+    }
+  };
+
   const handleAddRow = useCallback(() => {
-    if (category === 'vehicles') {
+    const startEdit = (setter: any, factory: () => any, current: any[]) => {
       if (!editing) {
-        setEditVehicles([createEmptyVehicle(serviceCentreId), ...vehicles]);
+        setter([factory(), ...current]);
         setEditing(true);
       } else {
-        setEditVehicles(prev => [createEmptyVehicle(serviceCentreId), ...prev]);
+        setter((prev: any[]) => [factory(), ...prev]);
       }
-      return;
-    }
-    if (!editing) {
-      if (category === 'pumps') setEditPumps([createEmptyPump(serviceCentreId), ...pumps]);
-      else if (category === 'motors') setEditMotors([createEmptyMotor(serviceCentreId), ...motors]);
-      else setEditBearings([createEmptyBearing(serviceCentreId), ...bearings]);
-      setEditing(true);
-    } else {
-      if (category === 'pumps') setEditPumps(prev => [createEmptyPump(serviceCentreId), ...prev]);
-      else if (category === 'motors') setEditMotors(prev => [createEmptyMotor(serviceCentreId), ...prev]);
-      else setEditBearings(prev => [createEmptyBearing(serviceCentreId), ...prev]);
-    }
-  }, [editing, category, pumps, motors, bearings, vehicles, serviceCentreId]);
+    };
+    if (category === 'vehicles') startEdit(setEditVehicles, () => createEmptyVehicle(serviceCentreId), vehicles);
+    else if (category === 'bikes') startEdit(setEditBikes, () => createEmptyBike(serviceCentreId), bikes);
+    else if (category === 'pumps') startEdit(setEditPumps, () => createEmptyPump(serviceCentreId), pumps);
+    else if (category === 'motors') startEdit(setEditMotors, () => createEmptyMotor(serviceCentreId), motors);
+    else startEdit(setEditBearings, () => createEmptyBearing(serviceCentreId), bearings);
+  }, [editing, category, pumps, motors, bearings, vehicles, bikes, serviceCentreId]);
 
   const handleCellChange = useCallback((rowIdx: number, field: string, value: any) => {
     const updater = (prev: any[]) => {
@@ -160,7 +215,7 @@ export default function EquipmentRegistry() {
         row.sc_name = sc?.short_name || '';
       }
 
-      if (category !== 'vehicles' && field === 'station_id') {
+      if (!isSCCategory && field === 'station_id') {
         const st = stations.find(s => s.id === value);
         row.station_name = st?.station_name || '';
         if (serviceCentreId) row.service_centre_id = serviceCentreId;
@@ -179,8 +234,9 @@ export default function EquipmentRegistry() {
     if (category === 'pumps') setEditPumps(updater);
     else if (category === 'motors') setEditMotors(updater);
     else if (category === 'bearings') setEditBearings(updater);
-    else setEditVehicles(updater);
-  }, [stations, serviceCentres, category, serviceCentreId]);
+    else if (category === 'vehicles') setEditVehicles(updater);
+    else setEditBikes(updater);
+  }, [stations, serviceCentres, category, serviceCentreId, isSCCategory]);
 
   const handleDeleteRow = useCallback(async (row: any) => {
     if (row._isNew) {
@@ -188,7 +244,8 @@ export default function EquipmentRegistry() {
       if (category === 'pumps') setEditPumps(remover);
       else if (category === 'motors') setEditMotors(remover);
       else if (category === 'bearings') setEditBearings(remover);
-      else setEditVehicles(remover);
+      else if (category === 'vehicles') setEditVehicles(remover);
+      else setEditBikes(remover);
       return;
     }
     if (!row.id) return;
@@ -202,7 +259,8 @@ export default function EquipmentRegistry() {
       if (category === 'pumps') { setPumps(remover); setEditPumps(remover); }
       else if (category === 'motors') { setMotors(remover); setEditMotors(remover); }
       else if (category === 'bearings') { setBearings(remover); setEditBearings(remover); }
-      else { setVehicles(remover); setEditVehicles(remover); }
+      else if (category === 'vehicles') { setVehicles(remover); setEditVehicles(remover); }
+      else { setBikes(remover); setEditBikes(remover); }
       setSaveMsg('Record deleted');
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (err: any) {
@@ -218,11 +276,12 @@ export default function EquipmentRegistry() {
       category === 'pumps' ? editPumps :
       category === 'motors' ? editMotors :
       category === 'bearings' ? editBearings :
-      editVehicles;
+      category === 'vehicles' ? editVehicles :
+      editBikes;
     const dirtyRows = rows.filter(r => r._isDirty);
     if (dirtyRows.length === 0) { setEditing(false); return; }
 
-    if (category === 'vehicles') {
+    if (isSCCategory) {
       const invalid = dirtyRows.filter(r => !r.service_centre_id);
       if (invalid.length > 0) { setError('Service Centre is required for all vehicle records'); return; }
     } else {
@@ -234,9 +293,10 @@ export default function EquipmentRegistry() {
     setError('');
     try {
       const table = TABLE_NAMES[category];
+      const savedIds: string[] = [];
       for (const row of dirtyRows) {
         const { _isNew, _isDirty, station_name, sc_name, id, ...fields } = row;
-        if (category !== 'vehicles') {
+        if (!isSCCategory) {
           fields.service_centre_id = serviceCentreId || fields.service_centre_id;
         }
         fields.updated_at = new Date().toISOString();
@@ -247,13 +307,26 @@ export default function EquipmentRegistry() {
 
         if (_isNew) {
           fields.created_by = user.id;
-          const { error: err } = await supabase.from(table).insert([fields]);
+          const { data: inserted, error: err } = await supabase.from(table).insert([fields]).select('id').maybeSingle();
           if (err) throw err;
+          if (inserted) savedIds.push(inserted.id);
         } else {
           const { error: err } = await supabase.from(table).update(fields).eq('id', id);
           if (err) throw err;
+          savedIds.push(id);
         }
       }
+
+      if (category === 'vehicles') {
+        await loadEquipment();
+        const updatedVehicles: VehicleRow[] = [];
+        for (const row of dirtyRows) {
+          const vid = row.id || savedIds.shift();
+          if (vid) updatedVehicles.push({ ...row, id: vid });
+        }
+        await syncVehicleBreakdowns(updatedVehicles);
+      }
+
       setSaveMsg(`${dirtyRows.length} record(s) saved`);
       setTimeout(() => setSaveMsg(''), 3000);
       setEditing(false);
@@ -270,6 +343,7 @@ export default function EquipmentRegistry() {
     setEditMotors([...motors]);
     setEditBearings([...bearings]);
     setEditVehicles([...vehicles]);
+    setEditBikes([...bikes]);
     setEditing(true);
   };
 
@@ -281,9 +355,19 @@ export default function EquipmentRegistry() {
   const currentRows = useMemo(() => {
     let source: any[];
     if (editing) {
-      source = category === 'pumps' ? editPumps : category === 'motors' ? editMotors : category === 'bearings' ? editBearings : editVehicles;
+      source =
+        category === 'pumps' ? editPumps :
+        category === 'motors' ? editMotors :
+        category === 'bearings' ? editBearings :
+        category === 'vehicles' ? editVehicles :
+        editBikes;
     } else {
-      source = category === 'pumps' ? pumps : category === 'motors' ? motors : category === 'bearings' ? bearings : vehicles;
+      source =
+        category === 'pumps' ? pumps :
+        category === 'motors' ? motors :
+        category === 'bearings' ? bearings :
+        category === 'vehicles' ? vehicles :
+        bikes;
     }
 
     let filtered = source;
@@ -293,6 +377,7 @@ export default function EquipmentRegistry() {
       if (statusFilter) filtered = filtered.filter(r => r.status === statusFilter);
     } else {
       if (stationFilter) filtered = filtered.filter(r => r.station_id === stationFilter);
+      if (category === 'bikes' && statusFilter) filtered = filtered.filter(r => r.status === statusFilter);
     }
 
     if (conditionFilter) filtered = filtered.filter(r => r.condition === conditionFilter);
@@ -300,20 +385,28 @@ export default function EquipmentRegistry() {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(r => {
-        const searchable = category === 'vehicles'
-          ? [r.number_plate, r.make, r.model, r.sc_name, r.vehicle_type, r.assigned_to || ''].join(' ').toLowerCase()
-          : [r.tag_number, r.manufacturer, r.model, r.station_name, (r as any).serial_number || ''].join(' ').toLowerCase();
+        let searchable: string;
+        if (category === 'vehicles') {
+          searchable = [r.number_plate, r.make, r.model, r.sc_name, r.vehicle_type, r.assigned_to || ''].join(' ').toLowerCase();
+        } else if (category === 'bikes') {
+          searchable = [r.number_plate, r.make, r.model, r.station_name, r.bike_type, r.assigned_to || ''].join(' ').toLowerCase();
+        } else {
+          searchable = [r.tag_number, r.manufacturer, r.model, r.station_name, (r as any).serial_number || ''].join(' ').toLowerCase();
+        }
         return searchable.includes(q);
       });
     }
     return filtered;
-  }, [editing, category, pumps, motors, bearings, vehicles, editPumps, editMotors, editBearings, editVehicles, stationFilter, scFilter, conditionFilter, statusFilter, searchQuery]);
+  }, [editing, category, pumps, motors, bearings, vehicles, bikes, editPumps, editMotors, editBearings, editVehicles, editBikes, stationFilter, scFilter, conditionFilter, statusFilter, searchQuery]);
 
   const totalCount =
     category === 'pumps' ? pumps.length :
     category === 'motors' ? motors.length :
     category === 'bearings' ? bearings.length :
-    vehicles.length;
+    category === 'vehicles' ? vehicles.length :
+    bikes.length;
+
+  const showStatusFilter = category === 'vehicles' || category === 'bikes';
 
   const lightBlueSelect = 'appearance-none pl-3 pr-8 py-2 border border-blue-200 rounded-lg text-sm bg-blue-50 text-blue-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer';
 
@@ -401,7 +494,7 @@ export default function EquipmentRegistry() {
               <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder={category === 'vehicles' ? 'Search plate, make...' : 'Search tag, model...'}
+                placeholder={category === 'vehicles' ? 'Search plate, make...' : category === 'bikes' ? 'Search plate, make...' : 'Search tag, model...'}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="pl-8 pr-3 py-2 border border-blue-200 rounded-lg text-sm w-48 bg-blue-50 text-blue-900 placeholder-blue-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -410,11 +503,7 @@ export default function EquipmentRegistry() {
 
             {category === 'vehicles' ? (
               <div className="relative">
-                <select
-                  value={scFilter}
-                  onChange={e => setSCFilter(e.target.value)}
-                  className={lightBlueSelect}
-                >
+                <select value={scFilter} onChange={e => setSCFilter(e.target.value)} className={lightBlueSelect}>
                   <option value="">All Service Centres</option>
                   {serviceCentres.map(sc => <option key={sc.id} value={sc.id}>{sc.short_name}</option>)}
                 </select>
@@ -422,11 +511,7 @@ export default function EquipmentRegistry() {
               </div>
             ) : (
               <div className="relative">
-                <select
-                  value={stationFilter}
-                  onChange={e => setStationFilter(e.target.value)}
-                  className={lightBlueSelect}
-                >
+                <select value={stationFilter} onChange={e => setStationFilter(e.target.value)} className={lightBlueSelect}>
                   <option value="">All Stations</option>
                   {stations.map(s => <option key={s.id} value={s.id}>{s.station_name}</option>)}
                 </select>
@@ -434,13 +519,9 @@ export default function EquipmentRegistry() {
               </div>
             )}
 
-            {category === 'vehicles' && (
+            {showStatusFilter && (
               <div className="relative">
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
-                  className={lightBlueSelect}
-                >
+                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={lightBlueSelect}>
                   <option value="">All Statuses</option>
                   <option value="Runner">Runner</option>
                   <option value="Non-Runner">Non-Runner</option>
@@ -450,11 +531,7 @@ export default function EquipmentRegistry() {
             )}
 
             <div className="relative">
-              <select
-                value={conditionFilter}
-                onChange={e => setConditionFilter(e.target.value)}
-                className={lightBlueSelect}
-              >
+              <select value={conditionFilter} onChange={e => setConditionFilter(e.target.value)} className={lightBlueSelect}>
                 <option value="">All Conditions</option>
                 <option value="Good">Good</option>
                 <option value="Fair">Fair</option>
@@ -477,44 +554,19 @@ export default function EquipmentRegistry() {
           ) : (
             <div className="overflow-auto border border-gray-200 rounded-lg" style={{ maxHeight: 'calc(100vh - 340px)' }}>
               {category === 'pumps' && (
-                <PumpsTable
-                  rows={currentRows as PumpRow[]}
-                  stations={stations}
-                  editing={editing}
-                  editRows={editPumps}
-                  onCellChange={handleCellChange}
-                  onDelete={handleDeleteRow}
-                />
+                <PumpsTable rows={currentRows as PumpRow[]} stations={stations} editing={editing} editRows={editPumps} onCellChange={handleCellChange} onDelete={handleDeleteRow} />
               )}
               {category === 'motors' && (
-                <MotorsTable
-                  rows={currentRows as MotorRow[]}
-                  stations={stations}
-                  editing={editing}
-                  editRows={editMotors}
-                  onCellChange={handleCellChange}
-                  onDelete={handleDeleteRow}
-                />
+                <MotorsTable rows={currentRows as MotorRow[]} stations={stations} editing={editing} editRows={editMotors} onCellChange={handleCellChange} onDelete={handleDeleteRow} />
               )}
               {category === 'bearings' && (
-                <BearingsTable
-                  rows={currentRows as BearingRow[]}
-                  stations={stations}
-                  editing={editing}
-                  editRows={editBearings}
-                  onCellChange={handleCellChange}
-                  onDelete={handleDeleteRow}
-                />
+                <BearingsTable rows={currentRows as BearingRow[]} stations={stations} editing={editing} editRows={editBearings} onCellChange={handleCellChange} onDelete={handleDeleteRow} />
               )}
               {category === 'vehicles' && (
-                <VehiclesTable
-                  rows={currentRows as VehicleRow[]}
-                  serviceCentres={serviceCentres}
-                  editing={editing}
-                  editRows={editVehicles}
-                  onCellChange={handleCellChange}
-                  onDelete={handleDeleteRow}
-                />
+                <VehiclesTable rows={currentRows as VehicleRow[]} serviceCentres={serviceCentres} editing={editing} editRows={editVehicles} onCellChange={handleCellChange} onDelete={handleDeleteRow} />
+              )}
+              {category === 'bikes' && (
+                <BikesTable rows={currentRows as BikeRow[]} stations={stations} editing={editing} editRows={editBikes} onCellChange={handleCellChange} onDelete={handleDeleteRow} />
               )}
             </div>
           )}
