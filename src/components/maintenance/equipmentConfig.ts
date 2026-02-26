@@ -1,15 +1,17 @@
-export type EquipmentCategory = 'pumps' | 'motors' | 'bearings';
+export type EquipmentCategory = 'pumps' | 'motors' | 'bearings' | 'vehicles';
 
 export const EQUIPMENT_CATEGORIES: { key: EquipmentCategory; label: string }[] = [
   { key: 'pumps', label: 'Pumps' },
   { key: 'motors', label: 'Electric Motors' },
   { key: 'bearings', label: 'Bearings' },
+  { key: 'vehicles', label: 'Vehicles' },
 ];
 
 export const TABLE_NAMES: Record<EquipmentCategory, string> = {
   pumps: 'equipment_pumps',
   motors: 'equipment_motors',
   bearings: 'equipment_bearings',
+  vehicles: 'equipment_vehicles',
 };
 
 export const PUMP_TYPES = ['Centrifugal', 'Submersible', 'Borehole', 'Positive Displacement', 'Multistage'];
@@ -25,9 +27,20 @@ export const ENCLOSURE_TYPES = ['TEFC', 'ODP', 'IP55', 'IP68'];
 export const BEARING_TYPES = ['Ball Bearing', 'Roller Bearing', 'Thrust Bearing', 'Sleeve Bearing'];
 export const BEARING_POSITIONS = ['Drive End', 'Non-Drive End', 'Pump Side', 'Motor Side'];
 
+export const VEHICLE_TYPES = ['Truck', 'Bakkie', 'Sedan', 'SUV', 'Motorcycle', 'Van', 'Bus', 'Trailer', 'Plant/Machinery'];
+export const FUEL_TYPES = ['Diesel', 'Petrol'];
+export const TRANSMISSIONS = ['Manual', 'Automatic'];
+export const VEHICLE_STATUSES = ['Runner', 'Non-Runner'];
+
 export interface StationOption {
   id: string;
   station_name: string;
+}
+
+export interface ServiceCentreOption {
+  id: string;
+  name: string;
+  short_name: string;
 }
 
 export interface PumpRow {
@@ -106,7 +119,33 @@ export interface BearingRow {
   _isDirty: boolean;
 }
 
-export type EquipmentRow = PumpRow | MotorRow | BearingRow;
+export interface VehicleRow {
+  id: string | null;
+  service_centre_id: string;
+  sc_name: string;
+  number_plate: string;
+  vehicle_type: string;
+  make: string;
+  model: string;
+  year_of_manufacture: number;
+  engine_number: string;
+  chassis_number: string;
+  fuel_type: string;
+  transmission: string;
+  odometer_km: number;
+  status: string;
+  zinara_expiry: string;
+  insurance_expiry: string;
+  fitness_expiry: string;
+  condition: string;
+  condition_comment: string;
+  assigned_to: string;
+  notes: string;
+  _isNew: boolean;
+  _isDirty: boolean;
+}
+
+export type EquipmentRow = PumpRow | MotorRow | BearingRow | VehicleRow;
 
 export function computeDesignLifeExpiry(installDate: string, lifeYears: number): string {
   if (!installDate || !lifeYears) return '';
@@ -148,6 +187,25 @@ export function createEmptyBearing(serviceCentreId: string | null): BearingRow {
     installation_date: '', design_life_years: 0, design_life_expiry: '',
     condition: 'Good', notes: '', _isNew: true, _isDirty: true,
   };
+}
+
+export function createEmptyVehicle(serviceCentreId: string | null): VehicleRow {
+  return {
+    id: null, service_centre_id: serviceCentreId || '', sc_name: '',
+    number_plate: '', vehicle_type: '', make: '', model: '',
+    year_of_manufacture: 0, engine_number: '', chassis_number: '',
+    fuel_type: 'Diesel', transmission: 'Manual', odometer_km: 0,
+    status: 'Runner',
+    zinara_expiry: '', insurance_expiry: '', fitness_expiry: '',
+    condition: 'Good', condition_comment: '', assigned_to: '', notes: '',
+    _isNew: true, _isDirty: true,
+  };
+}
+
+export function shortenSCName(name: string): string {
+  return name
+    .replace(/\bService\s+Cent(re|er)\b/i, 'SC')
+    .replace(/\bservice\s+cent(re|er)\b/i, 'SC');
 }
 
 export interface DesignLifeAlert {
