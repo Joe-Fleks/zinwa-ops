@@ -733,7 +733,7 @@ export default function RWDatabaseTab({ stationId }: Props) {
           <ExcelLikeTable className="w-full border-collapse bg-white shadow-sm" onPaste={handleTablePaste}>
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
-                <th className="border border-gray-300 px-2 py-1 text-xs font-extrabold text-gray-700 text-left">Client / Company</th>
+                <th className="border border-gray-300 px-2 py-1 text-xs font-extrabold text-gray-700 text-left sticky left-0 z-20 bg-gray-50" style={{ minWidth: '200px' }}>Client / Company</th>
                 <th className="border border-gray-300 px-2 py-1 text-xs font-extrabold text-gray-700 text-left">Source</th>
                 <th className="border border-gray-300 px-2 py-1 text-xs font-extrabold text-gray-700 text-left">Farm Coords</th>
                 <th className="border border-gray-300 px-2 py-1 text-xs font-extrabold text-gray-700 text-left">Property Name</th>
@@ -759,8 +759,8 @@ export default function RWDatabaseTab({ stationId }: Props) {
                     allocation.status === 'modified' ? 'bg-yellow-50' : ''
                   }
                 >
-                  <td className="border border-gray-300 p-0">
-                    <span className="px-2 text-sm block h-7 flex items-center" style={{ minWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <td className={`border border-gray-300 p-0 sticky left-0 z-10 ${allocation.status === 'new' ? 'bg-blue-50' : allocation.status === 'modified' ? 'bg-yellow-50' : 'bg-white'}`}>
+                    <span className="px-2 text-sm block h-7 flex items-center font-medium" style={{ minWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {allocation.client_company_name}
                     </span>
                   </td>
