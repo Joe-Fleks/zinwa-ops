@@ -79,6 +79,9 @@ export type {
   FuelFullAnalysis,
 } from './fuelMetrics';
 
+export { fetchMonthlyEnergySummary } from './energyMetrics';
+export type { MonthlyEnergySummary, EnergyMeterSummary, EnergyStationSummary } from './energyMetrics';
+
 export { fetchDemandByStation } from './demandMetrics';
 export type { StationDemandRow, DemandSummary } from './demandMetrics';
 export { DEMAND_CATEGORY_LABELS } from './demandMetrics';

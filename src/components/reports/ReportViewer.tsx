@@ -138,6 +138,45 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
         </>
       )}
 
+      {(data.ytdProductionVsTarget?.stations || []).length > 0 && (
+        <>
+          <SubTitle>YTD CW Production Performance vs Target</SubTitle>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  {['Station', 'YTD Production (m\u00b3)', 'YTD Target (m\u00b3)', 'Variance (m\u00b3)', 'Achievement (%)'].map(h => (
+                    <th key={h} className={HDR2}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.ytdProductionVsTarget.stations.map((st: any, i: number) => {
+                  const achShade = st.achievementPct == null ? TR_ALT(i)
+                    : st.achievementPct >= 100 ? 'bg-green-50' : st.achievementPct >= 80 ? 'bg-yellow-50' : 'bg-red-50';
+                  return (
+                    <tr key={st.stationId} className={TR_ALT(i)}>
+                      <td className={TD + ' font-medium'}>{st.stationName}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.ytdProduction)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.ytdTarget)}</td>
+                      <td className={TD + ' text-right'}>{(st.variance >= 0 ? '+' : '') + fmt(st.variance)}</td>
+                      <td className={`${TD} text-right ${achShade}`}>{st.achievementPct != null ? fmt(st.achievementPct, 1) + '%' : 'N/A'}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-[#D6EAF8] font-semibold">
+                  <td className={TD + ' font-bold'}>TOTAL</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(data.ytdProductionVsTarget.totalYTDProduction)}</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(data.ytdProductionVsTarget.totalYTDTarget)}</td>
+                  <td className={TD + ' text-right font-bold'}>{(data.ytdProductionVsTarget.totalVariance >= 0 ? '+' : '') + fmt(data.ytdProductionVsTarget.totalVariance)}</td>
+                  <td className={TD + ' text-right font-bold'}>{data.ytdProductionVsTarget.totalAchievementPct != null ? fmt(data.ytdProductionVsTarget.totalAchievementPct, 1) + '%' : 'N/A'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
       <SectionTitle>2. Capacity Utilization</SectionTitle>
       <div className="grid grid-cols-2 gap-3 mb-3">
         {[
@@ -372,6 +411,45 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
         </>
       )}
 
+      {(data.ytdProductionVsTarget?.stations || []).length > 0 && (
+        <>
+          <SubTitle>YTD CW Production Performance vs Target</SubTitle>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  {['Station', 'YTD Production (m\u00b3)', 'YTD Target (m\u00b3)', 'Variance (m\u00b3)', 'Achievement (%)'].map(h => (
+                    <th key={h} className={HDR2}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.ytdProductionVsTarget.stations.map((st: any, i: number) => {
+                  const achShade = st.achievementPct == null ? TR_ALT(i)
+                    : st.achievementPct >= 100 ? 'bg-green-50' : st.achievementPct >= 80 ? 'bg-yellow-50' : 'bg-red-50';
+                  return (
+                    <tr key={st.stationId} className={TR_ALT(i)}>
+                      <td className={TD + ' font-medium'}>{st.stationName}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.ytdProduction)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.ytdTarget)}</td>
+                      <td className={TD + ' text-right'}>{(st.variance >= 0 ? '+' : '') + fmt(st.variance)}</td>
+                      <td className={`${TD} text-right ${achShade}`}>{st.achievementPct != null ? fmt(st.achievementPct, 1) + '%' : 'N/A'}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-[#D6EAF8] font-semibold">
+                  <td className={TD + ' font-bold'}>TOTAL</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(data.ytdProductionVsTarget.totalYTDProduction)}</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(data.ytdProductionVsTarget.totalYTDTarget)}</td>
+                  <td className={TD + ' text-right font-bold'}>{(data.ytdProductionVsTarget.totalVariance >= 0 ? '+' : '') + fmt(data.ytdProductionVsTarget.totalVariance)}</td>
+                  <td className={TD + ' text-right font-bold'}>{data.ytdProductionVsTarget.totalAchievementPct != null ? fmt(data.ytdProductionVsTarget.totalAchievementPct, 1) + '%' : 'N/A'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
       <SectionTitle>3. Sales Performance</SectionTitle>
       <table className="w-full border border-gray-200 rounded text-left mb-3">
         <tbody>
@@ -534,9 +612,64 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
         <p className="text-xs text-gray-500 mb-3">No breakdowns recorded during this month.</p>
       )}
 
+      {(data as any).energy && ((data as any).energy.stations || []).length > 0 && (
+        <>
+          <SectionTitle>7. Energy Consumption & Cost Analysis</SectionTitle>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {[
+              ['Estimated Consumption', fmt((data as any).energy.totalEstimatedKWh) + ' kWh'],
+              ['Estimated Cost', '$' + fmt((data as any).energy.totalEstimatedCost, 2)],
+              ['Actual ZESA Bill', '$' + fmt((data as any).energy.totalActualBill, 2)],
+              ['Variance', (data as any).energy.overallVariancePct != null ? ((data as any).energy.overallVariancePct >= 0 ? '+' : '') + fmt((data as any).energy.overallVariancePct, 1) + '%' : 'N/A'],
+            ].map(([label, value]) => (
+              <div key={label} className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
+                <p className="text-[10px] text-gray-500 uppercase font-semibold">{label}</p>
+                <p className="text-sm font-bold text-gray-800 mt-0.5">{value}</p>
+              </div>
+            ))}
+          </div>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  {['Station', 'Est. kWh', 'Est. Cost ($)', 'Actual Bill ($)', 'Actual kWh', 'Variance (%)'].map(h => (
+                    <th key={h} className={HDR2}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {((data as any).energy.stations || []).map((st: any, i: number) => {
+                  const vPct = st.totalEstCost > 0 ? ((st.totalActBill - st.totalEstCost) / st.totalEstCost) * 100 : null;
+                  const varShade = vPct == null ? TR_ALT(i)
+                    : Math.abs(vPct) <= 10 ? 'bg-green-50' : Math.abs(vPct) <= 25 ? 'bg-yellow-50' : 'bg-red-50';
+                  return (
+                    <tr key={st.stationId} className={TR_ALT(i)}>
+                      <td className={TD + ' font-medium'}>{st.stationName}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.totalEstKWh)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.totalEstCost, 2)}</td>
+                      <td className={TD + ' text-right'}>{st.totalActBill > 0 ? fmt(st.totalActBill, 2) : '---'}</td>
+                      <td className={TD + ' text-right'}>{st.totalActKWh > 0 ? fmt(st.totalActKWh) : '---'}</td>
+                      <td className={`${TD} text-right ${varShade}`}>{vPct != null ? (vPct >= 0 ? '+' : '') + fmt(vPct, 1) + '%' : '---'}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-[#D6EAF8] font-semibold">
+                  <td className={TD + ' font-bold'}>TOTAL</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt((data as any).energy.totalEstimatedKWh)}</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt((data as any).energy.totalEstimatedCost, 2)}</td>
+                  <td className={TD + ' text-right font-bold'}>{(data as any).energy.totalActualBill > 0 ? fmt((data as any).energy.totalActualBill, 2) : '---'}</td>
+                  <td className={TD + ' text-right font-bold'}>{(data as any).energy.totalActualKWh > 0 ? fmt((data as any).energy.totalActualKWh) : '---'}</td>
+                  <td className={TD + ' text-right font-bold'}>{(data as any).energy.overallVariancePct != null ? ((data as any).energy.overallVariancePct >= 0 ? '+' : '') + fmt((data as any).energy.overallVariancePct, 1) + '%' : '---'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
       {data.kpiAnalysis && (
         <>
-          <SectionTitle>7. KPI Summary Analysis</SectionTitle>
+          <SectionTitle>8. KPI Summary Analysis</SectionTitle>
           <p className="text-xs text-gray-500 mb-2">Worst-performing station under each KPI for this reporting month.</p>
           <div className="overflow-x-auto mb-3">
             <table className="w-full border border-gray-200 rounded text-left">

@@ -13,6 +13,7 @@ import {
   isChemicalLowStock,
   computeNRWLosses,
 } from './coreCalculations';
+import { fetchMonthlyEnergySummary, type MonthlyEnergySummary } from './energyMetrics';
 
 export interface MonthlyStationProduction {
   stationId: string;
@@ -165,6 +166,7 @@ export interface MonthlyReportData {
   chemicals: MonthlyChemicalSummary[];
   breakdowns: MonthlyBreakdown[];
   ytdProductionVsTarget: YTDProductionVsTarget;
+  energy: MonthlyEnergySummary;
   totalExpectedLogs: number;
   totalActualLogs: number;
   completionPct: number;
@@ -622,6 +624,8 @@ export async function fetchMonthlyReportData(
     breakdowns
   );
 
+  const energy = await fetchMonthlyEnergySummary(scope, year, month);
+
   return {
     serviceCentreName,
     serviceCentreId: scope.scopeId || '',
@@ -635,6 +639,7 @@ export async function fetchMonthlyReportData(
     chemicals,
     breakdowns,
     ytdProductionVsTarget,
+    energy,
     totalExpectedLogs,
     totalActualLogs: totLogCount,
     completionPct: totalExpectedLogs > 0 ? roundTo((totLogCount / totalExpectedLogs) * 100, 1) : 0,
@@ -826,6 +831,10 @@ function buildEmptyMonthlyReport(
     breakdowns: [],
     ytdProductionVsTarget: {
       stations: [], totalYTDProduction: 0, totalYTDTarget: 0, totalVariance: 0, totalAchievementPct: null,
+    },
+    energy: {
+      totalEstimatedKWh: 0, totalEstimatedCost: 0, totalActualBill: 0, totalActualKWh: 0,
+      overallVariancePct: null, stations: [],
     },
     totalExpectedLogs: 0,
     totalActualLogs: 0,

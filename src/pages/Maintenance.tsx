@@ -1,20 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, BarChart3, Droplets, Waves, Wrench, Cog } from 'lucide-react';
+import { AlertTriangle, BarChart3, Droplets, Waves, Wrench, Cog, Zap } from 'lucide-react';
 import DamMaintenance from '../components/maintenance/DamMaintenance';
 import NonFunctionalStations from '../components/maintenance/NonFunctionalStations';
 import BreakdownsTracker from '../components/maintenance/BreakdownsTracker';
 import CapacityVariance from '../components/maintenance/CapacityVariance';
 import WaterLossesNRW from '../components/maintenance/WaterLossesNRW';
 import EquipmentRegistry from '../components/maintenance/EquipmentRegistry';
+import EnergyManagement from '../components/maintenance/EnergyManagement';
 
-type TabKey = 'breakdowns' | 'non-functional' | 'capacity-variance' | 'nrw' | 'dams' | 'equipment';
+type TabKey = 'breakdowns' | 'non-functional' | 'capacity-variance' | 'nrw' | 'dams' | 'equipment' | 'energy';
 
 const TABS: { key: TabKey; label: string; shortLabel: string; icon: React.ReactNode }[] = [
   { key: 'breakdowns', label: 'Breakdowns Tracker', shortLabel: 'Breakdowns', icon: <Wrench className="w-5 h-5" /> },
   { key: 'non-functional', label: 'Non-functional Stations', shortLabel: 'Non-func Stations', icon: <AlertTriangle className="w-5 h-5" /> },
   { key: 'capacity-variance', label: 'Capacity Variance', shortLabel: 'Cap. Var.', icon: <BarChart3 className="w-5 h-5" /> },
   { key: 'nrw', label: 'Non-revenue Water', shortLabel: 'NRW', icon: <Droplets className="w-5 h-5" /> },
+  { key: 'energy', label: 'Energy Management', shortLabel: 'Energy', icon: <Zap className="w-5 h-5" /> },
   { key: 'dams', label: 'Dam Maintenance', shortLabel: 'Dam Maint.', icon: <Waves className="w-5 h-5" /> },
   { key: 'equipment', label: 'Equipment Registry', shortLabel: 'Equip. Reg.', icon: <Cog className="w-5 h-5" /> },
 ];
@@ -56,6 +58,7 @@ export default function Maintenance() {
       {activeTab === 'non-functional' && <NonFunctionalStations />}
       {activeTab === 'capacity-variance' && <CapacityVariance />}
       {activeTab === 'nrw' && <WaterLossesNRW />}
+      {activeTab === 'energy' && <EnergyManagement />}
       {activeTab === 'dams' && <DamMaintenance />}
       {activeTab === 'equipment' && <EquipmentRegistry />}
     </div>
