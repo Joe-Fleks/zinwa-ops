@@ -35,7 +35,7 @@ export default function CWStationsTab() {
               onClick={() => setActiveSubTab(tab.key)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
                 activeSubTab === tab.key
-                  ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                  ? 'bg-blue-100 text-blue-900 shadow-sm border border-blue-300'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
