@@ -1457,9 +1457,9 @@ export default function Dashboard() {
           readyText: 'text-blue-800',
           badgeBg: 'bg-blue-300',
           badgeText: 'text-blue-800',
-          btnBg: 'bg-blue-700',
-          btnHover: 'hover:bg-blue-800',
-          btnDisabled: 'disabled:bg-blue-400',
+          btnBg: 'bg-blue-300',
+          btnHover: 'hover:bg-blue-400',
+          btnDisabled: 'disabled:bg-blue-200',
           iconColor: 'text-blue-600',
         })}
 
@@ -1591,7 +1591,7 @@ export default function Dashboard() {
                       <span className="ml-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>{alertCount}</span>
                     )}
                     {tab === 'followups' && customAlerts.length > 0 && (
-                      <span className="ml-0.5 bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>{customAlerts.length}</span>
+                      <span className="ml-0.5 bg-blue-400 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>{customAlerts.length}</span>
                     )}
                   </button>
                 );
@@ -1715,7 +1715,7 @@ export default function Dashboard() {
               <ClipboardList className="w-3.5 h-3.5" />
               Follow-ups
               {customAlerts.length > 0 && (
-                <span className="ml-0.5 bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>
+                <span className="ml-0.5 bg-blue-400 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>
                   {customAlerts.length}
                 </span>
               )}
