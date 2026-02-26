@@ -174,6 +174,9 @@ export default function EquipmentRegistry() {
         fields.service_centre_id = serviceCentreId || fields.service_centre_id;
         fields.updated_at = new Date().toISOString();
 
+        if (fields.installation_date === '') fields.installation_date = null;
+        if (fields.design_life_expiry === '') fields.design_life_expiry = null;
+
         if (_isNew) {
           fields.created_by = user.id;
           const { error: err } = await supabase.from(table).insert([fields]);
