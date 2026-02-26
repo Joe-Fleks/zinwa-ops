@@ -258,3 +258,89 @@ export interface DesignLifeAlert {
   expiryDate: string;
   daysRemaining: number;
 }
+
+const EXPORT_COLUMNS: Record<EquipmentCategory, { key: string; label: string }[]> = {
+  pumps: [
+    { key: 'station_name', label: 'Station' }, { key: 'tag_number', label: 'Tag No.' },
+    { key: 'manufacturer', label: 'Manufacturer' }, { key: 'model', label: 'Model' },
+    { key: 'serial_number', label: 'Serial No.' }, { key: 'pump_type', label: 'Type' },
+    { key: 'pump_use', label: 'Use' }, { key: 'duty_status', label: 'Duty' },
+    { key: 'head_m', label: 'Head (m)' }, { key: 'flow_rate_m3_hr', label: 'Flow (m3/hr)' },
+    { key: 'speed_rpm', label: 'Speed (RPM)' }, { key: 'stages', label: 'Stages' },
+    { key: 'impeller_size_mm', label: 'Impeller (mm)' }, { key: 'impeller_type', label: 'Impeller Type' },
+    { key: 'installation_date', label: 'Installed' }, { key: 'design_life_years', label: 'Life (yrs)' },
+    { key: 'design_life_expiry', label: 'Expiry' }, { key: 'condition', label: 'Condition' },
+    { key: 'notes', label: 'Notes' },
+  ],
+  motors: [
+    { key: 'station_name', label: 'Station' }, { key: 'tag_number', label: 'Tag No.' },
+    { key: 'manufacturer', label: 'Manufacturer' }, { key: 'model', label: 'Model' },
+    { key: 'serial_number', label: 'Serial No.' }, { key: 'motor_type', label: 'Type' },
+    { key: 'motor_use', label: 'Use' }, { key: 'duty_status', label: 'Duty' },
+    { key: 'kw_rating', label: 'kW' }, { key: 'hp_rating', label: 'HP' },
+    { key: 'voltage', label: 'Voltage (V)' }, { key: 'current_amps', label: 'Current (A)' },
+    { key: 'speed_rpm', label: 'Speed (RPM)' }, { key: 'shaft_diameter_mm', label: 'Shaft (mm)' },
+    { key: 'phase', label: 'Phase' }, { key: 'enclosure_type', label: 'Enclosure' },
+    { key: 'installation_date', label: 'Installed' }, { key: 'design_life_years', label: 'Life (yrs)' },
+    { key: 'design_life_expiry', label: 'Expiry' }, { key: 'condition', label: 'Condition' },
+    { key: 'notes', label: 'Notes' },
+  ],
+  bearings: [
+    { key: 'station_name', label: 'Station' }, { key: 'tag_number', label: 'Tag No.' },
+    { key: 'manufacturer', label: 'Manufacturer' }, { key: 'model', label: 'Model' },
+    { key: 'bearing_type', label: 'Type' }, { key: 'bearing_position', label: 'Position' },
+    { key: 'parent_equipment', label: 'Parent Equipment' }, { key: 'size_designation', label: 'Size' },
+    { key: 'installation_date', label: 'Installed' }, { key: 'design_life_years', label: 'Life (yrs)' },
+    { key: 'design_life_expiry', label: 'Expiry' }, { key: 'condition', label: 'Condition' },
+    { key: 'notes', label: 'Notes' },
+  ],
+  vehicles: [
+    { key: 'sc_name', label: 'Service Centre' }, { key: 'number_plate', label: 'Plate' },
+    { key: 'vehicle_type', label: 'Type' }, { key: 'make', label: 'Make' },
+    { key: 'model', label: 'Model' }, { key: 'year_of_manufacture', label: 'Year' },
+    { key: 'engine_number', label: 'Engine No.' }, { key: 'chassis_number', label: 'Chassis No.' },
+    { key: 'fuel_type', label: 'Fuel' }, { key: 'transmission', label: 'Transmission' },
+    { key: 'odometer_km', label: 'Odometer (km)' }, { key: 'status', label: 'Status' },
+    { key: 'zinara_expiry', label: 'ZINARA Expiry' }, { key: 'condition', label: 'Condition' },
+    { key: 'condition_comment', label: 'Condition Notes' }, { key: 'assigned_to', label: 'Assigned To' },
+    { key: 'notes', label: 'Notes' },
+  ],
+  bikes: [
+    { key: 'station_name', label: 'Station' }, { key: 'number_plate', label: 'Plate' },
+    { key: 'bike_type', label: 'Type' }, { key: 'make', label: 'Make' },
+    { key: 'model', label: 'Model' }, { key: 'year_of_manufacture', label: 'Year' },
+    { key: 'engine_number', label: 'Engine No.' }, { key: 'chassis_number', label: 'Chassis No.' },
+    { key: 'fuel_type', label: 'Fuel' }, { key: 'odometer_km', label: 'Odometer (km)' },
+    { key: 'status', label: 'Status' }, { key: 'zinara_expiry', label: 'ZINARA Expiry' },
+    { key: 'condition', label: 'Condition' }, { key: 'condition_comment', label: 'Condition Notes' },
+    { key: 'assigned_to', label: 'Assigned To' }, { key: 'notes', label: 'Notes' },
+  ],
+};
+
+function escapeCsvField(value: any): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
+export function exportEquipmentCSV(category: EquipmentCategory, rows: any[]) {
+  const cols = EXPORT_COLUMNS[category];
+  const header = cols.map(c => escapeCsvField(c.label)).join(',');
+  const dataRows = rows.map(row =>
+    cols.map(c => escapeCsvField((row as any)[c.key])).join(',')
+  );
+  const csv = [header, ...dataRows].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  const catLabel = EQUIPMENT_CATEGORIES.find(c => c.key === category)?.label || category;
+  link.download = `Equipment_${catLabel}_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

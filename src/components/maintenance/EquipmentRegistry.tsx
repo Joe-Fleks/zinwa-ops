@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Cog, Plus, Save, X, CalendarClock, ChevronDown, Search } from 'lucide-react';
+import { Cog, Plus, Save, X, CalendarClock, ChevronDown, Search, Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetwork } from '../../contexts/NetworkContext';
@@ -7,7 +7,7 @@ import {
   EquipmentCategory, EQUIPMENT_CATEGORIES, TABLE_NAMES,
   StationOption, ServiceCentreOption, PumpRow, MotorRow, BearingRow, VehicleRow, BikeRow,
   computeDesignLifeExpiry, createEmptyPump, createEmptyMotor, createEmptyBearing,
-  createEmptyVehicle, createEmptyBike, shortenSCName,
+  createEmptyVehicle, createEmptyBike, shortenSCName, exportEquipmentCSV,
 } from './equipmentConfig';
 import PumpsTable from './tables/PumpsTable';
 import MotorsTable from './tables/MotorsTable';
@@ -445,9 +445,18 @@ export default function EquipmentRegistry() {
                 </button>
               </>
             ) : (
-              <button onClick={handleStartEdit} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">
-                <Plus className="w-4 h-4" /> Edit / Add Equipment
-              </button>
+              <>
+                <button onClick={handleStartEdit} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">
+                  <Plus className="w-4 h-4" /> Edit / Add Equipment
+                </button>
+                <button
+                  onClick={() => exportEquipmentCSV(category, currentRows)}
+                  disabled={currentRows.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm font-medium hover:bg-green-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Download className="w-4 h-4" /> Export CSV
+                </button>
+              </>
             )}
             {saveMsg && <span className="text-sm text-green-700 font-medium">{saveMsg}</span>}
           </div>
