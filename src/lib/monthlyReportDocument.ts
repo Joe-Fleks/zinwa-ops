@@ -187,6 +187,39 @@ function buildContent(d: MonthlyReportData): string {
     parts.push('</w:tbl>');
   }
 
+  if (d.ytdProductionVsTarget && d.ytdProductionVsTarget.stations.length > 0) {
+    const ytd = d.ytdProductionVsTarget;
+    parts.push(heading2('2.2 YTD CW Production Performance vs Target'));
+    parts.push(`${tblStart()}
+      ${trow([
+        { text: 'Station', shade: '2E6FA3' },
+        { text: 'YTD Production (m\u00B3)', shade: '2E6FA3', align: 'right' },
+        { text: 'YTD Target (m\u00B3)', shade: '2E6FA3', align: 'right' },
+        { text: 'Variance (m\u00B3)', shade: '2E6FA3', align: 'right' },
+        { text: 'Achievement (%)', shade: '2E6FA3', align: 'right' },
+      ], true)}
+      ${ytd.stations.map((st, i) => {
+        const achShade = st.achievementPct === null ? rowAlt(i)
+          : st.achievementPct >= 100 ? 'E8F5E9'
+          : st.achievementPct >= 80 ? 'FFF3CD' : 'FFE5E5';
+        return trow([
+          { text: st.stationName, shade: rowAlt(i) },
+          { text: fmt(st.ytdProduction), align: 'right', shade: rowAlt(i) },
+          { text: fmt(st.ytdTarget), align: 'right', shade: rowAlt(i) },
+          { text: (st.variance >= 0 ? '+' : '') + fmt(st.variance), align: 'right', shade: rowAlt(i) },
+          { text: st.achievementPct !== null ? fmt(st.achievementPct, 1) + '%' : 'N/A', align: 'right', shade: achShade },
+        ]);
+      }).join('')}
+      ${trow([
+        { text: 'TOTAL', shade: 'D6EAF8', bold: true },
+        { text: fmt(ytd.totalYTDProduction), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: fmt(ytd.totalYTDTarget), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: (ytd.totalVariance >= 0 ? '+' : '') + fmt(ytd.totalVariance), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: ytd.totalAchievementPct !== null ? fmt(ytd.totalAchievementPct, 1) + '%' : 'N/A', align: 'right', shade: 'D6EAF8', bold: true },
+      ])}
+    </w:tbl>`);
+  }
+
   parts.push(hline());
 
   parts.push(heading1('3. SALES PERFORMANCE'));

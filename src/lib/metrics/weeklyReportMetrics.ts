@@ -135,6 +135,23 @@ export interface ConnectionsSummary {
   stations: ConnectionStation[];
 }
 
+export interface YTDProductionVsTargetStation {
+  stationId: string;
+  stationName: string;
+  ytdProduction: number;
+  ytdTarget: number;
+  variance: number;
+  achievementPct: number | null;
+}
+
+export interface YTDProductionVsTarget {
+  stations: YTDProductionVsTargetStation[];
+  totalYTDProduction: number;
+  totalYTDTarget: number;
+  totalVariance: number;
+  totalAchievementPct: number | null;
+}
+
 export interface WeeklyReportData {
   serviceCentreName: string;
   serviceCentreId: string;
@@ -151,6 +168,7 @@ export interface WeeklyReportData {
   capacityUtilization: CapacityUtilizationSummary;
   powerSupply: PowerSupplySummary;
   connections: ConnectionsSummary;
+  ytdProductionVsTarget: YTDProductionVsTarget;
   totalExpectedLogs: number;
   totalActualLogs: number;
   completionPct: number;
@@ -449,6 +467,7 @@ export async function fetchWeeklyReportData(
   const capacityUtilization = buildCapacityUtilization(allStations, stationAgg, ytdFullAgg);
   const powerSupply = buildPowerSupply(allStations, stationAgg, periodDays);
   const connections = buildConnections(allStations, stationAgg, ytdFullAgg);
+  const ytdProductionVsTarget = buildYTDProductionVsTarget(allStations, ytdFullAgg, targetsRes.data || [], dateRange.end);
 
   const totalExpectedLogs = allStations.length * periodDays;
   const completionPct = totalExpectedLogs > 0
@@ -471,6 +490,7 @@ export async function fetchWeeklyReportData(
     capacityUtilization,
     powerSupply,
     connections,
+    ytdProductionVsTarget,
     totalExpectedLogs,
     totalActualLogs: totalLogCount,
     completionPct,
@@ -660,6 +680,59 @@ function buildConnections(
   };
 }
 
+function buildYTDProductionVsTarget(
+  allStations: StationRow[],
+  ytdFullAgg: Map<string, { cwVol: number; rwVol: number; cwHrs: number; rwHrs: number; connections: number }>,
+  targetsData: any[],
+  periodEnd: string
+): YTDProductionVsTarget {
+  const endDate = new Date(periodEnd + 'T12:00:00');
+  const endMonthIdx = endDate.getMonth();
+
+  const targetsByStation = new Map<string, number>();
+  for (const t of targetsData) {
+    const sid = t.station_id;
+    let ytdTarget = targetsByStation.get(sid) || 0;
+    for (let m = 0; m <= endMonthIdx; m++) {
+      ytdTarget += Number(t[MONTH_KEYS[m]]) || 0;
+    }
+    targetsByStation.set(sid, ytdTarget);
+  }
+
+  const stations: YTDProductionVsTargetStation[] = [];
+  let totalProd = 0, totalTarget = 0;
+
+  for (const station of allStations) {
+    const ytdEntry = ytdFullAgg.get(station.id);
+    const ytdProd = roundTo(ytdEntry?.cwVol || 0, 0);
+    const ytdTgt = roundTo(targetsByStation.get(station.id) || 0, 0);
+    const variance = roundTo(ytdProd - ytdTgt, 0);
+    const achievement = ytdTgt > 0 ? roundTo((ytdProd / ytdTgt) * 100, 1) : null;
+
+    stations.push({
+      stationId: station.id,
+      stationName: station.station_name,
+      ytdProduction: ytdProd,
+      ytdTarget: ytdTgt,
+      variance,
+      achievementPct: achievement,
+    });
+
+    totalProd += ytdProd;
+    totalTarget += ytdTgt;
+  }
+
+  stations.sort((a, b) => (a.achievementPct ?? 999) - (b.achievementPct ?? 999));
+
+  return {
+    stations,
+    totalYTDProduction: roundTo(totalProd, 0),
+    totalYTDTarget: roundTo(totalTarget, 0),
+    totalVariance: roundTo(totalProd - totalTarget, 0),
+    totalAchievementPct: totalTarget > 0 ? roundTo((totalProd / totalTarget) * 100, 1) : null,
+  };
+}
+
 function buildEmptyReport(
   serviceCentreId: string,
   serviceCentreName: string,
@@ -697,6 +770,9 @@ function buildEmptyReport(
     },
     connections: {
       totalCurrentConnections: 0, totalNewThisWeek: 0, totalNewTotal: 0, totalYTDNew: 0, stations: [],
+    },
+    ytdProductionVsTarget: {
+      stations: [], totalYTDProduction: 0, totalYTDTarget: 0, totalVariance: 0, totalAchievementPct: null,
     },
     totalExpectedLogs: 0,
     totalActualLogs: 0,

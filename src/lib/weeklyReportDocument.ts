@@ -219,6 +219,50 @@ function buildProductionSection(data: WeeklyReportData): string {
   return parts.join('\n');
 }
 
+function buildYTDProductionVsTargetSection(data: WeeklyReportData): string {
+  const ytd = data.ytdProductionVsTarget;
+  const parts: string[] = [];
+
+  parts.push(heading2('2.2 YTD CW Production Performance vs Target'));
+
+  if (ytd.stations.length === 0) {
+    parts.push(para('No station data available for YTD production vs target analysis.'));
+    return parts.join('\n');
+  }
+
+  parts.push(`
+    ${tableStart()}
+      ${tableRow([
+        { text: 'Station', shade: '2E6FA3', bold: true },
+        { text: 'YTD Production (m\u00B3)', shade: '2E6FA3', bold: true, align: 'right' },
+        { text: 'YTD Target (m\u00B3)', shade: '2E6FA3', bold: true, align: 'right' },
+        { text: 'Variance (m\u00B3)', shade: '2E6FA3', bold: true, align: 'right' },
+        { text: 'Achievement (%)', shade: '2E6FA3', bold: true, align: 'right' },
+      ], true)}
+      ${ytd.stations.map((st, i) => {
+        const achShade = st.achievementPct === null ? (i % 2 === 0 ? 'EBF5FB' : 'FFFFFF')
+          : st.achievementPct >= 100 ? 'E8F5E9'
+          : st.achievementPct >= 80 ? 'FFF3CD' : 'FFE5E5';
+        return tableRow([
+          { text: st.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: formatNum(st.ytdProduction, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: formatNum(st.ytdTarget, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: (st.variance >= 0 ? '+' : '') + formatNum(st.variance, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+          { text: st.achievementPct !== null ? formatNum(st.achievementPct, 1) + '%' : 'N/A', align: 'right', shade: achShade },
+        ]);
+      }).join('')}
+      ${tableRow([
+        { text: 'TOTAL', shade: 'D6EAF8', bold: true },
+        { text: formatNum(ytd.totalYTDProduction, 0), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: formatNum(ytd.totalYTDTarget, 0), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: (ytd.totalVariance >= 0 ? '+' : '') + formatNum(ytd.totalVariance, 0), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: ytd.totalAchievementPct !== null ? formatNum(ytd.totalAchievementPct, 1) + '%' : 'N/A', align: 'right', shade: 'D6EAF8', bold: true },
+      ])}
+    </w:tbl>`);
+
+  return parts.join('\n');
+}
+
 function buildCapacitySection(data: WeeklyReportData): string {
   const cap = data.capacityUtilization;
   const parts: string[] = [];
@@ -564,6 +608,7 @@ function buildDocumentContent(data: WeeklyReportData): string {
   parts.push(keyValue('Total Breakdowns Reported', `${data.breakdowns.length}`));
 
   parts.push(buildProductionSection(data));
+  parts.push(buildYTDProductionVsTargetSection(data));
   parts.push(buildCapacitySection(data));
   parts.push(buildPowerSupplySection(data));
   parts.push(buildConnectionsSection(data));

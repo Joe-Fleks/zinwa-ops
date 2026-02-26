@@ -135,6 +135,23 @@ export interface KPISummaryAnalysis {
   mostBreakdowns: KPIWorstStation | null;
 }
 
+export interface YTDProductionVsTargetStation {
+  stationId: string;
+  stationName: string;
+  ytdProduction: number;
+  ytdTarget: number;
+  variance: number;
+  achievementPct: number | null;
+}
+
+export interface YTDProductionVsTarget {
+  stations: YTDProductionVsTargetStation[];
+  totalYTDProduction: number;
+  totalYTDTarget: number;
+  totalVariance: number;
+  totalAchievementPct: number | null;
+}
+
 export interface MonthlyReportData {
   serviceCentreName: string;
   serviceCentreId: string;
@@ -147,6 +164,7 @@ export interface MonthlyReportData {
   nrw: MonthlyNRWSummary;
   chemicals: MonthlyChemicalSummary[];
   breakdowns: MonthlyBreakdown[];
+  ytdProductionVsTarget: YTDProductionVsTarget;
   totalExpectedLogs: number;
   totalActualLogs: number;
   completionPct: number;
@@ -193,7 +211,7 @@ export async function fetchMonthlyReportData(
   const prevPeriod = getPreviousMonthPeriod(year, month);
   const prevDateRange = buildMonthDateRange(prevPeriod.year, prevPeriod.month);
 
-  const [logsRes, ytdLogsRes, breakdownsRes, salesRes, targetsRes, balancesRes, receiptsRes, prevProdRes] = await Promise.all([
+  const [logsRes, ytdLogsRes, breakdownsRes, salesRes, targetsRes, balancesRes, receiptsRes, prevProdRes, ytdCWLogsRes, prodTargetsRes] = await Promise.all([
     supabase
       .from('production_logs')
       .select('station_id, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, load_shedding_hours, other_downtime_hours, alum_kg, hth_kg, activated_carbon_kg, new_connections')
@@ -244,6 +262,17 @@ export async function fetchMonthlyReportData(
       .in('station_id', stationIds)
       .gte('date', prevDateRange.start)
       .lt('date', prevDateRange.end),
+    supabase
+      .from('production_logs')
+      .select('station_id, cw_volume_m3')
+      .in('station_id', stationIds)
+      .gte('date', ytdStartDate)
+      .lt('date', ytdEndDate),
+    supabase
+      .from('cw_production_targets')
+      .select('station_id, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
+      .in('station_id', stationIds)
+      .eq('year', year),
   ]);
 
   const logs = logsRes.data || [];
@@ -582,6 +611,10 @@ export async function fetchMonthlyReportData(
 
   production.totalBreakdownHoursLost = totalBreakdownHoursLost;
 
+  const ytdProductionVsTarget = buildYTDProductionVsTarget(
+    allStations, ytdCWLogsRes.data || [], prodTargetsRes.data || [], month
+  );
+
   const kpiAnalysis = computeKPISummaryAnalysis(
     production.stations,
     sales.stations,
@@ -601,10 +634,72 @@ export async function fetchMonthlyReportData(
     nrw,
     chemicals,
     breakdowns,
+    ytdProductionVsTarget,
     totalExpectedLogs,
     totalActualLogs: totLogCount,
     completionPct: totalExpectedLogs > 0 ? roundTo((totLogCount / totalExpectedLogs) * 100, 1) : 0,
     kpiAnalysis,
+  };
+}
+
+const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+function buildYTDProductionVsTarget(
+  allStations: any[],
+  ytdCWLogs: any[],
+  prodTargets: any[],
+  reportMonth: number
+): YTDProductionVsTarget {
+  const endMonthIdx = reportMonth - 1;
+
+  const ytdCWByStation = new Map<string, number>();
+  for (const log of ytdCWLogs) {
+    ytdCWByStation.set(
+      log.station_id,
+      (ytdCWByStation.get(log.station_id) || 0) + (Number(log.cw_volume_m3) || 0)
+    );
+  }
+
+  const targetsByStation = new Map<string, number>();
+  for (const t of prodTargets) {
+    const sid = t.station_id;
+    let ytdTarget = targetsByStation.get(sid) || 0;
+    for (let m = 0; m <= endMonthIdx; m++) {
+      ytdTarget += Number(t[MONTH_KEYS[m]]) || 0;
+    }
+    targetsByStation.set(sid, ytdTarget);
+  }
+
+  const stations: YTDProductionVsTargetStation[] = [];
+  let totalProd = 0, totalTarget = 0;
+
+  for (const station of allStations) {
+    const ytdProd = roundTo(ytdCWByStation.get(station.id) || 0, 0);
+    const ytdTgt = roundTo(targetsByStation.get(station.id) || 0, 0);
+    const variance = roundTo(ytdProd - ytdTgt, 0);
+    const achievement = ytdTgt > 0 ? roundTo((ytdProd / ytdTgt) * 100, 1) : null;
+
+    stations.push({
+      stationId: station.id,
+      stationName: station.station_name,
+      ytdProduction: ytdProd,
+      ytdTarget: ytdTgt,
+      variance,
+      achievementPct: achievement,
+    });
+
+    totalProd += ytdProd;
+    totalTarget += ytdTgt;
+  }
+
+  stations.sort((a, b) => (a.achievementPct ?? 999) - (b.achievementPct ?? 999));
+
+  return {
+    stations,
+    totalYTDProduction: roundTo(totalProd, 0),
+    totalYTDTarget: roundTo(totalTarget, 0),
+    totalVariance: roundTo(totalProd - totalTarget, 0),
+    totalAchievementPct: totalTarget > 0 ? roundTo((totalProd / totalTarget) * 100, 1) : null,
   };
 }
 
@@ -729,6 +824,9 @@ function buildEmptyMonthlyReport(
     },
     chemicals: [],
     breakdowns: [],
+    ytdProductionVsTarget: {
+      stations: [], totalYTDProduction: 0, totalYTDTarget: 0, totalVariance: 0, totalAchievementPct: null,
+    },
     totalExpectedLogs: 0,
     totalActualLogs: 0,
     completionPct: 0,
