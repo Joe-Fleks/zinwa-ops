@@ -435,7 +435,7 @@ export default function EnergyManagement() {
         </div>
         <div className="flex-1" />
         <button onClick={openNewMeter}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded transition-colors">
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-300 hover:bg-blue-400 text-blue-900 text-xs font-semibold rounded transition-colors">
           <Plus className="w-3.5 h-3.5" /> Add Meter
         </button>
       </div>
