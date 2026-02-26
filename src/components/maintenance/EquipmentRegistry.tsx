@@ -230,11 +230,11 @@ export default function EquipmentRegistry() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
-          <div className="flex bg-gray-100 rounded-lg p-0.5">
+          <div className="flex bg-blue-50 border border-blue-200 rounded-lg p-0.5">
             <button
               onClick={() => setViewMode('registry')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'registry' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                viewMode === 'registry' ? 'bg-white text-gray-900 shadow-sm' : 'text-blue-700 hover:text-blue-900'
               }`}
             >
               <Cog className="w-4 h-4" />
@@ -244,7 +244,7 @@ export default function EquipmentRegistry() {
             <button
               onClick={() => setViewMode('calendar')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'calendar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                viewMode === 'calendar' ? 'bg-white text-gray-900 shadow-sm' : 'text-blue-700 hover:text-blue-900'
               }`}
             >
               <CalendarClock className="w-4 h-4" />
@@ -290,7 +290,7 @@ export default function EquipmentRegistry() {
       {viewMode === 'registry' && (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="flex bg-blue-50 border border-blue-200 rounded-lg overflow-hidden">
               {EQUIPMENT_CATEGORIES.map(cat => (
                 <button
                   key={cat.key}
@@ -298,7 +298,7 @@ export default function EquipmentRegistry() {
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
                     category === cat.key
                       ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      : 'text-blue-700 hover:bg-blue-100'
                   }`}
                 >
                   {cat.label}
@@ -321,19 +321,19 @@ export default function EquipmentRegistry() {
               <select
                 value={stationFilter}
                 onChange={e => setStationFilter(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                className="appearance-none pl-3 pr-8 py-2 border border-blue-200 rounded-lg text-sm bg-blue-50 text-blue-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
               >
                 <option value="">All Stations</option>
                 {stations.map(s => <option key={s.id} value={s.id}>{s.station_name}</option>)}
               </select>
-              <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
             </div>
 
             <div className="relative">
               <select
                 value={conditionFilter}
                 onChange={e => setConditionFilter(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                className="appearance-none pl-3 pr-8 py-2 border border-blue-200 rounded-lg text-sm bg-blue-50 text-blue-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
               >
                 <option value="">All Conditions</option>
                 <option value="Good">Good</option>
@@ -341,7 +341,7 @@ export default function EquipmentRegistry() {
                 <option value="Poor">Poor</option>
                 <option value="Decommissioned">Decommissioned</option>
               </select>
-              <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
             </div>
 
             <span className="text-xs text-gray-500">
