@@ -1,4 +1,4 @@
-import { AlertTriangle, ExternalLink, Fuel, FlaskConical, ClipboardList, Plus, Pencil, Check, X, FileText, Download, Bell, Calendar, Flag, Search, Droplets, TestTube } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Fuel, FlaskConical, ClipboardList, Plus, Pencil, Check, X, FileText, Download, Bell, Calendar, Flag, Search, Droplets, TestTube, Cog } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -91,6 +91,7 @@ export default function Dashboard() {
   const [monthlyReports, setMonthlyReports] = useState<MonthlyReportRecord[]>([]);
   const [allWeeklyReports, setAllWeeklyReports] = useState<WeeklyReportRecord[]>([]);
   const [allMonthlyReports, setAllMonthlyReports] = useState<MonthlyReportRecord[]>([]);
+  const [equipmentAlerts, setEquipmentAlerts] = useState<{ type: string; label: string; station: string; tag: string; expiry: string; daysLeft: number }[]>([]);
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
   const [refreshingReportId, setRefreshingReportId] = useState<string | null>(null);
   const [viewingReport, setViewingReport] = useState<{ type: 'weekly' | 'monthly'; record: WeeklyReportRecord | MonthlyReportRecord } | null>(null);
@@ -286,6 +287,51 @@ export default function Dashboard() {
       .order('created_at', { ascending: true });
 
     setCustomAlerts(sortFollowups((data || []) as CustomFollowupAlert[]));
+    loadEquipmentAlerts();
+  };
+
+  const loadEquipmentAlerts = async () => {
+    const allowedSCIds = accessContext?.allowedServiceCentreIds || [];
+    if (allowedSCIds.length === 0) return;
+
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const nextMonth = now.getMonth() === 11 ? new Date(now.getFullYear() + 1, 0, 1) : new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const monthEnd = nextMonth.toISOString().split('T')[0];
+
+    const tables = [
+      { table: 'equipment_pumps', type: 'Pump', labelField: 'pump_use' },
+      { table: 'equipment_motors', type: 'Motor', labelField: 'motor_use' },
+      { table: 'equipment_bearings', type: 'Bearing', labelField: 'parent_equipment' },
+    ];
+
+    const items: typeof equipmentAlerts = [];
+
+    let stMap = new Map<string, string>();
+    let stQ = supabase.from('stations').select('id, station_name');
+    if (allowedSCIds.length <= 50) stQ = stQ.in('service_centre_id', allowedSCIds);
+    const { data: stData } = await stQ;
+    if (stData) stMap = new Map(stData.map((s: any) => [s.id, s.station_name]));
+
+    for (const { table, type, labelField } of tables) {
+      let q = supabase.from(table)
+        .select(`station_id, tag_number, ${labelField}, manufacturer, model, design_life_expiry`)
+        .not('design_life_expiry', 'is', null)
+        .lte('design_life_expiry', monthEnd)
+        .neq('condition', 'Decommissioned');
+      if (allowedSCIds.length <= 50) q = q.in('service_centre_id', allowedSCIds);
+      const { data } = await q;
+      if (!data) continue;
+      for (const row of data) {
+        const exp = new Date(row.design_life_expiry + 'T12:00:00');
+        const daysLeft = Math.round((exp.getTime() - now.getTime()) / 86400000);
+        if (daysLeft > 60) continue;
+        const lbl = [(row as any)[labelField], row.manufacturer, row.model].filter(Boolean).join(' - ');
+        items.push({ type, label: lbl || type, station: stMap.get(row.station_id) || 'Unknown', tag: row.tag_number || '', expiry: row.design_life_expiry, daysLeft });
+      }
+    }
+    items.sort((a, b) => a.daysLeft - b.daysLeft);
+    setEquipmentAlerts(items);
   };
 
   const handleAddCustomAlert = async () => {
@@ -804,6 +850,39 @@ export default function Dashboard() {
           </div>
         </div>
       ))}
+      {equipmentAlerts.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-400 rounded-lg px-3 py-2.5">
+          <div className="flex items-start gap-2">
+            <Cog className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-amber-900 uppercase" style={{ fontSize: '11px' }}>
+                Equipment reaching design life in {new Date().toLocaleString('en-US', { month: 'long' })}
+              </p>
+              <div className="mt-1.5 space-y-1">
+                {equipmentAlerts.slice(0, 3).map((ea, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ea.daysLeft < 0 ? 'bg-red-500' : 'bg-amber-500'}`} />
+                    <span className="text-gray-700 truncate">{ea.type}: {ea.label}</span>
+                    <span className="text-gray-400 flex-shrink-0">@ {ea.station}</span>
+                    <span className={`ml-auto font-semibold flex-shrink-0 ${ea.daysLeft < 0 ? 'text-red-700' : 'text-amber-700'}`}>
+                      {ea.daysLeft < 0 ? `${Math.abs(ea.daysLeft)}d overdue` : `${ea.daysLeft}d left`}
+                    </span>
+                  </div>
+                ))}
+                {equipmentAlerts.length > 3 && (
+                  <p className="text-[10px] text-amber-600 mt-0.5">+{equipmentAlerts.length - 3} more items</p>
+                )}
+              </div>
+            </div>
+          </div>
+          <Link
+            to="/maintenance?tab=equipment"
+            className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 text-xs font-semibold rounded transition-colors"
+          >
+            <Calendar className="w-3.5 h-3.5" />View Design Life Calendar
+          </Link>
+        </div>
+      )}
       {weeklyReports.length > 0 && weeklyReports.map(report => {
         const reportTypeLbl = report.report_type === 'friday' ? 'Friday' : 'Tuesday';
         const periodStart = new Date(report.period_start + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
