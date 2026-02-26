@@ -159,16 +159,8 @@ export default function EquipmentRegistry() {
         .maybeSingle();
 
       if (v.status === 'Non-Runner' && !existing) {
-        const { data: anyStation } = await supabase
-          .from('stations')
-          .select('id')
-          .eq('service_centre_id', scId)
-          .limit(1)
-          .maybeSingle();
-        if (!anyStation) continue;
-
         await supabase.from('station_breakdowns').insert([{
-          station_id: anyStation.id,
+          station_id: null,
           vehicle_id: vehicleId,
           date_reported: new Date().toISOString().split('T')[0],
           nature_of_breakdown: `Vehicle ${v.number_plate || 'Unknown'} - Non-Runner`,

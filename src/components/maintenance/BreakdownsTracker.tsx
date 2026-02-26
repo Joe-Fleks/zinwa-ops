@@ -35,10 +35,17 @@ interface Station {
   station_name: string;
 }
 
+interface ServiceCentre {
+  id: string;
+  name: string;
+  short_name: string;
+}
+
 interface BreakdownRow {
   id: string | null;
   station_id: string;
   station_name: string;
+  vehicle_id: string | null;
   date_reported: string;
   date_resolved: string;
   job_card_no: string;
@@ -80,6 +87,7 @@ function createEmptyRow(): BreakdownRow {
     id: null,
     station_id: '',
     station_name: '',
+    vehicle_id: null,
     date_reported: today,
     date_resolved: '',
     job_card_no: '',
@@ -117,6 +125,7 @@ export default function BreakdownsTracker() {
   const [rows, setRows] = useState<BreakdownRow[]>([]);
   const [editRows, setEditRows] = useState<BreakdownRow[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
+  const [serviceCentres, setServiceCentres] = useState<ServiceCentre[]>([]);
   const [categoryFilter, setCategoryFilter] = useState('Pending');
   const [impactFilter, setImpactFilter] = useState('');
   const [editing, setEditing] = useState(false);
@@ -168,8 +177,8 @@ export default function BreakdownsTracker() {
     return `${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`;
   }, [viewMode, selectedYear, selectedMonth, selectedDay]);
 
-  useEffect(() => { loadStations(); }, [accessContext?.scopeId]);
-  useEffect(() => { if (stations.length > 0) loadBreakdowns(); }, [stations, dateRange]);
+  useEffect(() => { loadStations(); loadServiceCentres(); }, [accessContext?.scopeId]);
+  useEffect(() => { if (stations.length > 0 || serviceCentres.length > 0) loadBreakdowns(); }, [stations, serviceCentres, dateRange]);
 
   const loadStations = async () => {
     const allowedSCIds = accessContext?.allowedServiceCentreIds || [];
@@ -180,6 +189,19 @@ export default function BreakdownsTracker() {
     setStations(data || []);
   };
 
+  const loadServiceCentres = async () => {
+    const allowedSCIds = accessContext?.allowedServiceCentreIds || [];
+    if (allowedSCIds.length === 0) { setServiceCentres([]); return; }
+    let query = supabase.from('service_centres').select('id, name').order('name');
+    if (allowedSCIds.length <= 50) query = query.in('id', allowedSCIds);
+    const { data } = await query;
+    setServiceCentres((data || []).map(sc => ({
+      id: sc.id,
+      name: sc.name,
+      short_name: sc.name.replace(/\s*Service\s+Cent(?:re|er)\s*/i, ' ').trim() + ' SC',
+    })));
+  };
+
   const loadBreakdowns = async () => {
     setLoading(true);
     setError('');
@@ -187,6 +209,7 @@ export default function BreakdownsTracker() {
       const allowedSCIds = accessContext?.allowedServiceCentreIds || [];
       if (allowedSCIds.length === 0) { setRows([]); return; }
       const stationMap = new Map(stations.map(s => [s.id, s.station_name]));
+      const scMap = new Map(serviceCentres.map(sc => [sc.id, sc.short_name]));
       let query = supabase
         .from('station_breakdowns')
         .select('*')
@@ -196,25 +219,32 @@ export default function BreakdownsTracker() {
       if (allowedSCIds.length <= 50) query = query.in('service_centre_id', allowedSCIds);
       const { data, error: err } = await query;
       if (err) throw err;
-      const mapped = (data || []).map((b: any) => ({
-        id: b.id,
-        station_id: b.station_id,
-        station_name: stationMap.get(b.station_id) || 'Unknown',
-        date_reported: b.date_reported || '',
-        date_resolved: b.date_resolved || '',
-        job_card_no: b.job_card_no || '',
-        nature_of_breakdown: b.nature_of_breakdown || '',
-        possible_root_cause: b.possible_root_cause || '',
-        suggested_solutions: b.suggested_solutions || '',
-        details_of_work: b.details_of_work || '',
-        breakdown_impact: b.breakdown_impact || 'Not Significant',
-        hours_lost: b.hours_lost || 0,
-        time_to_repair_days: b.time_to_repair_days || 0,
-        remarks: b.remarks || '',
-        is_resolved: b.is_resolved || false,
-        _isNew: false,
-        _isDirty: false,
-      }));
+      const mapped = (data || []).map((b: any) => {
+        const isVehicleBreakdown = !!b.vehicle_id && !b.station_id;
+        const displayName = isVehicleBreakdown
+          ? scMap.get(b.service_centre_id) || 'Unknown SC'
+          : stationMap.get(b.station_id) || 'Unknown';
+        return {
+          id: b.id,
+          station_id: b.station_id || '',
+          station_name: displayName,
+          vehicle_id: b.vehicle_id || null,
+          date_reported: b.date_reported || '',
+          date_resolved: b.date_resolved || '',
+          job_card_no: b.job_card_no || '',
+          nature_of_breakdown: b.nature_of_breakdown || '',
+          possible_root_cause: b.possible_root_cause || '',
+          suggested_solutions: b.suggested_solutions || '',
+          details_of_work: b.details_of_work || '',
+          breakdown_impact: b.breakdown_impact || 'Not Significant',
+          hours_lost: b.hours_lost || 0,
+          time_to_repair_days: b.time_to_repair_days || 0,
+          remarks: b.remarks || '',
+          is_resolved: b.is_resolved || false,
+          _isNew: false,
+          _isDirty: false,
+        };
+      });
       setRows(mapped);
     } catch (err: any) {
       setError(err.message || 'Failed to load breakdowns');
@@ -273,7 +303,7 @@ export default function BreakdownsTracker() {
       ? accessContext.scopeId
       : allowedSCIds[0] || null;
     const record: any = {
-      station_id: row.station_id,
+      station_id: row.station_id || null,
       date_reported: row.date_reported,
       date_resolved: row.date_resolved || null,
       job_card_no: row.job_card_no || '',
@@ -304,7 +334,7 @@ export default function BreakdownsTracker() {
   const handleSave = async () => {
     const dirtyRows = editRows.filter(r => r._isDirty);
     if (dirtyRows.length === 0) { setEditing(false); return; }
-    const invalid = dirtyRows.filter(r => !r.station_id || !r.date_reported);
+    const invalid = dirtyRows.filter(r => (!r.station_id && !r.vehicle_id) || !r.date_reported);
     if (invalid.length > 0) { setError('Station and Date Occurred are required'); return; }
     setSaving(true);
     setError('');
@@ -403,6 +433,7 @@ export default function BreakdownsTracker() {
       sortable: true,
       filter: true,
       cellClass: 'font-medium',
+      cellStyle: (params: any) => params.data?.vehicle_id ? { color: '#1d4ed8', fontStyle: 'italic' } : {},
     },
     {
       headerName: 'Date Occurred',
@@ -812,15 +843,19 @@ export default function BreakdownsTracker() {
                       className="sticky left-0 z-10 bg-inherit border border-gray-200 px-1 py-0.5"
                       style={{ minWidth: STATION_COL_WIDTH, backgroundColor: 'inherit' }}
                     >
-                      <select value={row.station_id} onChange={e => handleCellChange(rowIdx, 'station_id', e.target.value)} className={`${inputCls} pr-4`}>
-                        <option value="">Select station...</option>
-                        {scName && (
-                          <optgroup label={scName}>
-                            {stations.map(s => <option key={s.id} value={s.id}>{s.station_name}</option>)}
-                          </optgroup>
-                        )}
-                        {!scName && stations.map(s => <option key={s.id} value={s.id}>{s.station_name}</option>)}
-                      </select>
+                      {row.vehicle_id ? (
+                        <span className="px-1.5 py-1 text-xs text-gray-700 font-medium">{row.station_name}</span>
+                      ) : (
+                        <select value={row.station_id} onChange={e => handleCellChange(rowIdx, 'station_id', e.target.value)} className={`${inputCls} pr-4`}>
+                          <option value="">Select station...</option>
+                          {scName && (
+                            <optgroup label={scName}>
+                              {stations.map(s => <option key={s.id} value={s.id}>{s.station_name}</option>)}
+                            </optgroup>
+                          )}
+                          {!scName && stations.map(s => <option key={s.id} value={s.id}>{s.station_name}</option>)}
+                        </select>
+                      )}
                     </td>
                     {editColumns.map(col => (
                       <td key={col.key} className="border border-gray-200 px-1 py-0.5">
