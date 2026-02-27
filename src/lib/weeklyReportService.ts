@@ -189,11 +189,12 @@ async function tryGenerateFridayReport(
 
   if (!count || count < stationIds.length) return false;
 
-  const daysFromFriday = (today.getDay() + 2) % 7;
-  const currentWeekStart = new Date(today);
-  currentWeekStart.setDate(today.getDate() - daysFromFriday);
+  const reportingDate = thursday;
+  const daysFromFriday = (reportingDate.getDay() + 2) % 7;
+  const currentWeekStart = new Date(reportingDate);
+  currentWeekStart.setDate(reportingDate.getDate() - daysFromFriday);
 
-  const firstFridayOfYear = new Date(today.getFullYear(), 0, 1, 12, 0, 0);
+  const firstFridayOfYear = new Date(reportingDate.getFullYear(), 0, 1, 12, 0, 0);
   const firstDayOfWeek = firstFridayOfYear.getDay();
   const daysToFirstFriday = firstDayOfWeek <= 5 ? 5 - firstDayOfWeek : 12 - firstDayOfWeek;
   firstFridayOfYear.setDate(firstFridayOfYear.getDate() + daysToFirstFriday);
@@ -201,7 +202,7 @@ async function tryGenerateFridayReport(
   const weekNumber = Math.max(1, Math.floor(daysDifference / 7) + 1);
 
   const result = await generateAndSaveWeeklyReport(
-    scope, serviceCentreId, serviceCentreName, weekNumber, today.getFullYear(), 'friday'
+    scope, serviceCentreId, serviceCentreName, weekNumber, reportingDate.getFullYear(), 'friday'
   );
 
   return result !== null;
