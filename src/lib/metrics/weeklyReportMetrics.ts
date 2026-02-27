@@ -388,11 +388,9 @@ export async function fetchWeeklyReportData(
     hoursLost: Number(b.hours_lost) || 0,
   }));
 
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
+  const reportMonth = new Date(dateRange.start + 'T12:00:00').getMonth();
 
-  const weekOnWeekChemicals = await fetchWeekOnWeekChemicalUsage(scope, year, currentMonth);
+  const weekOnWeekChemicals = await fetchWeekOnWeekChemicalUsage(scope, year, reportMonth);
 
   const chemicals: WeeklyChemicalSummary[] = [];
   const chemLabels: Record<string, string> = {
