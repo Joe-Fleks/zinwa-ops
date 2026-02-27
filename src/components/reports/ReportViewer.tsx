@@ -110,12 +110,12 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
 
       {(prod.stations || []).length > 0 && (
         <>
-          <SubTitle>Station Production Detail</SubTitle>
+          <SubTitle>2.1 Station-Level Production</SubTitle>
           <div className="overflow-x-auto">
             <table className="w-full border border-gray-200 rounded text-left mb-3">
               <thead>
                 <tr>
-                  {['Station', 'Type', 'CW Vol (m\u00b3)', 'CW Hrs', 'Efficiency', 'Downtime (hrs)', 'New Conn.'].map(h => (
+                  {['Station', 'Type', 'CW Vol (m\u00b3)', 'CW YTD (m\u00b3)', 'CW Hrs', 'Downtime (hrs)', 'Eff. (%)'].map(h => (
                     <th key={h} className={HDR2}>{h}</th>
                   ))}
                 </tr>
@@ -126,10 +126,10 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
                     <td className={TD + ' font-medium'}>{st.stationName}</td>
                     <td className={TD}>{st.stationType}</td>
                     <td className={TD + ' text-right'}>{fmt(st.cwVolume)}</td>
+                    <td className={TD + ' text-right'}>{fmt(st.cwVolumeYTD)}</td>
                     <td className={TD + ' text-right'}>{fmt(st.cwHours, 1)}</td>
-                    <td className={TD + ' text-right'}>{pct(st.efficiency)}</td>
                     <td className={TD + ' text-right'}>{fmt(st.totalDowntime, 1)}</td>
-                    <td className={TD + ' text-right'}>{st.newConnections ?? 0}</td>
+                    <td className={TD + ' text-right'}>{pct(st.efficiency)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -177,51 +177,203 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
         </>
       )}
 
-      <SectionTitle>2. Capacity Utilization</SectionTitle>
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        {[
-          ['RW Installed Capacity', fmt(cap.rwInstalledTotal) + ' m\u00b3/hr'],
-          ['RW Weekly Actual', cap.rwWeeklyActualTotal != null ? fmt(cap.rwWeeklyActualTotal, 1) + ' m\u00b3/hr' : 'N/A'],
-          ['CW Installed Capacity', fmt(cap.cwInstalledTotal) + ' m\u00b3/hr'],
-          ['CW Weekly Actual', cap.cwWeeklyActualTotal != null ? fmt(cap.cwWeeklyActualTotal, 1) + ' m\u00b3/hr' : 'N/A'],
-        ].map(([label, value]) => (
-          <div key={label} className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
-            <p className="text-[10px] text-gray-500 uppercase font-semibold">{label}</p>
-            <p className="text-sm font-bold text-gray-800 mt-0.5">{value}</p>
+      <SectionTitle>3. Capacity Utilization</SectionTitle>
+      {(cap.stations || []).filter((s: any) => s.stationType === 'Full Treatment').length > 0 && (
+        <>
+          <SubTitle>3.1 RW Pumping Capacity (Full Treatment Stations)</SubTitle>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  {['Station', 'Installed (m\u00b3/hr)', 'Weekly RW (m\u00b3/hr)', 'YTD Avg RW (m\u00b3/hr)'].map(h => (
+                    <th key={h} className={HDR}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(cap.stations || []).filter((s: any) => s.stationType === 'Full Treatment').map((st: any, i: number) => (
+                  <tr key={st.stationId} className={TR_ALT(i)}>
+                    <td className={TD + ' font-medium'}>{st.stationName}</td>
+                    <td className={TD + ' text-right'}>{st.installedCapacity > 0 ? fmt(st.installedCapacity, 1) : '-'}</td>
+                    <td className={TD + ' text-right'}>{st.weeklyRWCapacity != null ? fmt(st.weeklyRWCapacity, 1) : '-'}</td>
+                    <td className={TD + ' text-right'}>{st.ytdRWCapacity != null ? fmt(st.ytdRWCapacity, 1) : '-'}</td>
+                  </tr>
+                ))}
+                <tr className="bg-[#D6EAF8] font-semibold">
+                  <td className={TD + ' font-bold'}>Total / Avg</td>
+                  <td className={TD + ' text-right font-bold'}>{cap.rwInstalledTotal > 0 ? fmt(cap.rwInstalledTotal, 1) : '-'}</td>
+                  <td className={TD + ' text-right font-bold'}>{cap.rwWeeklyActualTotal != null ? fmt(cap.rwWeeklyActualTotal, 1) : '-'}</td>
+                  <td className={TD + ' text-right font-bold'}>{cap.rwYtdAvgTotal != null ? fmt(cap.rwYtdAvgTotal, 1) : '-'}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        ))}
+        </>
+      )}
+      <SubTitle>3.2 CW Pumping Capacity (All Stations)</SubTitle>
+      <div className="overflow-x-auto mb-3">
+        <table className="w-full border border-gray-200 rounded text-left">
+          <thead>
+            <tr>
+              {['Station', 'Type', 'Installed (m\u00b3/hr)', 'Weekly CW (m\u00b3/hr)', 'YTD Avg CW (m\u00b3/hr)'].map(h => (
+                <th key={h} className={HDR}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {(cap.stations || []).map((st: any, i: number) => (
+              <tr key={st.stationId} className={TR_ALT(i)}>
+                <td className={TD + ' font-medium'}>{st.stationName}</td>
+                <td className={TD}>{st.stationType}</td>
+                <td className={TD + ' text-right'}>{st.installedCapacity > 0 ? fmt(st.installedCapacity, 1) : '-'}</td>
+                <td className={TD + ' text-right'}>{st.weeklyCWCapacity != null ? fmt(st.weeklyCWCapacity, 1) : '-'}</td>
+                <td className={TD + ' text-right'}>{st.ytdCWCapacity != null ? fmt(st.ytdCWCapacity, 1) : '-'}</td>
+              </tr>
+            ))}
+            <tr className="bg-[#D6EAF8] font-semibold">
+              <td className={TD + ' font-bold'}>Total / Avg</td>
+              <td className={TD}></td>
+              <td className={TD + ' text-right font-bold'}>{cap.cwInstalledTotal > 0 ? fmt(cap.cwInstalledTotal, 1) : '-'}</td>
+              <td className={TD + ' text-right font-bold'}>{cap.cwWeeklyActualTotal != null ? fmt(cap.cwWeeklyActualTotal, 1) : '-'}</td>
+              <td className={TD + ' text-right font-bold'}>{cap.cwYtdAvgTotal != null ? fmt(cap.cwYtdAvgTotal, 1) : '-'}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <SectionTitle>3. Power Supply</SectionTitle>
-      <div className="grid grid-cols-3 gap-3 mb-3">
-        {[
-          ['Required Hours', fmt(pwr.totalRequiredHours, 0) + ' hrs'],
-          ['Actual Hours', fmt(pwr.totalActualHours, 0) + ' hrs'],
-          ['Availability', pct(pwr.overallAvailabilityPct)],
-        ].map(([label, value]) => (
-          <div key={label} className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
-            <p className="text-[10px] text-gray-500 uppercase font-semibold">{label}</p>
-            <p className="text-sm font-bold text-gray-800 mt-0.5">{value}</p>
-          </div>
-        ))}
-      </div>
+      <SectionTitle>4. Power Supply &amp; Hours</SectionTitle>
+      {(pwr.stations || []).length > 0 ? (
+        <div className="overflow-x-auto mb-3">
+          <table className="w-full border border-gray-200 rounded text-left">
+            <thead>
+              <tr>
+                {['Station', 'Required Hours', 'Actual Hours Run', 'Power Availability (%)'].map(h => (
+                  <th key={h} className={HDR}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(pwr.stations || []).map((st: any, i: number) => {
+                const rowClass = st.powerAvailabilityPct < 50 ? 'bg-red-50' : TR_ALT(i);
+                return (
+                  <tr key={st.stationId} className={rowClass}>
+                    <td className={TD + ' font-medium'}>{st.stationName}</td>
+                    <td className={TD + ' text-right'}>{fmt(st.requiredHours, 1)}</td>
+                    <td className={TD + ' text-right'}>{fmt(st.actualHoursRun, 1)}</td>
+                    <td className={TD + ' text-right'}>{pct(st.powerAvailabilityPct)}</td>
+                  </tr>
+                );
+              })}
+              <tr className="bg-[#D6EAF8] font-semibold">
+                <td className={TD + ' font-bold'}>TOTAL</td>
+                <td className={TD + ' text-right font-bold'}>{fmt(pwr.totalRequiredHours, 1)}</td>
+                <td className={TD + ' text-right font-bold'}>{fmt(pwr.totalActualHours, 1)}</td>
+                <td className={TD + ' text-right font-bold'}>{pct(pwr.overallAvailabilityPct)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          {[
+            ['Required Hours', fmt(pwr.totalRequiredHours, 0) + ' hrs'],
+            ['Actual Hours', fmt(pwr.totalActualHours, 0) + ' hrs'],
+            ['Availability', pct(pwr.overallAvailabilityPct)],
+          ].map(([label, value]) => (
+            <div key={label} className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
+              <p className="text-[10px] text-gray-500 uppercase font-semibold">{label}</p>
+              <p className="text-sm font-bold text-gray-800 mt-0.5">{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <SectionTitle>4. Connections</SectionTitle>
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        {[
-          ['Total Connections', fmt(conn.totalCurrentConnections)],
-          ['New This Week', String(conn.totalNewThisWeek ?? 0)],
-          ['New Total', String(conn.totalNewTotal ?? 0)],
-          ['YTD New Connections', String(conn.totalYTDNew ?? 0)],
-        ].map(([label, value]) => (
-          <div key={label} className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
-            <p className="text-[10px] text-gray-500 uppercase font-semibold">{label}</p>
-            <p className="text-sm font-bold text-gray-800 mt-0.5">{value}</p>
-          </div>
-        ))}
-      </div>
+      <SectionTitle>5. Connections</SectionTitle>
+      <table className="w-full border border-gray-200 rounded text-left mb-3">
+        <tbody>
+          {[
+            ['Total Current Connections', fmt(conn.totalCurrentConnections)],
+            ['New Connections This Week', String(conn.totalNewThisWeek ?? 0)],
+            ['New Total Connections', String(conn.totalNewTotal ?? 0)],
+            ['Year-to-Date New Connections', String(conn.totalYTDNew ?? 0)],
+          ].map(([label, value], i) => (
+            <tr key={label} className={TR_ALT(i)}>
+              <td className={TD + ' font-medium text-gray-700 w-56'}>{label}</td>
+              <td className={TD + ' text-right'}>{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {(() => {
+        const stationsWithNew = (conn.stations || []).filter((s: any) => s.newConnectionsThisWeek > 0);
+        return stationsWithNew.length > 0 ? (
+          <>
+            <SubTitle>5.1 Stations with New Connections</SubTitle>
+            <div className="overflow-x-auto mb-3">
+              <table className="w-full border border-gray-200 rounded text-left">
+                <thead>
+                  <tr>
+                    {['Station', 'Current', 'New (Week)', 'New Total', 'YTD New'].map(h => (
+                      <th key={h} className={HDR2}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stationsWithNew.map((st: any, i: number) => (
+                    <tr key={st.stationId} className={TR_ALT(i)}>
+                      <td className={TD + ' font-medium'}>{st.stationName}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.currentConnections)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.newConnectionsThisWeek)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.newTotal)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.ytdNewConnections)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-gray-500 mb-3">No new connections recorded this week.</p>
+        );
+      })()}
 
-      <SectionTitle>5. Breakdowns</SectionTitle>
+      {(prod.stations || []).filter((s: any) => s.totalDowntime > 0).length > 0 ? (
+        <div className="overflow-x-auto mb-3">
+          <table className="w-full border border-gray-200 rounded text-left">
+            <thead>
+              <tr>
+                {['Station', 'Load Shedding (hrs)', 'Other Downtime (hrs)', 'Total (hrs)', 'Status'].map(h => (
+                  <th key={h} className={HDR}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(prod.stations || [])
+                .filter((s: any) => s.totalDowntime > 0)
+                .sort((a: any, b: any) => b.totalDowntime - a.totalDowntime)
+                .map((st: any, i: number) => {
+                  const statusLabel = st.totalDowntime > 48 ? 'CRITICAL' : st.totalDowntime > 24 ? 'WARNING' : 'NORMAL';
+                  const statusClass = st.totalDowntime > 48 ? 'bg-red-100 text-red-800' : st.totalDowntime > 24 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
+                  return (
+                    <tr key={st.stationId} className={TR_ALT(i)}>
+                      <td className={TD + ' font-medium'}>{st.stationName}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.loadSheddingHours, 1)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.otherDowntimeHours, 1)}</td>
+                      <td className={TD + ' text-right font-semibold'}>{fmt(st.totalDowntime, 1)}</td>
+                      <td className={TD + ' text-center'}>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${statusClass}`}>{statusLabel}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500 mb-3">No downtime recorded during this period.</p>
+      )}
+
+      <SectionTitle>7. Breakdowns</SectionTitle>
       {bkd.length > 0 ? (
         <div className="overflow-x-auto mb-3">
           <table className="w-full border border-gray-200 rounded text-left">
@@ -234,7 +386,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
             </thead>
             <tbody>
               {bkd.map((b: any, i: number) => (
-                <tr key={i} className={TR_ALT(i)}>
+                <tr key={i} className={b.impact === 'Stopped pumping' && b.hoursLost > 0 ? 'bg-red-50' : TR_ALT(i)}>
                   <td className={TD + ' font-medium'}>{b.stationName}</td>
                   <td className={TD}>{b.component}</td>
                   <td className={TD}>{b.impact}</td>
@@ -254,37 +406,10 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
         <p className="text-xs text-gray-500 mb-3">No breakdowns reported during this period.</p>
       )}
 
-      <SectionTitle>6. Downtime by Station</SectionTitle>
-      {(prod.stations || []).filter((s: any) => s.totalDowntime > 0).length > 0 ? (
-        <div className="overflow-x-auto mb-3">
-          <table className="w-full border border-gray-200 rounded text-left">
-            <thead>
-              <tr>
-                {['Station', 'Load Shedding (hrs)', 'Other Downtime (hrs)', 'Total (hrs)'].map(h => (
-                  <th key={h} className={HDR2}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(prod.stations || []).filter((s: any) => s.totalDowntime > 0).map((st: any, i: number) => (
-                <tr key={st.stationId} className={TR_ALT(i)}>
-                  <td className={TD + ' font-medium'}>{st.stationName}</td>
-                  <td className={TD + ' text-right'}>{fmt(st.loadSheddingHours, 1)}</td>
-                  <td className={TD + ' text-right'}>{fmt(st.otherDowntimeHours, 1)}</td>
-                  <td className={TD + ' text-right font-semibold'}>{fmt(st.totalDowntime, 1)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="text-xs text-gray-500 mb-3">No downtime recorded during this period.</p>
-      )}
-
-      <SectionTitle>7. Chemical Stock Status</SectionTitle>
+      <SectionTitle>8. Chemical Stock Status</SectionTitle>
       {chems.map((chem: any, ci: number) => (
         <div key={chem.chemicalType} className="mb-4">
-          <SubTitle>{ci + 1}. {chem.label}</SubTitle>
+          <SubTitle>8.{ci + 1} {chem.label}</SubTitle>
           <table className="w-full border border-gray-200 rounded text-left mb-2">
             <thead>
               <tr>
@@ -310,7 +435,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
           {chem.lowStockStations.length > 0 && (
             <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">
               <span className="font-semibold">Low Stock: </span>
-              {chem.lowStockStations.map(s => `${s.stationName} (${s.daysRemaining}d)`).join(', ')}
+              {chem.lowStockStations.map((s: any) => `${s.stationName} (${s.daysRemaining}d)`).join(', ')}
             </div>
           )}
         </div>
@@ -746,7 +871,7 @@ export default function ReportViewer({
           <button
             onClick={onDownload}
             disabled={isDownloading}
-            className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded transition-colors"
+            className="flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 disabled:opacity-50 text-blue-900 text-xs font-semibold rounded transition-colors"
           >
             <Download className="w-3 h-3" />
             {isDownloading ? 'Downloading...' : 'Download .docx'}
