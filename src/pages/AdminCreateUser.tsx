@@ -144,12 +144,6 @@ export default function AdminCreateUser() {
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`;
       const authHeader = `Bearer ${session.access_token}`;
 
-      console.log('DEBUG: API URL:', apiUrl);
-      console.log('DEBUG: Token exists:', !!session.access_token);
-      console.log('DEBUG: Token length:', session.access_token?.length);
-      console.log('DEBUG: Auth header:', authHeader.substring(0, 20) + '...');
-      console.log('DEBUG: Payload being sent:', JSON.stringify(payload, null, 2));
-
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -161,14 +155,10 @@ export default function AdminCreateUser() {
         body: JSON.stringify(payload),
       });
 
-      console.log('DEBUG: Response status:', response.status);
-
       let result;
       try {
         result = await response.json();
-        console.log('DEBUG: Response body:', JSON.stringify(result, null, 2));
       } catch (e) {
-        console.log('DEBUG: Failed to parse JSON response');
         throw new Error('Invalid response from server');
       }
 
