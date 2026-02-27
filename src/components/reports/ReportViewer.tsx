@@ -251,22 +251,23 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
           <table className="w-full border border-gray-200 rounded text-left">
             <thead>
               <tr>
-                {['Station', 'Required Hours', 'Load Shedding (hrs)', 'Power Available (hrs)', 'Actual Hours Run', 'Power Availability (%)'].map(h => (
+                {['Station', 'Required Hours', 'Load Shedding (hrs)', 'Power Available (hrs)', 'Power Availability (%)', 'Actual Hours Run', 'Grid Utilization (%)'].map(h => (
                   <th key={h} className={HDR}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {(pwr.stations || []).map((st: any, i: number) => {
-                const rowClass = st.powerAvailabilityPct < 50 ? 'bg-red-50' : TR_ALT(i);
+                const rowClass = st.gridUtilizationPct < 50 ? 'bg-red-50' : TR_ALT(i);
                 return (
                   <tr key={st.stationId} className={rowClass}>
                     <td className={TD + ' font-medium'}>{st.stationName}</td>
                     <td className={TD + ' text-right'}>{fmt(st.requiredHours, 1)}</td>
                     <td className={TD + ' text-right'}>{st.loadSheddingHours > 0 ? fmt(st.loadSheddingHours, 1) : '-'}</td>
                     <td className={TD + ' text-right'}>{fmt(st.powerAvailableHours, 1)}</td>
-                    <td className={TD + ' text-right'}>{fmt(st.actualHoursRun, 1)}</td>
                     <td className={TD + ' text-right'}>{pct(st.powerAvailabilityPct)}</td>
+                    <td className={TD + ' text-right'}>{fmt(st.actualHoursRun, 1)}</td>
+                    <td className={TD + ' text-right'}>{pct(st.gridUtilizationPct)}</td>
                   </tr>
                 );
               })}
@@ -275,8 +276,9 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
                 <td className={TD + ' text-right font-bold'}>{fmt(pwr.totalRequiredHours, 1)}</td>
                 <td className={TD + ' text-right font-bold'}>{pwr.totalLoadSheddingHours > 0 ? fmt(pwr.totalLoadSheddingHours, 1) : '-'}</td>
                 <td className={TD + ' text-right font-bold'}>{fmt(pwr.totalPowerAvailableHours, 1)}</td>
-                <td className={TD + ' text-right font-bold'}>{fmt(pwr.totalActualHours, 1)}</td>
                 <td className={TD + ' text-right font-bold'}>{pct(pwr.overallAvailabilityPct)}</td>
+                <td className={TD + ' text-right font-bold'}>{fmt(pwr.totalActualHours, 1)}</td>
+                <td className={TD + ' text-right font-bold'}>{pct(pwr.overallGridUtilizationPct)}</td>
               </tr>
             </tbody>
           </table>

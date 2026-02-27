@@ -115,6 +115,7 @@ export interface PowerSupplyStation {
   loadSheddingHours: number;
   powerAvailableHours: number;
   powerAvailabilityPct: number;
+  gridUtilizationPct: number;
 }
 
 export interface PowerSupplySummary {
@@ -123,6 +124,7 @@ export interface PowerSupplySummary {
   totalLoadSheddingHours: number;
   totalPowerAvailableHours: number;
   overallAvailabilityPct: number;
+  overallGridUtilizationPct: number;
   stations: PowerSupplyStation[];
 }
 
@@ -636,7 +638,8 @@ function buildPowerSupply(
     const actual = agg ? agg.cwHrs : 0;
     const ls = agg ? agg.ls : 0;
     const powerAvailable = Math.max(0, required - ls);
-    const availability = powerAvailable > 0 ? roundTo((actual / powerAvailable) * 100, 1) : 0;
+    const powerAvailabilityPct = required > 0 ? roundTo((powerAvailable / required) * 100, 1) : 0;
+    const gridUtilizationPct = powerAvailable > 0 ? roundTo((actual / powerAvailable) * 100, 1) : 0;
 
     totalRequired += required;
     totalActual += actual;
@@ -649,11 +652,12 @@ function buildPowerSupply(
       actualHoursRun: roundTo(actual, 1),
       loadSheddingHours: roundTo(ls, 1),
       powerAvailableHours: roundTo(powerAvailable, 1),
-      powerAvailabilityPct: availability,
+      powerAvailabilityPct,
+      gridUtilizationPct,
     });
   }
 
-  stationsResult.sort((a, b) => a.powerAvailabilityPct - b.powerAvailabilityPct);
+  stationsResult.sort((a, b) => a.gridUtilizationPct - b.gridUtilizationPct);
 
   const totalPowerAvailable = Math.max(0, totalRequired - totalLS);
 
@@ -662,7 +666,8 @@ function buildPowerSupply(
     totalActualHours: roundTo(totalActual, 1),
     totalLoadSheddingHours: roundTo(totalLS, 1),
     totalPowerAvailableHours: roundTo(totalPowerAvailable, 1),
-    overallAvailabilityPct: totalPowerAvailable > 0 ? roundTo((totalActual / totalPowerAvailable) * 100, 1) : 0,
+    overallAvailabilityPct: totalRequired > 0 ? roundTo((totalPowerAvailable / totalRequired) * 100, 1) : 0,
+    overallGridUtilizationPct: totalPowerAvailable > 0 ? roundTo((totalActual / totalPowerAvailable) * 100, 1) : 0,
     stations: stationsResult,
   };
 }
@@ -804,7 +809,7 @@ function buildEmptyReport(
     },
     powerSupply: {
       totalRequiredHours: 0, totalActualHours: 0, totalLoadSheddingHours: 0,
-      totalPowerAvailableHours: 0, overallAvailabilityPct: 0, stations: [],
+      totalPowerAvailableHours: 0, overallAvailabilityPct: 0, overallGridUtilizationPct: 0, stations: [],
     },
     connections: {
       totalCurrentConnections: 0, totalNewThisWeek: 0, totalNewTotal: 0, totalYTDNew: 0, stations: [],
