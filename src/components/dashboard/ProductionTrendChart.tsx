@@ -1172,8 +1172,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
             <>
               <div className="space-y-0">
                 {dualData.map((item, i) => {
-                  const prodPct = dualMaxVal > 0 ? (item.production / dualMaxVal) * 100 : 0;
-                  const salesPct = dualMaxVal > 0 ? (item.sales / dualMaxVal) * 100 : 0;
+                  const rowMax = Math.max(item.production, item.sales, 1);
+                  const prodPct = (item.production / rowMax) * 100;
+                  const salesPct = (item.sales / rowMax) * 100;
                   const dualNrwPct = item.salesMonthKey ? (nrwMap.get(item.salesMonthKey) ?? null) : null;
 
                   return (
@@ -1190,7 +1191,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                           <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
                             <div
                               className="h-full bg-green-300 rounded transition-all duration-500"
-                              style={{ width: `${Math.max(prodPct, item.production > 0 ? 0.5 : 0)}%` }}
+                              style={{ width: `${Math.max(prodPct, item.production > 0 ? 2 : 0)}%` }}
                             />
                           </div>
                           <div className="w-28 flex-shrink-0 text-right">
@@ -1206,7 +1207,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                           <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
                             <div
                               className="h-full bg-blue-400 rounded transition-all duration-500"
-                              style={{ width: `${Math.max(salesPct, item.sales > 0 ? 0.5 : 0)}%` }}
+                              style={{ width: `${Math.max(salesPct, item.sales > 0 ? 2 : 0)}%` }}
                             />
                           </div>
                           <div className="w-28 flex-shrink-0 text-right">
@@ -1237,7 +1238,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                     <div className="flex-1 bg-gray-200 rounded h-[7px] lg:h-[9px] overflow-hidden">
                       <div
                         className="h-full bg-green-400 rounded transition-all duration-500"
-                        style={{ width: `${dualMaxVal > 0 ? Math.max((totalDualProduction / dualMaxVal) * 100, totalDualProduction > 0 ? 0.5 : 0) : 0}%` }}
+                        style={{ width: `${Math.max((totalDualProduction / Math.max(totalDualProduction, totalDualSales, 1)) * 100, totalDualProduction > 0 ? 2 : 0)}%` }}
                       />
                     </div>
                     <div className="w-28 flex-shrink-0 text-right">
@@ -1255,7 +1256,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                     <div className="flex-1 bg-gray-200 rounded h-[7px] lg:h-[9px] overflow-hidden">
                       <div
                         className="h-full bg-blue-500 rounded transition-all duration-500"
-                        style={{ width: `${dualMaxVal > 0 ? Math.max((totalDualSales / dualMaxVal) * 100, totalDualSales > 0 ? 0.5 : 0) : 0}%` }}
+                        style={{ width: `${Math.max((totalDualSales / Math.max(totalDualProduction, totalDualSales, 1)) * 100, totalDualSales > 0 ? 2 : 0)}%` }}
                       />
                     </div>
                     <div className="w-28 flex-shrink-0 text-right">
@@ -1303,8 +1304,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
             <>
               <div className="space-y-0">
                 {chartData.map((item, i) => {
-                  const actualPct = maxVal > 0 ? (item.actual / maxVal) * 100 : 0;
-                  const targetPct = maxVal > 0 ? (item.target / maxVal) * 100 : 0;
+                  const rowMax = Math.max(item.actual, item.target, 1);
+                  const actualPct = (item.actual / rowMax) * 100;
+                  const targetPct = (item.target / rowMax) * 100;
                   const barAchievement = item.target > 0 ? (item.actual / item.target) * 100 : null;
 
                   return (
@@ -1325,7 +1327,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                             <div className="flex-1 bg-gray-100 rounded h-[3.5px] lg:h-[4.5px] overflow-hidden">
                               <div
                                 className="h-full bg-gray-400 rounded transition-all duration-500"
-                                style={{ width: `${Math.max(targetPct, item.target > 0 ? 0.5 : 0)}%` }}
+                                style={{ width: `${Math.max(targetPct, item.target > 0 ? 2 : 0)}%` }}
                               />
                             </div>
                             <div className="w-36 flex-shrink-0">
@@ -1340,7 +1342,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                                 className={`h-full rounded transition-all duration-500 ${
                                   item.actual >= item.target ? actualMetColor : actualNotMetColor
                                 }`}
-                                style={{ width: `${Math.max(actualPct, item.actual > 0 ? 0.5 : 0)}%` }}
+                                style={{ width: `${Math.max(actualPct, item.actual > 0 ? 2 : 0)}%` }}
                               />
                             </div>
                             <div className="w-36 flex-shrink-0">
@@ -1373,7 +1375,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                     <div className="flex-1 bg-gray-200 rounded h-[7px] lg:h-[9px] overflow-hidden">
                       <div
                         className="h-full bg-gray-500 rounded transition-all duration-500"
-                        style={{ width: `${maxVal > 0 ? Math.max((totalTarget / maxVal) * 100, totalTarget > 0 ? 0.5 : 0) : 0}%` }}
+                        style={{ width: `${Math.max((totalTarget / Math.max(totalTarget, totalActual, 1)) * 100, totalTarget > 0 ? 2 : 0)}%` }}
                       />
                     </div>
                     <div className="w-36 flex-shrink-0">
@@ -1396,7 +1398,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                             ? (trendType === 'production' ? 'bg-green-400' : 'bg-blue-500')
                             : 'bg-red-500'
                         }`}
-                        style={{ width: `${maxVal > 0 ? Math.max((totalActual / maxVal) * 100, totalActual > 0 ? 0.5 : 0) : 0}%` }}
+                        style={{ width: `${Math.max((totalActual / Math.max(totalTarget, totalActual, 1)) * 100, totalActual > 0 ? 2 : 0)}%` }}
                       />
                     </div>
                     <div className="w-36 flex-shrink-0">
