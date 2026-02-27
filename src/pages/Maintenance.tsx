@@ -11,14 +11,14 @@ import EnergyManagement from '../components/maintenance/EnergyManagement';
 
 type TabKey = 'breakdowns' | 'non-functional' | 'capacity-variance' | 'nrw' | 'dams' | 'equipment' | 'energy';
 
-const TABS: { key: TabKey; label: string; shortLabel: string; icon: React.ReactNode }[] = [
-  { key: 'breakdowns', label: 'Breakdowns Tracker', shortLabel: 'Breakdowns', icon: <Wrench className="w-5 h-5" /> },
-  { key: 'non-functional', label: 'Non-functional Stations', shortLabel: 'Non-func Stations', icon: <AlertTriangle className="w-5 h-5" /> },
-  { key: 'capacity-variance', label: 'Capacity Variance', shortLabel: 'Cap. Var.', icon: <BarChart3 className="w-5 h-5" /> },
-  { key: 'nrw', label: 'Non-revenue Water', shortLabel: 'NRW', icon: <Droplets className="w-5 h-5" /> },
-  { key: 'energy', label: 'Energy Management', shortLabel: 'Energy', icon: <Zap className="w-5 h-5" /> },
-  { key: 'dams', label: 'Dam Maintenance', shortLabel: 'Dam Maint.', icon: <Waves className="w-5 h-5" /> },
-  { key: 'equipment', label: 'Equipment Registry', shortLabel: 'Equip. Reg.', icon: <Cog className="w-5 h-5" /> },
+const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+  { key: 'breakdowns', label: 'Breakdowns', icon: <Wrench className="w-5 h-5" /> },
+  { key: 'non-functional', label: 'Non-func Stations', icon: <AlertTriangle className="w-5 h-5" /> },
+  { key: 'capacity-variance', label: 'Cap. Variance', icon: <BarChart3 className="w-5 h-5" /> },
+  { key: 'nrw', label: 'NRW', icon: <Droplets className="w-5 h-5" /> },
+  { key: 'energy', label: 'Energy', icon: <Zap className="w-5 h-5" /> },
+  { key: 'dams', label: 'Dam Maint.', icon: <Waves className="w-5 h-5" /> },
+  { key: 'equipment', label: 'Equip. Reg.', icon: <Cog className="w-5 h-5" /> },
 ];
 
 export default function Maintenance() {
@@ -47,8 +47,7 @@ export default function Maintenance() {
           >
             <div className="flex items-center gap-2">
               {tab.icon}
-              <span className="hidden min-[951px]:inline">{tab.label}</span>
-              <span className="inline min-[951px]:hidden">{tab.shortLabel}</span>
+              <span>{tab.label}</span>
             </div>
           </button>
         ))}
