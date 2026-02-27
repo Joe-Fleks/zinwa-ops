@@ -418,9 +418,44 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
       )}
 
       <SectionTitle>8. Chemical Stock Status</SectionTitle>
+
+      {data.weekOnWeekChemicals?.weeks && data.weekOnWeekChemicals.weeks.length > 0 && (
+        <>
+          <SubTitle>8.1 Week-on-Week Chemical Usage</SubTitle>
+          <div className="overflow-x-auto mb-4">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  <th className={HDR2}></th>
+                  <th className={HDR2 + ' text-right'}>Alum (kg)</th>
+                  <th className={HDR2 + ' text-right'}>HTH (kg)</th>
+                  <th className={HDR2 + ' text-right'}>Act. Carbon (Kg)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.weekOnWeekChemicals.weeks.map((week: any, i: number) => (
+                  <tr key={week.weekNumber} className={TR_ALT(i)}>
+                    <td className={TD + ' font-medium'}>{week.weekLabel}</td>
+                    <td className={TD + ' text-right'}>{fmt(week.alumKg, 0)}</td>
+                    <td className={TD + ' text-right'}>{fmt(week.hthKg, 0)}</td>
+                    <td className={TD + ' text-right'}>{fmt(week.activatedCarbonKg, 0)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-[#D6EAF8] font-semibold">
+                  <td className={TD + ' font-bold'}>Ave</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(data.weekOnWeekChemicals.avgAlumKg, 0)}</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(data.weekOnWeekChemicals.avgHthKg, 0)}</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(data.weekOnWeekChemicals.avgActivatedCarbonKg, 0)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
       {chems.map((chem: any, ci: number) => (
         <div key={chem.chemicalType} className="mb-4">
-          <SubTitle>8.{ci + 1} {chem.label}</SubTitle>
+          <SubTitle>8.{data.weekOnWeekChemicals?.weeks?.length > 0 ? ci + 2 : ci + 1} {chem.label}</SubTitle>
           <table className="w-full border border-gray-200 rounded text-left mb-2">
             <thead>
               <tr>
