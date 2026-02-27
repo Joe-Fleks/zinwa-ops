@@ -251,7 +251,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
           <table className="w-full border border-gray-200 rounded text-left">
             <thead>
               <tr>
-                {['Station', 'Required Hours', 'Actual Hours Run', 'Power Availability (%)'].map(h => (
+                {['Station', 'Required Hours', 'Load Shedding (hrs)', 'Power Available (hrs)', 'Actual Hours Run', 'Power Availability (%)'].map(h => (
                   <th key={h} className={HDR}>{h}</th>
                 ))}
               </tr>
@@ -263,6 +263,8 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
                   <tr key={st.stationId} className={rowClass}>
                     <td className={TD + ' font-medium'}>{st.stationName}</td>
                     <td className={TD + ' text-right'}>{fmt(st.requiredHours, 1)}</td>
+                    <td className={TD + ' text-right'}>{st.loadSheddingHours > 0 ? fmt(st.loadSheddingHours, 1) : '-'}</td>
+                    <td className={TD + ' text-right'}>{fmt(st.powerAvailableHours, 1)}</td>
                     <td className={TD + ' text-right'}>{fmt(st.actualHoursRun, 1)}</td>
                     <td className={TD + ' text-right'}>{pct(st.powerAvailabilityPct)}</td>
                   </tr>
@@ -271,6 +273,8 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
               <tr className="bg-[#D6EAF8] font-semibold">
                 <td className={TD + ' font-bold'}>TOTAL</td>
                 <td className={TD + ' text-right font-bold'}>{fmt(pwr.totalRequiredHours, 1)}</td>
+                <td className={TD + ' text-right font-bold'}>{pwr.totalLoadSheddingHours > 0 ? fmt(pwr.totalLoadSheddingHours, 1) : '-'}</td>
+                <td className={TD + ' text-right font-bold'}>{fmt(pwr.totalPowerAvailableHours, 1)}</td>
                 <td className={TD + ' text-right font-bold'}>{fmt(pwr.totalActualHours, 1)}</td>
                 <td className={TD + ' text-right font-bold'}>{pct(pwr.overallAvailabilityPct)}</td>
               </tr>
