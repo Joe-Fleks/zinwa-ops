@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, ScopeType } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Users, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Users, AlertCircle } from 'lucide-react';
 import PageHeader from '../components/layout/PageHeader';
 import { fetchCatchments, fetchServiceCentresByCatchment, Catchment, ServiceCentre } from '../lib/scopeUtils';
 import { getAllowedScopesForRole, isRoleScopeCompatible } from '../lib/rbacMatrix';
@@ -155,6 +155,8 @@ export default function AdminCreateUser() {
         headers: {
           'Authorization': authHeader,
           'Content-Type': 'application/json',
+          'X-Client-Info': 'supabase-js-react',
+          'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify(payload),
       });
@@ -203,16 +205,6 @@ export default function AdminCreateUser() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/admin/users')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">Back to User Management</span>
-        </button>
-      </div>
-
       <PageHeader title="Create User" backTo="/admin/users" icon={<Users className="w-5 h-5 text-blue-600" />} />
 
       {error && (
