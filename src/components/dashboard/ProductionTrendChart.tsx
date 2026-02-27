@@ -1027,7 +1027,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
             ) : (
               <>
                 {(['week', 'month', 'quarter', 'year'] as ViewMode[])
-                  .filter((mode) => (trendType === 'sales' || trendType === 'production') ? (mode === 'quarter' || mode === 'year') : true)
+                  .filter((mode) => trendType === 'sales' ? (mode === 'quarter' || mode === 'year') : true)
                   .map((mode) => (
                     <button
                       key={mode}
