@@ -337,6 +337,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
         );
       })()}
 
+      <SectionTitle>6. Downtime Analysis</SectionTitle>
       {(prod.stations || []).filter((s: any) => s.totalDowntime > 0).length > 0 ? (
         <div className="overflow-x-auto mb-3">
           <table className="w-full border border-gray-200 rounded text-left">
