@@ -339,7 +339,7 @@ export async function fetchWeekOnWeekChemicalUsage(
   }
 
   const weeks: WeeklyChemicalUsage[] = [];
-  const numWeeks = Math.ceil(daysInMonth / 7);
+  const numWeeks = 8;
 
   for (let w = 1; w <= numWeeks; w++) {
     const data = weeklyData.get(w) || { alum: 0, hth: 0, ac: 0 };
@@ -356,10 +356,13 @@ export async function fetchWeekOnWeekChemicalUsage(
   const totalHth = weeks.reduce((s, w) => s + w.hthKg, 0);
   const totalAc = weeks.reduce((s, w) => s + w.activatedCarbonKg, 0);
 
+  const weeksWithData = weeks.filter(w => w.alumKg > 0 || w.hthKg > 0 || w.activatedCarbonKg > 0).length;
+  const divisor = weeksWithData > 0 ? weeksWithData : numWeeks;
+
   return {
     weeks,
-    avgAlumKg: roundTo(totalAlum / numWeeks, 0),
-    avgHthKg: roundTo(totalHth / numWeeks, 0),
-    avgActivatedCarbonKg: roundTo(totalAc / numWeeks, 0),
+    avgAlumKg: roundTo(totalAlum / divisor, 0),
+    avgHthKg: roundTo(totalHth / divisor, 0),
+    avgActivatedCarbonKg: roundTo(totalAc / divisor, 0),
   };
 }
