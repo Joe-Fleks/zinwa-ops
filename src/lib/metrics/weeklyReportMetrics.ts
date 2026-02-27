@@ -91,6 +91,8 @@ export interface CapacityUtilizationStation {
   weeklyCWCapacity: number | null;
   ytdRWCapacity: number | null;
   ytdCWCapacity: number | null;
+  rwUtilizationPct: number | null;
+  cwUtilizationPct: number | null;
 }
 
 export interface CapacityUtilizationSummary {
@@ -100,6 +102,8 @@ export interface CapacityUtilizationSummary {
   cwInstalledTotal: number;
   cwWeeklyActualTotal: number | null;
   cwYtdAvgTotal: number | null;
+  rwUtilizationPct: number | null;
+  cwUtilizationPct: number | null;
   stations: CapacityUtilizationStation[];
 }
 
@@ -537,10 +541,10 @@ function buildCapacityUtilization(
 ): CapacityUtilizationSummary {
   const stationsResult: CapacityUtilizationStation[] = [];
   let rwInstalledTotal = 0, cwInstalledTotal = 0;
-  let rwWeeklyNumer = 0, rwWeeklyDenom = 0;
-  let cwWeeklyNumer = 0, cwWeeklyDenom = 0;
-  let rwYtdNumer = 0, rwYtdDenom = 0;
-  let cwYtdNumer = 0, cwYtdDenom = 0;
+  let rwWeeklySum = 0, cwWeeklySum = 0;
+  let rwYtdSum = 0, cwYtdSum = 0;
+  let rwWeeklyCount = 0, cwWeeklyCount = 0;
+  let rwYtdCount = 0, cwYtdCount = 0;
 
   for (const station of allStations) {
     const installed = Number(station.design_capacity_m3_hr) || 0;
@@ -560,14 +564,19 @@ function buildCapacityUtilization(
     const ytdRW = (station.station_type === 'Full Treatment' && ytdRWHrs > 0)
       ? roundTo(ytdRWVol / ytdRWHrs, 2) : null;
 
+    const rwUtilPct = (station.station_type === 'Full Treatment' && installed > 0 && weekRW != null)
+      ? roundTo((weekRW / installed) * 100, 1) : null;
+    const cwUtilPct = (installed > 0 && weekCW != null)
+      ? roundTo((weekCW / installed) * 100, 1) : null;
+
     if (station.station_type === 'Full Treatment') {
       rwInstalledTotal += installed;
-      if (agg && agg.rwHrs > 0) { rwWeeklyNumer += agg.rwVol; rwWeeklyDenom += agg.rwHrs; }
-      if (ytdRWHrs > 0) { rwYtdNumer += ytdRWVol; rwYtdDenom += ytdRWHrs; }
+      if (weekRW != null) { rwWeeklySum += weekRW; rwWeeklyCount++; }
+      if (ytdRW != null) { rwYtdSum += ytdRW; rwYtdCount++; }
     }
     cwInstalledTotal += installed;
-    if (agg && agg.cwHrs > 0) { cwWeeklyNumer += agg.cwVol; cwWeeklyDenom += agg.cwHrs; }
-    if (ytdCWHrs > 0) { cwYtdNumer += ytdCWVol; cwYtdDenom += ytdCWHrs; }
+    if (weekCW != null) { cwWeeklySum += weekCW; cwWeeklyCount++; }
+    if (ytdCW != null) { cwYtdSum += ytdCW; cwYtdCount++; }
 
     stationsResult.push({
       stationId: station.id,
@@ -578,18 +587,32 @@ function buildCapacityUtilization(
       weeklyCWCapacity: weekCW,
       ytdRWCapacity: ytdRW,
       ytdCWCapacity: ytdCW,
+      rwUtilizationPct: rwUtilPct,
+      cwUtilizationPct: cwUtilPct,
     });
   }
 
   stationsResult.sort((a, b) => b.installedCapacity - a.installedCapacity);
 
+  const rwWeeklyTotal = rwWeeklyCount > 0 ? roundTo(rwWeeklySum, 1) : null;
+  const cwWeeklyTotal = cwWeeklyCount > 0 ? roundTo(cwWeeklySum, 1) : null;
+  const rwYtdTotal = rwYtdCount > 0 ? roundTo(rwYtdSum, 1) : null;
+  const cwYtdTotal = cwYtdCount > 0 ? roundTo(cwYtdSum, 1) : null;
+
+  const rwUtilPct = (rwInstalledTotal > 0 && rwWeeklyTotal != null)
+    ? roundTo((rwWeeklyTotal / rwInstalledTotal) * 100, 1) : null;
+  const cwUtilPct = (cwInstalledTotal > 0 && cwWeeklyTotal != null)
+    ? roundTo((cwWeeklyTotal / cwInstalledTotal) * 100, 1) : null;
+
   return {
-    rwInstalledTotal: roundTo(rwInstalledTotal, 2),
-    rwWeeklyActualTotal: rwWeeklyDenom > 0 ? roundTo(rwWeeklyNumer / rwWeeklyDenom, 2) : null,
-    rwYtdAvgTotal: rwYtdDenom > 0 ? roundTo(rwYtdNumer / rwYtdDenom, 2) : null,
-    cwInstalledTotal: roundTo(cwInstalledTotal, 2),
-    cwWeeklyActualTotal: cwWeeklyDenom > 0 ? roundTo(cwWeeklyNumer / cwWeeklyDenom, 2) : null,
-    cwYtdAvgTotal: cwYtdDenom > 0 ? roundTo(cwYtdNumer / cwYtdDenom, 2) : null,
+    rwInstalledTotal: roundTo(rwInstalledTotal, 1),
+    rwWeeklyActualTotal: rwWeeklyTotal,
+    rwYtdAvgTotal: rwYtdTotal,
+    cwInstalledTotal: roundTo(cwInstalledTotal, 1),
+    cwWeeklyActualTotal: cwWeeklyTotal,
+    cwYtdAvgTotal: cwYtdTotal,
+    rwUtilizationPct: rwUtilPct,
+    cwUtilizationPct: cwUtilPct,
     stations: stationsResult,
   };
 }
@@ -763,6 +786,7 @@ function buildEmptyReport(
     capacityUtilization: {
       rwInstalledTotal: 0, rwWeeklyActualTotal: null, rwYtdAvgTotal: null,
       cwInstalledTotal: 0, cwWeeklyActualTotal: null, cwYtdAvgTotal: null,
+      rwUtilizationPct: null, cwUtilizationPct: null,
       stations: [],
     },
     powerSupply: {

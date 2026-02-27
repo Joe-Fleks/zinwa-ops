@@ -185,7 +185,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
             <table className="w-full border border-gray-200 rounded text-left">
               <thead>
                 <tr>
-                  {['Station', 'Installed (m\u00b3/hr)', 'Weekly RW (m\u00b3/hr)', 'YTD Avg RW (m\u00b3/hr)'].map(h => (
+                  {['Station', 'Installed (m\u00b3/hr)', 'Weekly RW (m\u00b3/hr)', 'YTD Avg RW (m\u00b3/hr)', 'Utilization (%)'].map(h => (
                     <th key={h} className={HDR}>{h}</th>
                   ))}
                 </tr>
@@ -197,13 +197,15 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
                     <td className={TD + ' text-right'}>{st.installedCapacity > 0 ? fmt(st.installedCapacity, 1) : '-'}</td>
                     <td className={TD + ' text-right'}>{st.weeklyRWCapacity != null ? fmt(st.weeklyRWCapacity, 1) : '-'}</td>
                     <td className={TD + ' text-right'}>{st.ytdRWCapacity != null ? fmt(st.ytdRWCapacity, 1) : '-'}</td>
+                    <td className={TD + ' text-right'}>{st.rwUtilizationPct != null ? fmt(st.rwUtilizationPct, 1) + '%' : '-'}</td>
                   </tr>
                 ))}
                 <tr className="bg-[#D6EAF8] font-semibold">
-                  <td className={TD + ' font-bold'}>Total / Avg</td>
+                  <td className={TD + ' font-bold'}>TOTAL</td>
                   <td className={TD + ' text-right font-bold'}>{cap.rwInstalledTotal > 0 ? fmt(cap.rwInstalledTotal, 1) : '-'}</td>
                   <td className={TD + ' text-right font-bold'}>{cap.rwWeeklyActualTotal != null ? fmt(cap.rwWeeklyActualTotal, 1) : '-'}</td>
                   <td className={TD + ' text-right font-bold'}>{cap.rwYtdAvgTotal != null ? fmt(cap.rwYtdAvgTotal, 1) : '-'}</td>
+                  <td className={TD + ' text-right font-bold'}>{cap.rwUtilizationPct != null ? fmt(cap.rwUtilizationPct, 1) + '%' : '-'}</td>
                 </tr>
               </tbody>
             </table>
@@ -215,7 +217,7 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
         <table className="w-full border border-gray-200 rounded text-left">
           <thead>
             <tr>
-              {['Station', 'Type', 'Installed (m\u00b3/hr)', 'Weekly CW (m\u00b3/hr)', 'YTD Avg CW (m\u00b3/hr)'].map(h => (
+              {['Station', 'Type', 'Installed (m\u00b3/hr)', 'Weekly CW (m\u00b3/hr)', 'YTD Avg CW (m\u00b3/hr)', 'Utilization (%)'].map(h => (
                 <th key={h} className={HDR}>{h}</th>
               ))}
             </tr>
@@ -228,14 +230,16 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
                 <td className={TD + ' text-right'}>{st.installedCapacity > 0 ? fmt(st.installedCapacity, 1) : '-'}</td>
                 <td className={TD + ' text-right'}>{st.weeklyCWCapacity != null ? fmt(st.weeklyCWCapacity, 1) : '-'}</td>
                 <td className={TD + ' text-right'}>{st.ytdCWCapacity != null ? fmt(st.ytdCWCapacity, 1) : '-'}</td>
+                <td className={TD + ' text-right'}>{st.cwUtilizationPct != null ? fmt(st.cwUtilizationPct, 1) + '%' : '-'}</td>
               </tr>
             ))}
             <tr className="bg-[#D6EAF8] font-semibold">
-              <td className={TD + ' font-bold'}>Total / Avg</td>
+              <td className={TD + ' font-bold'}>TOTAL</td>
               <td className={TD}></td>
               <td className={TD + ' text-right font-bold'}>{cap.cwInstalledTotal > 0 ? fmt(cap.cwInstalledTotal, 1) : '-'}</td>
               <td className={TD + ' text-right font-bold'}>{cap.cwWeeklyActualTotal != null ? fmt(cap.cwWeeklyActualTotal, 1) : '-'}</td>
               <td className={TD + ' text-right font-bold'}>{cap.cwYtdAvgTotal != null ? fmt(cap.cwYtdAvgTotal, 1) : '-'}</td>
+              <td className={TD + ' text-right font-bold'}>{cap.cwUtilizationPct != null ? fmt(cap.cwUtilizationPct, 1) + '%' : '-'}</td>
             </tr>
           </tbody>
         </table>
