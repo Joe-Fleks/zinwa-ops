@@ -11,6 +11,8 @@ import {
   computeDaysRemaining,
   isChemicalLowStock,
 } from './coreCalculations';
+import type { WeekOnWeekChemicalUsage } from './chemicalMetrics';
+import { fetchWeekOnWeekChemicalUsage } from './chemicalMetrics';
 
 const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
@@ -174,6 +176,7 @@ export interface WeeklyReportData {
   production: WeeklyProductionSummary;
   breakdowns: WeeklyBreakdown[];
   chemicals: WeeklyChemicalSummary[];
+  weekOnWeekChemicals: WeekOnWeekChemicalUsage;
   nonFunctionalByDay: WeeklyNonFunctionalDay[];
   capacityUtilization: CapacityUtilizationSummary;
   powerSupply: PowerSupplySummary;
@@ -386,8 +389,10 @@ export async function fetchWeeklyReportData(
   }));
 
   const now = new Date();
-  const currentMonth = now.getMonth() + 1;
+  const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
+
+  const weekOnWeekChemicals = await fetchWeekOnWeekChemicalUsage(scope, year, currentMonth);
 
   const chemicals: WeeklyChemicalSummary[] = [];
   const chemLabels: Record<string, string> = {
@@ -408,13 +413,13 @@ export async function fetchWeeklyReportData(
 
       const balRow = (balancesRes.data || []).find(
         (r: any) => r.station_id === sid && r.chemical_type === chemType &&
-          r.year === currentYear && r.month === currentMonth
+          r.year === currentYear && r.month === (currentMonth + 1)
       );
       const opening = balRow ? Number(balRow.opening_balance) : 0;
 
       const stationReceipts = (receiptsRes.data || []).filter(
         (r: any) => r.station_id === sid && r.chemical_type === chemType &&
-          r.year === currentYear && r.month === currentMonth
+          r.year === currentYear && r.month === (currentMonth + 1)
       );
       const received = computeReceiptTotal(stationReceipts);
 
@@ -496,6 +501,7 @@ export async function fetchWeeklyReportData(
     production,
     breakdowns,
     chemicals,
+    weekOnWeekChemicals,
     nonFunctionalByDay,
     capacityUtilization,
     powerSupply,
@@ -800,6 +806,7 @@ function buildEmptyReport(
     },
     breakdowns: [],
     chemicals: [],
+    weekOnWeekChemicals: { weeks: [], avgAlumKg: 0, avgHthKg: 0, avgActivatedCarbonKg: 0 },
     nonFunctionalByDay: [],
     capacityUtilization: {
       rwInstalledTotal: 0, rwWeeklyActualTotal: null, rwYtdAvgTotal: null,

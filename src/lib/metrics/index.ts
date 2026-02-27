@@ -21,8 +21,8 @@ export type { StationClientFields, NonFunctionalInput, NRWLossResult } from './c
 export { fetchProductionSummary, fetchStationProductionMetrics, fetchLabourMetrics } from './productionMetrics';
 export type { ProductionSummaryMetrics, StationProductionMetrics, LabourSummaryMetrics, LabourStationMetrics } from './productionMetrics';
 
-export { fetchChemicalStationMetrics, fetchChemicalSummary, fetchChemicalDosageRates } from './chemicalMetrics';
-export type { ChemicalStationMetrics, ChemicalSummaryMetrics, ChemicalDosageSummary, ChemicalDosageStation } from './chemicalMetrics';
+export { fetchChemicalStationMetrics, fetchChemicalSummary, fetchChemicalDosageRates, fetchWeekOnWeekChemicalUsage } from './chemicalMetrics';
+export type { ChemicalStationMetrics, ChemicalSummaryMetrics, ChemicalDosageSummary, ChemicalDosageStation, WeeklyChemicalUsage, WeekOnWeekChemicalUsage } from './chemicalMetrics';
 
 export { fetchNRWMetrics, fetchNRWByMonth, aggregateNRWByQuarter } from './nrwMetrics';
 export type { NRWStationMetrics, NRWSummaryMetrics, NRWMonthResult } from './nrwMetrics';

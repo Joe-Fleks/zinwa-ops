@@ -499,8 +499,38 @@ function buildChemicalsSection(data: WeeklyReportData): string {
   parts.push(horizontalLine());
   parts.push(heading1('8. CHEMICAL STOCK STATUS'));
 
+  if (data.weekOnWeekChemicals.weeks.length > 0) {
+    parts.push(heading2('8.1 Week-on-Week Chemical Usage'));
+    const weekRows = data.weekOnWeekChemicals.weeks.map((week, i) => {
+      return tableRow([
+        { text: week.weekLabel, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: formatNum(week.alumKg, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: formatNum(week.hthKg, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: formatNum(week.activatedCarbonKg, 0), align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+      ]);
+    });
+
+    parts.push(`
+      ${tableStart()}
+        ${tableRow([
+          { text: '', shade: '2E6FA3', bold: true },
+          { text: 'Alum (kg)', shade: '2E6FA3', bold: true, align: 'right' },
+          { text: 'HTH (kg)', shade: '2E6FA3', bold: true, align: 'right' },
+          { text: 'Act. Carbon (Kg)', shade: '2E6FA3', bold: true, align: 'right' },
+        ], true)}
+        ${weekRows.join('')}
+        ${tableRow([
+          { text: 'Ave', shade: 'D6EAF8', bold: true },
+          { text: formatNum(data.weekOnWeekChemicals.avgAlumKg, 0), align: 'right', shade: 'D6EAF8', bold: true },
+          { text: formatNum(data.weekOnWeekChemicals.avgHthKg, 0), align: 'right', shade: 'D6EAF8', bold: true },
+          { text: formatNum(data.weekOnWeekChemicals.avgActivatedCarbonKg, 0), align: 'right', shade: 'D6EAF8', bold: true },
+        ])}
+      </w:tbl>`);
+  }
+
   for (const chem of data.chemicals) {
-    parts.push(heading2('8.' + (data.chemicals.indexOf(chem) + 1) + ' ' + chem.label));
+    const sectionNum = data.weekOnWeekChemicals.weeks.length > 0 ? '8.' + (data.chemicals.indexOf(chem) + 2) : '8.' + (data.chemicals.indexOf(chem) + 1);
+    parts.push(heading2(sectionNum + ' ' + chem.label));
     parts.push(`
       ${tableStart()}
         ${tableRow([

@@ -281,3 +281,85 @@ export async function fetchChemicalSummary(
     lowStockStations: lowStock,
   };
 }
+
+export interface WeeklyChemicalUsage {
+  weekNumber: number;
+  weekLabel: string;
+  alumKg: number;
+  hthKg: number;
+  activatedCarbonKg: number;
+}
+
+export interface WeekOnWeekChemicalUsage {
+  weeks: WeeklyChemicalUsage[];
+  avgAlumKg: number;
+  avgHthKg: number;
+  avgActivatedCarbonKg: number;
+}
+
+export async function fetchWeekOnWeekChemicalUsage(
+  scope: ScopeFilter,
+  year: number,
+  monthIndex: number
+): Promise<WeekOnWeekChemicalUsage> {
+  const stationIds = await fetchStationIdsByScope(scope, 'Full Treatment');
+  if (stationIds.length === 0) {
+    return { weeks: [], avgAlumKg: 0, avgHthKg: 0, avgActivatedCarbonKg: 0 };
+  }
+
+  const monthStart = new Date(year, monthIndex, 1);
+  const monthEnd = new Date(year, monthIndex + 1, 0);
+  const daysInMonth = monthEnd.getDate();
+
+  const startDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`;
+  const endDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+
+  const { data: logs, error } = await supabase
+    .from('production_logs')
+    .select('date, alum_kg, hth_kg, activated_carbon_kg')
+    .in('station_id', stationIds)
+    .gte('date', startDate)
+    .lte('date', endDate)
+    .order('date', { ascending: true });
+
+  if (error) throw error;
+
+  const weeklyData = new Map<number, { alum: number; hth: number; ac: number }>();
+
+  for (const log of (logs || [])) {
+    const logDate = new Date(log.date + 'T12:00:00');
+    const dayOfMonth = logDate.getDate();
+    const weekNum = Math.ceil(dayOfMonth / 7);
+
+    const existing = weeklyData.get(weekNum) || { alum: 0, hth: 0, ac: 0 };
+    existing.alum += Number(log.alum_kg) || 0;
+    existing.hth += Number(log.hth_kg) || 0;
+    existing.ac += Number(log.activated_carbon_kg) || 0;
+    weeklyData.set(weekNum, existing);
+  }
+
+  const weeks: WeeklyChemicalUsage[] = [];
+  const numWeeks = Math.ceil(daysInMonth / 7);
+
+  for (let w = 1; w <= numWeeks; w++) {
+    const data = weeklyData.get(w) || { alum: 0, hth: 0, ac: 0 };
+    weeks.push({
+      weekNumber: w,
+      weekLabel: `Wk ${w}`,
+      alumKg: roundTo(data.alum, 0),
+      hthKg: roundTo(data.hth, 0),
+      activatedCarbonKg: roundTo(data.ac, 0),
+    });
+  }
+
+  const totalAlum = weeks.reduce((s, w) => s + w.alumKg, 0);
+  const totalHth = weeks.reduce((s, w) => s + w.hthKg, 0);
+  const totalAc = weeks.reduce((s, w) => s + w.activatedCarbonKg, 0);
+
+  return {
+    weeks,
+    avgAlumKg: roundTo(totalAlum / numWeeks, 0),
+    avgHthKg: roundTo(totalHth / numWeeks, 0),
+    avgActivatedCarbonKg: roundTo(totalAc / numWeeks, 0),
+  };
+}
