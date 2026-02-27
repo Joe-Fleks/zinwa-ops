@@ -223,6 +223,17 @@ export default function Dashboard() {
     }
   };
 
+  const handleDismissWeeklyReport = async (report: WeeklyReportRecord) => {
+    if (!user) return;
+    try {
+      await markReportDownloaded(report.id, user.id);
+      setWeeklyReports(prev => prev.filter(r => r.id !== report.id));
+      setAllWeeklyReports(prev => prev.map(r => r.id === report.id ? { ...r, status: 'downloaded' } : r));
+    } catch (err) {
+      console.error('Error dismissing report:', err);
+    }
+  };
+
   const handleRefreshWeeklyReport = async (report: WeeklyReportRecord) => {
     if (!accessContext) return;
     setRefreshingReportId(report.id);
@@ -898,17 +909,26 @@ export default function Dashboard() {
                 <p className="text-xs text-sky-700 mt-0.5">{periodStart} – {periodEnd}</p>
               </div>
             </div>
-            <button
-              onClick={() => handleDownloadReport(report)}
-              disabled={isDownloading}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors"
-            >
-              {isDownloading ? (
-                <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>Preparing...</>
-              ) : (
-                <><Download className="w-3.5 h-3.5" />Download Word Report (.docx)</>
-              )}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleDismissWeeklyReport(report)}
+                disabled={isDownloading}
+                className="flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-200 hover:bg-blue-300 disabled:bg-blue-100 text-blue-900 text-xs font-semibold rounded transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />Dismiss
+              </button>
+              <button
+                onClick={() => handleDownloadReport(report)}
+                disabled={isDownloading}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors"
+              >
+                {isDownloading ? (
+                  <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>Preparing...</>
+                ) : (
+                  <><Download className="w-3.5 h-3.5" />Download Word Report (.docx)</>
+                )}
+              </button>
+            </div>
           </div>
         );
       })}
