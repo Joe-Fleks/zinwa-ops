@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, ScopeType } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Users, Shield, CheckCircle, XCircle, Star, Plus, RotateCcw, MapPin, Building2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Users, Shield, CheckCircle, XCircle, Star, Plus, RotateCcw, MapPin, Building2, AlertCircle } from 'lucide-react';
 import PageHeader from '../components/layout/PageHeader';
 
 interface User {
@@ -185,16 +185,6 @@ export default function AdminUsers() {
 
   return (
     <div className="space-y-6 w-full">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/admin')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">Back to Administration</span>
-        </button>
-      </div>
-
       <div className="flex items-center justify-between">
         <PageHeader title="User Management" backTo="/admin" icon={<Users className="w-5 h-5 text-blue-600" />} />
         <button
