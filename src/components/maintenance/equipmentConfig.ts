@@ -25,6 +25,7 @@ export const MOTOR_TYPES = ['Induction', 'Synchronous', 'Submersible', 'DC'];
 export const MOTOR_USES = ['RW Pump', 'CW Pump', 'Booster Pump', 'Dosing Pump', 'Backwash Pump'];
 export const PHASES = ['Single Phase', 'Three Phase'];
 export const ENCLOSURE_TYPES = ['TEFC', 'ODP', 'IP55', 'IP68'];
+export const POLES_OPTIONS = [2, 4, 6, 8];
 
 export const BEARING_TYPES = ['Ball Bearing', 'Roller Bearing', 'Thrust Bearing', 'Sleeve Bearing'];
 export const BEARING_POSITIONS = ['Drive End', 'Non-Drive End', 'Pump Side', 'Motor Side'];
@@ -93,6 +94,7 @@ export interface MotorRow {
   voltage: number;
   current_amps: number;
   speed_rpm: number;
+  poles: number | null;
   shaft_diameter_mm: number;
   phase: string;
   enclosure_type: string;
@@ -202,7 +204,7 @@ export function createEmptyMotor(serviceCentreId: string | null): MotorRow {
     tag_number: '', manufacturer: '', model: '', serial_number: '',
     motor_type: '', motor_use: '', duty_status: '',
     kw_rating: 0, hp_rating: 0, voltage: 0, current_amps: 0, speed_rpm: 0,
-    shaft_diameter_mm: 0, phase: 'Three Phase', enclosure_type: '',
+    poles: null, shaft_diameter_mm: 0, phase: 'Three Phase', enclosure_type: '',
     installation_date: '', design_life_years: 0, design_life_expiry: '',
     condition: 'Good', notes: '', _isNew: true, _isDirty: true,
   };
@@ -279,7 +281,8 @@ const EXPORT_COLUMNS: Record<EquipmentCategory, { key: string; label: string }[]
     { key: 'motor_use', label: 'Use' }, { key: 'duty_status', label: 'Duty' },
     { key: 'kw_rating', label: 'kW' }, { key: 'hp_rating', label: 'HP' },
     { key: 'voltage', label: 'Voltage (V)' }, { key: 'current_amps', label: 'Current (A)' },
-    { key: 'speed_rpm', label: 'Speed (RPM)' }, { key: 'shaft_diameter_mm', label: 'Shaft (mm)' },
+    { key: 'speed_rpm', label: 'Speed (RPM)' }, { key: 'poles', label: 'Poles' },
+    { key: 'shaft_diameter_mm', label: 'Shaft (mm)' },
     { key: 'phase', label: 'Phase' }, { key: 'enclosure_type', label: 'Enclosure' },
     { key: 'installation_date', label: 'Installed' }, { key: 'design_life_years', label: 'Life (yrs)' },
     { key: 'design_life_expiry', label: 'Expiry' }, { key: 'condition', label: 'Condition' },

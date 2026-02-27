@@ -1,6 +1,6 @@
 import { Trash2 } from 'lucide-react';
 import {
-  MotorRow, StationOption, MOTOR_TYPES, MOTOR_USES, DUTY_STATUSES, CONDITIONS, PHASES, ENCLOSURE_TYPES,
+  MotorRow, StationOption, MOTOR_TYPES, MOTOR_USES, DUTY_STATUSES, CONDITIONS, PHASES, ENCLOSURE_TYPES, POLES_OPTIONS,
 } from '../equipmentConfig';
 
 const inputCls = 'w-full px-1.5 py-1 text-xs border-0 bg-transparent focus:ring-1 focus:ring-blue-400 focus:bg-white rounded';
@@ -42,7 +42,7 @@ export default function MotorsTable({ rows, stations, editing, editRows, onCellC
     return <div className="text-center py-12 text-gray-500 text-sm">No motor records found. Click "Edit / Add Equipment" to add motors.</div>;
   }
 
-  const headers = ['Station', 'Tag #', 'Manufacturer', 'Model', 'S/N', 'Type', 'Use', 'Duty', 'kW', 'HP', 'Voltage (V)', 'Amps (A)', 'RPM', 'Shaft (mm)', 'Phase', 'Enclosure', 'Installed', 'Life (yrs)', 'Expiry', 'Condition', 'Notes'];
+  const headers = ['Station', 'Tag #', 'Manufacturer', 'Model', 'S/N', 'Type', 'Use', 'Duty', 'kW', 'HP', 'Voltage (V)', 'Amps (A)', 'RPM', 'Poles', 'Shaft (mm)', 'Phase', 'Enclosure', 'Installed', 'Life (yrs)', 'Expiry', 'Condition', 'Notes'];
 
   if (editing) {
     return (
@@ -98,6 +98,12 @@ export default function MotorsTable({ rows, stations, editing, editRows, onCellC
                 <td className="px-1 py-0.5"><input type="number" value={row.voltage || ''} onChange={e => onCellChange(realIdx, 'voltage', e.target.value ? parseFloat(e.target.value) : 0)} className={inputCls} style={{ minWidth: 60 }} /></td>
                 <td className="px-1 py-0.5"><input type="number" value={row.current_amps || ''} onChange={e => onCellChange(realIdx, 'current_amps', e.target.value ? parseFloat(e.target.value) : 0)} className={inputCls} style={{ minWidth: 55 }} /></td>
                 <td className="px-1 py-0.5"><input type="number" value={row.speed_rpm || ''} onChange={e => onCellChange(realIdx, 'speed_rpm', e.target.value ? parseInt(e.target.value) : 0)} className={inputCls} style={{ minWidth: 60 }} /></td>
+                <td className="px-1 py-0.5">
+                  <select value={row.poles || ''} onChange={e => onCellChange(realIdx, 'poles', e.target.value ? parseInt(e.target.value) : null)} className={selectCls} style={{ minWidth: 55 }}>
+                    <option value="">--</option>
+                    {POLES_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </td>
                 <td className="px-1 py-0.5"><input type="number" value={row.shaft_diameter_mm || ''} onChange={e => onCellChange(realIdx, 'shaft_diameter_mm', e.target.value ? parseFloat(e.target.value) : 0)} className={inputCls} style={{ minWidth: 65 }} /></td>
                 <td className="px-1 py-0.5">
                   <select value={row.phase} onChange={e => onCellChange(realIdx, 'phase', e.target.value)} className={selectCls} style={{ minWidth: 100 }}>
@@ -152,6 +158,7 @@ export default function MotorsTable({ rows, stations, editing, editRows, onCellC
             <td className="px-3 py-2 text-right text-gray-600">{row.voltage || '--'}</td>
             <td className="px-3 py-2 text-right text-gray-600">{row.current_amps || '--'}</td>
             <td className="px-3 py-2 text-right text-gray-600">{row.speed_rpm || '--'}</td>
+            <td className="px-3 py-2 text-center">{row.poles ? <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700">{row.poles}-pole</span> : '--'}</td>
             <td className="px-3 py-2 text-right text-gray-600">{row.shaft_diameter_mm || '--'}</td>
             <td className="px-3 py-2 text-gray-600">{row.phase || '--'}</td>
             <td className="px-3 py-2 text-gray-600">{row.enclosure_type || '--'}</td>
