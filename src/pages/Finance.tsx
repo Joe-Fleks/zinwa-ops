@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Banknote, Users, ChevronDown } from 'lucide-react';
+import { Banknote, Users, ChevronDown, Receipt } from 'lucide-react';
 import TariffsTab from '../components/finance/TariffsTab';
 import ClientsTab from '../components/finance/ClientsTab';
 
-type TabKey = 'clients' | 'tariffs';
+type TabKey = 'clients' | 'tariffs' | 'collections';
 type ClientsSub = 'CW' | 'RW';
 type TariffsSub = 'CW' | 'RW';
 
@@ -133,10 +133,36 @@ export default function Finance() {
             </div>
           )}
         </div>
+
+        <button
+          onClick={() => {
+            setActiveTab('collections');
+            setOpenDropdown(null);
+          }}
+          className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+            activeTab === 'collections'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Receipt className="w-5 h-5" />
+            <span>Collections</span>
+          </div>
+        </button>
       </div>
 
       {activeTab === 'clients' && <ClientsTab clientType={clientsSub} />}
       {activeTab === 'tariffs' && <TariffsTab tariffType={tariffsSub} />}
+      {activeTab === 'collections' && (
+        <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200">
+          <div className="text-center text-gray-500">
+            <Receipt className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+            <p className="text-lg font-medium">Collections</p>
+            <p className="text-sm mt-1">This section is under development</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
