@@ -11,6 +11,7 @@ import ProductionTrendChart from '../components/dashboard/ProductionTrendChart';
 import ChemicalDosageKPI from '../components/dashboard/ChemicalDosageKPI';
 import NRWDashboardKPI from '../components/dashboard/NRWDashboardKPI';
 import LabourKPI from '../components/dashboard/LabourKPI';
+import RevenueCollectionKPI from '../components/dashboard/RevenueCollectionKPI';
 import { fetchPendingWeeklyReports, markReportDownloaded, checkAndTriggerWeeklyReport, refreshWeeklyReportData, type WeeklyReportRecord } from '../lib/weeklyReportService';
 import { downloadWeeklyReport } from '../lib/weeklyReportDocument';
 import { fetchPendingMonthlyReports, markMonthlyReportDownloaded, checkAndTriggerMonthlyReport, refreshMonthlyReportData, type MonthlyReportRecord } from '../lib/monthlyReportService';
@@ -99,7 +100,7 @@ export default function Dashboard() {
   const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis' | 'reports'>('cw');
   const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'alerts' | 'followups'>('cw');
   const [reportSection, setReportSection] = useState<'midweek' | 'endofweek' | 'monthly' | 'quarterly' | 'yearly'>('endofweek');
-  const [kpiSection, setKpiSection] = useState<'nrw' | 'chemical_usage' | 'labour'>('nrw');
+  const [kpiSection, setKpiSection] = useState<'nrw' | 'chemical_usage' | 'labour' | 'revenue_collection'>('nrw');
   const [kpiSearch, setKpiSearch] = useState('');
   const [kpiFilter, setKpiFilter] = useState<'all' | 'cw' | 'rw' | 'maintenance' | 'finance'>('all');
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 1024);
@@ -1314,10 +1315,11 @@ export default function Dashboard() {
     );
   };
 
-  const KPI_ITEMS: { key: 'nrw' | 'chemical_usage' | 'labour'; label: string; icon: React.ReactNode; category: 'cw' | 'rw' | 'maintenance' | 'finance' }[] = [
+  const KPI_ITEMS: { key: 'nrw' | 'chemical_usage' | 'labour' | 'revenue_collection'; label: string; icon: React.ReactNode; category: 'cw' | 'rw' | 'maintenance' | 'finance' }[] = [
     { key: 'nrw', label: 'Non-Revenue Water (NRW)', icon: <Droplets className="w-3.5 h-3.5" />, category: 'cw' },
     { key: 'chemical_usage', label: 'Chemical Dosage', icon: <TestTube className="w-3.5 h-3.5" />, category: 'cw' },
     { key: 'labour', label: 'Labour Productivity', icon: <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px] font-bold">L</span>, category: 'cw' },
+    { key: 'revenue_collection', label: 'Revenue Collection Efficiency', icon: <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px] font-bold">$</span>, category: 'finance' },
   ];
 
   const KPI_FILTER_OPTIONS: { value: typeof kpiFilter; label: string }[] = [
@@ -1398,6 +1400,7 @@ export default function Dashboard() {
             {kpiSection === 'nrw' && filteredKpis.some(k => k.key === 'nrw') && <NRWDashboardKPI />}
             {kpiSection === 'chemical_usage' && filteredKpis.some(k => k.key === 'chemical_usage') && <ChemicalDosageKPI />}
             {kpiSection === 'labour' && filteredKpis.some(k => k.key === 'labour') && <LabourKPI />}
+            {kpiSection === 'revenue_collection' && filteredKpis.some(k => k.key === 'revenue_collection') && <RevenueCollectionKPI />}
           </>
         )}
       </div>
