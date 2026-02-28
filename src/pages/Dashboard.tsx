@@ -12,6 +12,12 @@ import ChemicalDosageKPI from '../components/dashboard/ChemicalDosageKPI';
 import NRWDashboardKPI from '../components/dashboard/NRWDashboardKPI';
 import LabourKPI from '../components/dashboard/LabourKPI';
 import RevenueCollectionKPI from '../components/dashboard/RevenueCollectionKPI';
+import BreakdownRateKPI from '../components/dashboard/BreakdownRateKPI';
+import MeanTimeBetweenFailuresKPI from '../components/dashboard/MeanTimeBetweenFailuresKPI';
+import MeanTimeToRepairKPI from '../components/dashboard/MeanTimeToRepairKPI';
+import RawWaterNRWKPI from '../components/dashboard/RawWaterNRWKPI';
+import UnitCostRWDeliveredKPI from '../components/dashboard/UnitCostRWDeliveredKPI';
+import RWVolumeSoldKPI from '../components/dashboard/RWVolumeSoldKPI';
 import { fetchPendingWeeklyReports, markReportDownloaded, checkAndTriggerWeeklyReport, refreshWeeklyReportData, type WeeklyReportRecord } from '../lib/weeklyReportService';
 import { downloadWeeklyReport } from '../lib/weeklyReportDocument';
 import { fetchPendingMonthlyReports, markMonthlyReportDownloaded, checkAndTriggerMonthlyReport, refreshMonthlyReportData, type MonthlyReportRecord } from '../lib/monthlyReportService';
@@ -100,7 +106,7 @@ export default function Dashboard() {
   const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis' | 'reports'>('cw');
   const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'alerts' | 'followups'>('cw');
   const [reportSection, setReportSection] = useState<'midweek' | 'endofweek' | 'monthly' | 'quarterly' | 'yearly'>('endofweek');
-  const [kpiSection, setKpiSection] = useState<'nrw' | 'chemical_usage' | 'labour' | 'revenue_collection'>('nrw');
+  const [kpiSection, setKpiSection] = useState<'nrw' | 'chemical_usage' | 'labour' | 'revenue_collection' | 'breakdown_rate' | 'mtbf' | 'mttr' | 'rw_nrw' | 'rw_unit_cost' | 'rw_volume_sold'>('nrw');
   const [kpiSearch, setKpiSearch] = useState('');
   const [kpiFilter, setKpiFilter] = useState<'all' | 'cw' | 'rw' | 'maintenance' | 'finance'>('all');
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 1024);
@@ -1315,11 +1321,18 @@ export default function Dashboard() {
     );
   };
 
-  const KPI_ITEMS: { key: 'nrw' | 'chemical_usage' | 'labour' | 'revenue_collection'; label: string; icon: React.ReactNode; category: 'cw' | 'rw' | 'maintenance' | 'finance' }[] = [
+  type KpiKey = 'nrw' | 'chemical_usage' | 'labour' | 'revenue_collection' | 'breakdown_rate' | 'mtbf' | 'mttr' | 'rw_nrw' | 'rw_unit_cost' | 'rw_volume_sold';
+  const KPI_ITEMS: { key: KpiKey; label: string; icon: React.ReactNode; category: 'cw' | 'rw' | 'maintenance' | 'finance' }[] = [
     { key: 'nrw', label: 'Non-Revenue Water (NRW)', icon: <Droplets className="w-3.5 h-3.5" />, category: 'cw' },
     { key: 'chemical_usage', label: 'Chemical Dosage', icon: <TestTube className="w-3.5 h-3.5" />, category: 'cw' },
     { key: 'labour', label: 'Labour Productivity', icon: <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px] font-bold">L</span>, category: 'cw' },
     { key: 'revenue_collection', label: 'Revenue Collection Efficiency', icon: <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px] font-bold">$</span>, category: 'finance' },
+    { key: 'breakdown_rate', label: 'Breakdown Rate', icon: <AlertTriangle className="w-3.5 h-3.5" />, category: 'maintenance' },
+    { key: 'mtbf', label: 'Mean Time Between Failures', icon: <Cog className="w-3.5 h-3.5" />, category: 'maintenance' },
+    { key: 'mttr', label: 'Mean Time to Repair', icon: <Cog className="w-3.5 h-3.5" />, category: 'maintenance' },
+    { key: 'rw_nrw', label: 'Raw Water NRW', icon: <Droplets className="w-3.5 h-3.5" />, category: 'rw' },
+    { key: 'rw_unit_cost', label: 'Unit Cost of RW Delivered', icon: <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px] font-bold">C</span>, category: 'rw' },
+    { key: 'rw_volume_sold', label: 'RW Volume Sold', icon: <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px] font-bold">V</span>, category: 'rw' },
   ];
 
   const KPI_FILTER_OPTIONS: { value: typeof kpiFilter; label: string }[] = [
@@ -1401,6 +1414,12 @@ export default function Dashboard() {
             {kpiSection === 'chemical_usage' && filteredKpis.some(k => k.key === 'chemical_usage') && <ChemicalDosageKPI />}
             {kpiSection === 'labour' && filteredKpis.some(k => k.key === 'labour') && <LabourKPI />}
             {kpiSection === 'revenue_collection' && filteredKpis.some(k => k.key === 'revenue_collection') && <RevenueCollectionKPI />}
+            {kpiSection === 'breakdown_rate' && filteredKpis.some(k => k.key === 'breakdown_rate') && <BreakdownRateKPI />}
+            {kpiSection === 'mtbf' && filteredKpis.some(k => k.key === 'mtbf') && <MeanTimeBetweenFailuresKPI />}
+            {kpiSection === 'mttr' && filteredKpis.some(k => k.key === 'mttr') && <MeanTimeToRepairKPI />}
+            {kpiSection === 'rw_nrw' && filteredKpis.some(k => k.key === 'rw_nrw') && <RawWaterNRWKPI />}
+            {kpiSection === 'rw_unit_cost' && filteredKpis.some(k => k.key === 'rw_unit_cost') && <UnitCostRWDeliveredKPI />}
+            {kpiSection === 'rw_volume_sold' && filteredKpis.some(k => k.key === 'rw_volume_sold') && <RWVolumeSoldKPI />}
           </>
         )}
       </div>
