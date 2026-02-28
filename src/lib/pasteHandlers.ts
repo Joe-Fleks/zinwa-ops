@@ -15,7 +15,7 @@ export interface PasteConfig {
 
 export interface FieldConfig {
   name: string;
-  type: 'string' | 'number' | 'integer';
+  type: 'string' | 'number' | 'integer' | 'date';
 }
 
 export interface RowValidator {
@@ -40,6 +40,52 @@ const parseInteger = (value: string): number => {
   if (!value || value.trim() === '') return 0;
   const parsed = parseInt(value.replace(/,/g, ''), 10);
   return isNaN(parsed) ? 0 : parsed;
+};
+
+export const parseDateValue = (value: string): string | null => {
+  if (!value || value.trim() === '') return null;
+  const trimmed = value.trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const slashParts = trimmed.split('/');
+  if (slashParts.length === 3) {
+    const [a, b, c] = slashParts.map(p => parseInt(p, 10));
+    if (c >= 1900 && c <= 2200) {
+      const day = a.toString().padStart(2, '0');
+      const month = b.toString().padStart(2, '0');
+      return `${c}-${month}-${day}`;
+    }
+    if (a >= 1900 && a <= 2200) {
+      const month = b.toString().padStart(2, '0');
+      const day = c.toString().padStart(2, '0');
+      return `${a}-${month}-${day}`;
+    }
+  }
+
+  const dashParts = trimmed.split('-');
+  if (dashParts.length === 3) {
+    const [a, b, c] = dashParts.map(p => parseInt(p, 10));
+    if (c >= 1900 && c <= 2200 && a <= 31 && b <= 12) {
+      const day = a.toString().padStart(2, '0');
+      const month = b.toString().padStart(2, '0');
+      return `${c}-${month}-${day}`;
+    }
+  }
+
+  const excelSerial = parseFloat(trimmed);
+  if (!isNaN(excelSerial) && excelSerial > 30000 && excelSerial < 80000) {
+    const excelEpoch = new Date(1899, 11, 30);
+    const date = new Date(excelEpoch.getTime() + excelSerial * 86400000);
+    const y = date.getFullYear();
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  return null;
 };
 
 const defaultFieldMapper: FieldMapper = (fieldName: string, value: string): any => {
@@ -158,6 +204,8 @@ export class PasteHandler {
                 processedValue = parseNumber(rawValue);
               } else if (field.type === 'integer') {
                 processedValue = parseInteger(rawValue);
+              } else if (field.type === 'date') {
+                processedValue = parseDateValue(rawValue);
               } else if (field.type === 'string') {
                 processedValue = this.fieldMapper(field.name, rawValue);
               }

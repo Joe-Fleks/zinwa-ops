@@ -9,7 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNetwork } from '../../contexts/NetworkContext';
 import { Save, Download, Edit3, CheckCircle2, AlertCircle, Circle, Edit, ChevronDown, X } from 'lucide-react';
 import { ExcelLikeTable } from '../ExcelLikeTable';
-import { PasteHandler, FieldConfig } from '../../lib/pasteHandlers';
+import { PasteHandler, FieldConfig, parseDateValue } from '../../lib/pasteHandlers';
 
 interface DamSearchSelectProps {
   value: string;
@@ -145,6 +145,18 @@ interface RWAllocation {
   completionStatus?: CompletionStatus;
 }
 
+const calculateMonthsDifference = (startStr: string, endStr: string): number | null => {
+  if (!startStr || !endStr) return null;
+  const parts1 = startStr.split('-').map(Number);
+  const parts2 = endStr.split('-').map(Number);
+  if (parts1.length !== 3 || parts2.length !== 3) return null;
+  if (parts1.some(isNaN) || parts2.some(isNaN)) return null;
+  const [y1, m1] = parts1;
+  const [y2, m2] = parts2;
+  const months = (y2 - y1) * 12 + (m2 - m1) + 1;
+  return months > 0 ? months : 0;
+};
+
 const CATEGORIES = ['A1', 'A2', 'Mine', 'Industry', 'Institution', 'Local Authority'];
 const CROP_CATEGORIES = ['Cereals', 'Horticulture', 'Plantations', 'Livestock', 'Aquaculture', 'Crocodile Farming', 'Tobacco/Cotton', 'Pasture/Lawn'];
 
@@ -235,21 +247,20 @@ export default function RWDatabaseTab({ stationId }: Props) {
       if (usersRes.error) throw usersRes.error;
 
       const existingAllocations = (allocationsRes.data || []).map(a => {
-        let recalculatedMonths = a.agreement_length_months;
-        if (a.agreement_start_date && a.agreement_expiry_date) {
-          const startDate = new Date(a.agreement_start_date);
-          const expiryDate = new Date(a.agreement_expiry_date);
-          const yearDiff = expiryDate.getFullYear() - startDate.getFullYear();
-          const monthDiff = expiryDate.getMonth() - startDate.getMonth();
-          recalculatedMonths = (yearDiff * 12) + monthDiff + 1;
-        }
+        const recalculatedMonths = calculateMonthsDifference(
+          a.agreement_start_date,
+          a.agreement_expiry_date
+        ) ?? a.agreement_length_months;
 
-        return {
+        const mapped = {
           ...a,
           client_company_name: a.water_users.client_company_name,
           agreement_length_months: recalculatedMonths,
           status: 'saved' as const,
-          completionStatus: calculateCompletionStatus(a)
+        };
+        return {
+          ...mapped,
+          completionStatus: calculateCompletionStatus(mapped)
         };
       });
 
@@ -308,16 +319,10 @@ export default function RWDatabaseTab({ stationId }: Props) {
         }
 
         if (field === 'agreement_start_date' || field === 'agreement_expiry_date') {
-          if (updated.agreement_start_date && updated.agreement_expiry_date) {
-            const startDate = new Date(updated.agreement_start_date);
-            const expiryDate = new Date(updated.agreement_expiry_date);
-            const yearDiff = expiryDate.getFullYear() - startDate.getFullYear();
-            const monthDiff = expiryDate.getMonth() - startDate.getMonth();
-            const totalMonths = (yearDiff * 12) + monthDiff + 1;
-            updated.agreement_length_months = totalMonths > 0 ? totalMonths : 0;
-          } else {
-            updated.agreement_length_months = null;
-          }
+          updated.agreement_length_months = calculateMonthsDifference(
+            updated.agreement_start_date,
+            updated.agreement_expiry_date
+          );
         }
 
         updated.completionStatus = calculateCompletionStatus(updated);
@@ -339,8 +344,8 @@ export default function RWDatabaseTab({ stationId }: Props) {
     { name: 'hectrage', type: 'number' },
     { name: 'crop', type: 'string' },
     { name: 'crop_category', type: 'string' },
-    { name: 'agreement_start_date', type: 'string' },
-    { name: 'agreement_expiry_date', type: 'string' },
+    { name: 'agreement_start_date', type: 'date' },
+    { name: 'agreement_expiry_date', type: 'date' },
     { name: '_skip_length', type: 'string' },
     { name: 'water_allocated_ml', type: 'number' },
   ];
