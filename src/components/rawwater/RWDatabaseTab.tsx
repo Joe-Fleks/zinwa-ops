@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetwork } from '../../contexts/NetworkContext';
-import { Save, Download, Edit3, CheckCircle2, AlertCircle, Circle, Edit, ChevronDown, X } from 'lucide-react';
+import { Save, Download, Edit3, CheckCircle2, AlertCircle, Circle, Edit, ChevronDown, X, Calendar } from 'lucide-react';
 import { ExcelLikeTable } from '../ExcelLikeTable';
 import { PasteHandler, FieldConfig, parseDateValue } from '../../lib/pasteHandlers';
 
@@ -111,6 +111,70 @@ function DamSearchSelect({ value, dams, onChange }: DamSearchSelectProps) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+interface PastableDateInputProps {
+  value: string;
+  onChange: (isoDate: string) => void;
+}
+
+function PastableDateInput({ value, onChange }: PastableDateInputProps) {
+  const hiddenDateRef = useRef<HTMLInputElement>(null);
+
+  const displayValue = useMemo(() => {
+    if (!value) return '';
+    const parts = value.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return value;
+  }, [value]);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const parsed = parseDateValue(raw);
+    if (parsed) {
+      onChange(parsed);
+    } else if (raw === '') {
+      onChange('');
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const raw = e.target.value.trim();
+    if (raw && !value) {
+      const parsed = parseDateValue(raw);
+      if (parsed) onChange(parsed);
+    }
+  };
+
+  return (
+    <div className="flex items-center w-full" style={{ minWidth: '140px', height: '28px' }}>
+      <input
+        type="text"
+        value={displayValue}
+        onChange={handleTextChange}
+        onBlur={handleBlur}
+        placeholder="DD/MM/YYYY"
+        className="flex-1 px-2 text-sm border-0 focus:ring-1 focus:ring-blue-500 min-w-0"
+        style={{ height: '28px' }}
+      />
+      <input
+        ref={hiddenDateRef}
+        type="date"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        className="sr-only"
+        tabIndex={-1}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => hiddenDateRef.current?.showPicker?.()}
+        className="px-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
+      >
+        <Calendar className="w-3.5 h-3.5" />
+      </button>
     </div>
   );
 }
@@ -866,21 +930,15 @@ export default function RWDatabaseTab({ stationId }: Props) {
                     </select>
                   </td>
                   <td className="border border-gray-300 p-0">
-                    <input
-                      type="date"
+                    <PastableDateInput
                       value={allocation.agreement_start_date || ''}
-                      onChange={(e) => handleInputChange(allocation.allocation_id, 'agreement_start_date', e.target.value)}
-                      className="w-full px-2 text-sm border-0 focus:ring-1 focus:ring-blue-500"
-                      style={{ minWidth: '130px', height: '28px' }}
+                      onChange={(val) => handleInputChange(allocation.allocation_id, 'agreement_start_date', val)}
                     />
                   </td>
                   <td className="border border-gray-300 p-0">
-                    <input
-                      type="date"
+                    <PastableDateInput
                       value={allocation.agreement_expiry_date || ''}
-                      onChange={(e) => handleInputChange(allocation.allocation_id, 'agreement_expiry_date', e.target.value)}
-                      className="w-full px-2 text-sm border-0 focus:ring-1 focus:ring-blue-500"
-                      style={{ minWidth: '130px', height: '28px' }}
+                      onChange={(val) => handleInputChange(allocation.allocation_id, 'agreement_expiry_date', val)}
                     />
                   </td>
                   <td className="border border-gray-300 p-0 bg-gray-50">
