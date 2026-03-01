@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Save, AlertCircle, CheckCircle2, X, Undo2, Redo2, Calendar } from 'lucide-react';
 import { ProductionDataGrid } from '../ProductionDataGrid';
 import { MultiStationProductionGrid } from '../MultiStationProductionGrid';
@@ -9,7 +10,9 @@ import { useProductionData } from '../../hooks/useProductionData';
 import type { EntryMode, RowStatus } from '../../lib/productionUtils';
 
 export default function ProductionDataTab() {
-  const prod = useProductionData();
+  const [searchParams] = useSearchParams();
+  const dateParam = searchParams.get('date') || undefined;
+  const prod = useProductionData(dateParam);
 
   const fullTreatmentTableRef = useRef<MultiStationProductionEditTableRef>(null);
   const boreholeTableRef = useRef<MultiStationProductionEditTableRef>(null);

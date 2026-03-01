@@ -27,12 +27,12 @@ export interface MissingChemicalRow {
   rwVolume: number;
 }
 
-export function useProductionData() {
+export function useProductionData(initialDate?: string) {
   const { user, accessContext } = useAuth();
   const { isOnline, showOfflineWarning } = useNetwork();
 
   const [entryMode, setEntryMode] = useState<EntryMode>('multi-station');
-  const [selectedDate, setSelectedDate] = useState<string>(getYesterdayString());
+  const [selectedDate, setSelectedDate] = useState<string>(initialDate || getYesterdayString());
   const [selectedStationId, setSelectedStationId] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>(getYesterdayString());
   const [toDate, setToDate] = useState<string>(getYesterdayString());

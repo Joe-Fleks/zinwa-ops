@@ -40,6 +40,7 @@ interface NonFunctionalStats {
   savedPercentage: number;
   unmetDemandPct: number;
   yesterdayDate: string;
+  yesterdayIso: string;
 }
 
 interface FuelBalance {
@@ -746,6 +747,7 @@ export default function Dashboard() {
           savedPercentage,
           unmetDemandPct,
           yesterdayDate: formattedDate,
+          yesterdayIso: yesterday,
         });
       }
 
@@ -986,7 +988,15 @@ export default function Dashboard() {
           {nonFunctionalStats.savedPercentage < 100 && (
             <div className="py-0.5">
               <p className="text-sm font-bold text-gray-700">Production records saved</p>
-              <p className="text-sm text-gray-700">{nonFunctionalStats.savedRecordsCount} out of {nonFunctionalStats.totalStations} stations updated: {Math.round(nonFunctionalStats.savedPercentage)}%</p>
+              <div className="flex items-center justify-between gap-3 mt-0.5">
+                <p className="text-sm text-gray-700">{nonFunctionalStats.savedRecordsCount} out of {nonFunctionalStats.totalStations} stations updated: {Math.round(nonFunctionalStats.savedPercentage)}%</p>
+                <Link
+                  to={`/sc/${scId}/clearwater?tab=production&date=${nonFunctionalStats.yesterdayIso}`}
+                  className="px-2.5 py-1 bg-amber-50 text-amber-700 ring-1 ring-amber-200 text-xs font-semibold rounded hover:bg-amber-100 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  Update Logs<ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
             </div>
           )}
           {nonFunctionalStats.nonFunctionalCount > 0 && (
