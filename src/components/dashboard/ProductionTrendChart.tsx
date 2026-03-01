@@ -1039,7 +1039,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                       onClick={() => setViewMode(mode)}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                         viewMode === mode
-                          ? 'bg-blue-300 text-blue-900 shadow-sm'
+                          ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200 shadow-sm'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >

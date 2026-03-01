@@ -24,7 +24,6 @@ import ChemicalNewStock from '../../pages/ChemicalNewStock';
 import ChemicalDistributor from '../../pages/ChemicalDistributor';
 import { useAuth } from '../../contexts/AuthContext';
 import { getScopeRedirectPath, isRouteAuthorizedForUser } from '../../lib/scopeUtils';
-import ChatPanel from '../chat/ChatPanel';
 
 function ScopeRedirector() {
   const { accessContext, loading } = useAuth();
@@ -171,7 +170,6 @@ export default function MainLayout() {
         </Routes>
         </RouteGuard>
       </main>
-      <ChatPanel />
     </div>
   );
 }

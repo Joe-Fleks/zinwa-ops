@@ -1,4 +1,4 @@
-import { AlertTriangle, ExternalLink, Fuel, FlaskConical, ClipboardList, Plus, Pencil, Check, X, FileText, Download, Bell, Calendar, Flag, Search, Droplets, TestTube, Cog } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Fuel, FlaskConical, ClipboardList, Plus, Pencil, Check, X, FileText, Download, Bell, Calendar, Flag, Search, Droplets, TestTube, Cog, Bot } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +23,7 @@ import { downloadWeeklyReport } from '../lib/weeklyReportDocument';
 import { fetchPendingMonthlyReports, markMonthlyReportDownloaded, checkAndTriggerMonthlyReport, refreshMonthlyReportData, type MonthlyReportRecord } from '../lib/monthlyReportService';
 import { downloadMonthlyReport } from '../lib/monthlyReportDocument';
 import ReportViewer from '../components/reports/ReportViewer';
+import EmbeddedChatPanel from '../components/chat/ChatPanel';
 
 interface Alert {
   id: string;
@@ -103,9 +104,9 @@ export default function Dashboard() {
   const [refreshingReportId, setRefreshingReportId] = useState<string | null>(null);
   const [viewingReport, setViewingReport] = useState<{ type: 'weekly' | 'monthly'; record: WeeklyReportRecord | MonthlyReportRecord } | null>(null);
   const [alertsTab, setAlertsTab] = useState<'alerts' | 'followups'>('alerts');
-  const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis' | 'reports'>('cw');
-  const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'alerts' | 'followups'>('cw');
-  const [reportSection, setReportSection] = useState<'midweek' | 'endofweek' | 'monthly' | 'quarterly' | 'yearly'>('endofweek');
+  const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'ai'>('cw');
+  const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'ai' | 'alerts' | 'followups'>('cw');
+  const [reportSection, setReportSection] = useState<'midweek' | 'endofweek' | 'monthly' | 'quarterly' | 'yearly' | 'station'>('endofweek');
   const [kpiSection, setKpiSection] = useState<'nrw' | 'chemical_usage' | 'labour' | 'revenue_collection' | 'breakdown_rate' | 'mtbf' | 'mttr' | 'rw_nrw' | 'rw_unit_cost' | 'rw_volume_sold'>('nrw');
   const [kpiSearch, setKpiSearch] = useState('');
   const [kpiFilter, setKpiFilter] = useState<'all' | 'cw' | 'rw' | 'maintenance' | 'finance'>('all');
@@ -871,7 +872,7 @@ export default function Dashboard() {
             </div>
             <button
               onClick={() => { setAlertsTab('followups'); setMergedTab('followups'); startEdit(a); }}
-              className="text-xs font-semibold px-2 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 rounded transition-colors whitespace-nowrap"
+              className="text-xs font-semibold px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 ring-1 ring-blue-200 rounded transition-colors whitespace-nowrap"
             >
               View
             </button>
@@ -930,14 +931,14 @@ export default function Dashboard() {
               <button
                 onClick={() => handleDismissWeeklyReport(report)}
                 disabled={isDownloading}
-                className="flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-200 hover:bg-blue-300 disabled:bg-blue-100 text-blue-900 text-xs font-semibold rounded transition-colors"
+                className="flex items-center justify-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-700 text-xs font-semibold rounded transition-colors"
               >
                 <X className="w-3.5 h-3.5" />Dismiss
               </button>
               <button
                 onClick={() => handleDownloadReport(report)}
                 disabled={isDownloading}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 disabled:bg-blue-50/50 disabled:ring-blue-100 text-blue-700 ring-1 ring-blue-200 text-xs font-semibold rounded transition-colors"
               >
                 {isDownloading ? (
                   <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>Preparing...</>
@@ -966,7 +967,7 @@ export default function Dashboard() {
             <button
               onClick={() => handleDownloadMonthlyReport(report)}
               disabled={isDownloading}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 disabled:bg-blue-50/50 disabled:ring-blue-100 text-blue-700 ring-1 ring-blue-200 text-xs font-semibold rounded transition-colors"
             >
               {isDownloading ? (
                 <><span className="w-3 h-3 border-2 border-blue-900 border-t-transparent rounded-full animate-spin"></span>Preparing...</>
@@ -995,7 +996,7 @@ export default function Dashboard() {
                 <p className="text-sm font-bold text-gray-700">{nonFunctionalStats.nonFunctionalCount} out of {nonFunctionalStats.savedRecordsCount} stations not producing</p>
                 <div className="flex items-center justify-between gap-3 mt-0.5">
                   <p className="text-sm text-red-700">{nonFunctionalStats.unmetDemandPct}% of daily demand</p>
-                  <Link to={`/sc/${scId}/maintenance?tab=non-functional`} className="px-2.5 py-1 bg-blue-300 text-blue-900 text-xs font-semibold rounded hover:bg-blue-400 transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                  <Link to={`/sc/${scId}/maintenance?tab=non-functional`} className="px-2.5 py-1 bg-blue-50 text-blue-700 ring-1 ring-blue-200 text-xs font-semibold rounded hover:bg-blue-400 transition-colors flex items-center gap-1.5 whitespace-nowrap">
                     More Details<ExternalLink className="w-3.5 h-3.5" />
                   </Link>
                 </div>
@@ -1018,7 +1019,7 @@ export default function Dashboard() {
                   {fuelBalances.diesel !== null ? `${fuelBalances.diesel.toFixed(1)} L` : 'N/A'}
                 </span>
               </div>
-              <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=diesel`} className="text-xs font-semibold px-2.5 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
+              <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=diesel`} className="text-xs font-semibold px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 ring-1 ring-blue-200 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
                 See control card<ExternalLink className="w-3 h-3" />
               </Link>
             </div>
@@ -1030,7 +1031,7 @@ export default function Dashboard() {
                   {fuelBalances.petrol !== null ? `${fuelBalances.petrol.toFixed(1)} L` : 'N/A'}
                 </span>
               </div>
-              <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=petrol`} className="text-xs font-semibold px-2.5 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
+              <Link to={`/sc/${scId}/stock-control?tab=fuel&fuel=petrol`} className="text-xs font-semibold px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 ring-1 ring-blue-200 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
                 See control card<ExternalLink className="w-3 h-3" />
               </Link>
             </div>
@@ -1054,7 +1055,7 @@ export default function Dashboard() {
                     <span className="text-sm font-bold text-gray-800">{section.label}</span>
                     <Link
                       to={`/sc/${scId}/stock-control?tab=chemicals&chemical=${section.chemParam}`}
-                      className="text-xs font-semibold rounded px-2.5 py-1 flex items-center gap-1 whitespace-nowrap transition-colors bg-blue-300 text-blue-900 hover:bg-blue-400"
+                      className="text-xs font-semibold rounded px-2.5 py-1 flex items-center gap-1 whitespace-nowrap transition-colors bg-blue-50 text-blue-700 ring-1 ring-blue-200 hover:bg-blue-400"
                     >
                       View Balances<ExternalLink className="w-3 h-3" />
                     </Link>
@@ -1103,7 +1104,7 @@ export default function Dashboard() {
         <span className="text-xs text-gray-500 font-medium">Your personal follow-up items</span>
         <button
           onClick={() => { setShowAddForm(true); setNewSubtitle(''); setNewBody(''); setNewDueDate(''); setNewImportance('Medium'); }}
-          className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-300 hover:bg-blue-400 rounded transition-colors"
+          className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 ring-1 ring-blue-200 rounded transition-colors"
         >
           <Plus className="w-3 h-3" />
           Add Follow-up
@@ -1150,7 +1151,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex gap-1.5">
-            <button onClick={handleAddCustomAlert} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-300 hover:bg-blue-400 rounded transition-colors">
+            <button onClick={handleAddCustomAlert} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 ring-1 ring-blue-200 rounded transition-colors">
               <Check className="w-3 h-3" />Save
             </button>
             <button onClick={() => setShowAddForm(false)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-200 hover:bg-gray-300 rounded transition-colors">
@@ -1167,7 +1168,7 @@ export default function Dashboard() {
               <span className="text-amber-700">{pendingSummarySheets.pendingCount}/{pendingSummarySheets.totalCount} stations</span>
               {' '}<span className="text-gray-500 text-xs">— {pendingSummarySheets.totalClientWeight > 0 ? Math.round((pendingSummarySheets.pendingClientWeight / pendingSummarySheets.totalClientWeight) * 100) : Math.round((pendingSummarySheets.pendingCount / pendingSummarySheets.totalCount) * 100)}% outstanding</span>
             </p>
-            <Link to={`/sc/${scId}/clearwater?tab=sales&filter=pending`} className="text-xs font-semibold px-2.5 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
+            <Link to={`/sc/${scId}/clearwater?tab=sales&filter=pending`} className="text-xs font-semibold px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 ring-1 ring-blue-200 rounded transition-colors flex items-center gap-1 whitespace-nowrap">
               See Details<ExternalLink className="w-3 h-3" />
             </Link>
           </div>
@@ -1222,7 +1223,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex gap-1.5">
-                <button onClick={() => handleEditCustomAlert(alert.id)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-300 hover:bg-blue-400 rounded transition-colors">
+                <button onClick={() => handleEditCustomAlert(alert.id)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 ring-1 ring-blue-200 rounded transition-colors">
                   <Check className="w-3 h-3" />Save
                 </button>
                 <button onClick={() => setEditingId(null)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-200 hover:bg-gray-300 rounded transition-colors">
@@ -1256,7 +1257,7 @@ export default function Dashboard() {
                 <button onClick={() => startEdit(alert)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors">
                   <Pencil className="w-3 h-3" />Edit
                 </button>
-                <button onClick={() => handleDeleteCustomAlert(alert.id)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-900 bg-blue-300 hover:bg-blue-400 rounded transition-colors">
+                <button onClick={() => handleDeleteCustomAlert(alert.id)} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 ring-1 ring-blue-200 rounded transition-colors">
                   <Check className="w-3 h-3" />Done
                 </button>
               </div>
@@ -1276,6 +1277,7 @@ export default function Dashboard() {
     { key: 'midweek', label: 'Mid-week Reports', count: midweekReports.length },
     { key: 'endofweek', label: 'End of Week Reports', count: endOfWeekReports.length },
     { key: 'monthly', label: 'Monthly Reports', count: allMonthlyReports.length },
+    { key: 'station', label: 'Station Reports' },
     { key: 'quarterly', label: 'Quarterly Reports', count: 0 },
     { key: 'yearly', label: 'Yearly Reports', count: 0 },
   ];
@@ -1311,14 +1313,14 @@ export default function Dashboard() {
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     onClick={() => setViewingReport({ type: 'weekly', record: report })}
-                    className="flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                    className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 ring-1 ring-blue-200 text-xs font-semibold rounded transition-colors whitespace-nowrap"
                   >
                     View
                   </button>
                   <button
                     onClick={() => handleDownloadReport(report)}
                     disabled={isDownloading}
-                    className="flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                    className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 disabled:bg-blue-50/50 disabled:ring-blue-100 text-blue-700 ring-1 ring-blue-200 text-xs font-semibold rounded transition-colors whitespace-nowrap"
                   >
                     {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
                     {isDownloading ? '' : 'Download'}
@@ -1401,7 +1403,7 @@ export default function Dashboard() {
                   onClick={() => setKpiSection(kpi.key)}
                   className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2 ${
                     isActive
-                      ? 'bg-blue-300 border-r-2 border-blue-400 text-blue-900 font-semibold'
+                      ? 'bg-blue-50 border-r-2 border-blue-400 text-blue-700 font-semibold'
                       : 'text-gray-600 hover:bg-white hover:text-gray-800'
                   }`}
                 >
@@ -1489,7 +1491,7 @@ export default function Dashboard() {
               onClick={() => setReportSection(section.key)}
               className={`w-full text-left px-3 py-2.5 transition-colors flex items-center justify-between gap-1 ${
                 isActive
-                  ? 'bg-blue-300 border-r-2 border-blue-400 text-blue-900 font-semibold'
+                  ? 'bg-blue-50 border-r-2 border-blue-400 text-blue-700 font-semibold'
                   : 'text-gray-600 hover:bg-white hover:text-gray-800'
               }`}
             >
@@ -1508,11 +1510,11 @@ export default function Dashboard() {
           border: 'border-blue-300',
           readyBg: 'bg-blue-50',
           readyText: 'text-blue-800',
-          badgeBg: 'bg-blue-300',
+          badgeBg: 'bg-blue-100',
           badgeText: 'text-blue-800',
-          btnBg: 'bg-blue-300',
-          btnHover: 'hover:bg-blue-400',
-          btnDisabled: 'disabled:bg-blue-200',
+          btnBg: 'bg-blue-50',
+          btnHover: 'hover:bg-blue-100',
+          btnDisabled: 'disabled:bg-blue-50/50 disabled:ring-blue-100',
           iconColor: 'text-blue-600',
         })}
 
@@ -1523,9 +1525,9 @@ export default function Dashboard() {
           readyText: 'text-sky-800',
           badgeBg: 'bg-sky-200',
           badgeText: 'text-sky-800',
-          btnBg: 'bg-blue-300',
-          btnHover: 'hover:bg-blue-400',
-          btnDisabled: 'disabled:bg-blue-200',
+          btnBg: 'bg-blue-50',
+          btnHover: 'hover:bg-blue-100',
+          btnDisabled: 'disabled:bg-blue-50/50 disabled:ring-blue-100',
           iconColor: 'text-blue-600',
         })}
 
@@ -1555,14 +1557,14 @@ export default function Dashboard() {
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           onClick={() => setViewingReport({ type: 'monthly', record: report })}
-                          className="flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                          className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 ring-1 ring-blue-200 text-xs font-semibold rounded transition-colors whitespace-nowrap"
                         >
                           View
                         </button>
                         <button
                           onClick={() => handleDownloadMonthlyReport(report)}
                           disabled={isDownloading}
-                          className="flex items-center gap-1 px-2 py-1 bg-blue-300 hover:bg-blue-400 disabled:bg-blue-200 text-blue-900 text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                          className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 disabled:bg-blue-50/50 disabled:ring-blue-100 text-blue-700 ring-1 ring-blue-200 text-xs font-semibold rounded transition-colors whitespace-nowrap"
                         >
                           {isDownloading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Download className="w-3 h-3" />}
                           {isDownloading ? '' : 'Download'}
@@ -1574,6 +1576,17 @@ export default function Dashboard() {
               })}
             </div>
           )
+        )}
+
+        {reportSection === 'station' && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <FileText className="w-10 h-10 text-gray-200 mb-3" />
+            <p className="text-sm font-medium text-gray-400">Station Reports</p>
+            <p className="text-xs text-gray-300 mt-1 max-w-[260px]">
+              Generate comprehensive reports for a specific station covering assets, pumping equipment, infrastructure, production, sales, and finance data for a specified period.
+            </p>
+            <p className="text-xs text-gray-300 mt-3">Coming soon</p>
+          </div>
         )}
 
         {(reportSection === 'quarterly' || reportSection === 'yearly') && (
@@ -1616,7 +1629,7 @@ export default function Dashboard() {
         <div className="flex flex-col flex-1 min-h-0">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden flex-1 min-h-0">
             <div className="flex flex-shrink-0 border-b border-gray-200 overflow-x-auto">
-              {(['cw', 'rw', 'kpis', 'reports', 'alerts', 'followups'] as const).map((tab) => {
+              {(['cw', 'rw', 'kpis', 'reports', 'ai', 'alerts', 'followups'] as const).map((tab) => {
                 const alertCount = weeklyReports.length + monthlyReports.length + alerts.length + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0);
                 const readyReportCount = allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length;
                 return (
@@ -1629,12 +1642,14 @@ export default function Dashboard() {
                         : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                     }`}
                   >
+                    {tab === 'ai' && <Bot className="w-3.5 h-3.5" />}
                     {tab === 'alerts' && <Bell className="w-3.5 h-3.5" />}
                     {tab === 'followups' && <ClipboardList className="w-3.5 h-3.5" />}
                     {tab === 'cw' && 'CW Trends'}
                     {tab === 'rw' && 'RW Trends'}
                     {tab === 'kpis' && 'KPIs'}
                     {tab === 'reports' && 'Reports'}
+                    {tab === 'ai' && 'AI Assistant'}
                     {tab === 'alerts' && 'Alerts'}
                     {tab === 'followups' && 'Follow-ups'}
                     {tab === 'reports' && readyReportCount > 0 && (
@@ -1657,6 +1672,7 @@ export default function Dashboard() {
               )}
               {mergedTab === 'kpis' && renderKpisContent()}
               {mergedTab === 'reports' && renderReportsContent()}
+              {mergedTab === 'ai' && <EmbeddedChatPanel />}
               {(mergedTab === 'alerts' || mergedTab === 'followups') && (
                 loading ? (
                   <div className="text-center py-8 text-gray-500 text-sm">Loading...</div>
@@ -1722,6 +1738,17 @@ export default function Dashboard() {
                   </span>
                 )}
               </button>
+              <button
+                onClick={() => setTrendsTab('ai')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
+                  trendsTab === 'ai'
+                    ? 'text-blue-700 border-b-2 border-blue-500 bg-blue-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Bot className="w-3.5 h-3.5" />
+                AI Assistant
+              </button>
             </div>
             <div className="overflow-y-auto thin-scrollbar flex-1">
               {trendsTab === 'cw' && (
@@ -1734,6 +1761,7 @@ export default function Dashboard() {
               )}
               {trendsTab === 'kpis' && renderKpisContent()}
               {trendsTab === 'reports' && renderReportsContent()}
+              {trendsTab === 'ai' && <EmbeddedChatPanel />}
             </div>
           </div>
         </div>
