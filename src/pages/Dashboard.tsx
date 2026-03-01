@@ -106,7 +106,7 @@ export default function Dashboard() {
   const [alertsTab, setAlertsTab] = useState<'alerts' | 'followups'>('alerts');
   const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'ai'>('cw');
   const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'ai' | 'alerts' | 'followups'>('cw');
-  const [reportSection, setReportSection] = useState<'midweek' | 'endofweek' | 'monthly' | 'quarterly' | 'yearly' | 'station'>('endofweek');
+  const [reportSection, setReportSection] = useState<'midweek' | 'endofweek' | 'monthly' | 'quarterly' | 'yearly' | 'station' | 'staff'>('endofweek');
   const [kpiSection, setKpiSection] = useState<'nrw' | 'chemical_usage' | 'labour' | 'revenue_collection' | 'breakdown_rate' | 'mtbf' | 'mttr' | 'rw_nrw' | 'rw_unit_cost' | 'rw_volume_sold'>('nrw');
   const [kpiSearch, setKpiSearch] = useState('');
   const [kpiFilter, setKpiFilter] = useState<'all' | 'cw' | 'rw' | 'maintenance' | 'finance'>('all');
@@ -1278,6 +1278,7 @@ export default function Dashboard() {
     { key: 'endofweek', label: 'End of Week Reports', count: endOfWeekReports.length },
     { key: 'monthly', label: 'Monthly Reports', count: allMonthlyReports.length },
     { key: 'station', label: 'Station Reports' },
+    { key: 'staff', label: 'Staff Performance' },
     { key: 'quarterly', label: 'Quarterly Reports', count: 0 },
     { key: 'yearly', label: 'Yearly Reports', count: 0 },
   ];
@@ -1584,6 +1585,17 @@ export default function Dashboard() {
             <p className="text-sm font-medium text-gray-400">Station Reports</p>
             <p className="text-xs text-gray-300 mt-1 max-w-[260px]">
               Generate comprehensive reports for a specific station covering assets, pumping equipment, infrastructure, production, sales, and finance data for a specified period.
+            </p>
+            <p className="text-xs text-gray-300 mt-3">Coming soon</p>
+          </div>
+        )}
+
+        {reportSection === 'staff' && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <FileText className="w-10 h-10 text-gray-200 mb-3" />
+            <p className="text-sm font-medium text-gray-400">Staff Performance Reports</p>
+            <p className="text-xs text-gray-300 mt-1 max-w-[260px]">
+              Quarterly performance review reports for staff, covering key performance indicators, attendance, productivity, and appraisal outcomes.
             </p>
             <p className="text-xs text-gray-300 mt-3">Coming soon</p>
           </div>
