@@ -981,7 +981,7 @@ export default function Dashboard() {
         );
       })}
       {nonFunctionalStats && (nonFunctionalStats.savedPercentage < 100 || nonFunctionalStats.nonFunctionalCount > 0) && (
-        <div className="bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 space-y-1 shadow-sm border-l-[3px] border-l-amber-500">
+        <div className="bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 space-y-1 shadow-sm">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
             <span className="text-[11px] font-bold text-gray-800 uppercase tracking-wide">
