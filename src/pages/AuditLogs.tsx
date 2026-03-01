@@ -110,7 +110,7 @@ export default function AuditLogs() {
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 activeTab === tab.key
-                  ? 'bg-white text-gray-900 shadow-sm'
+                  ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-200'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
               }`}
             >
