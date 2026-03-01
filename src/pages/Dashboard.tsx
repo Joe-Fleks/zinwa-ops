@@ -1063,7 +1063,8 @@ export default function Dashboard() {
                     {stations.map((st) => (
                       <div key={st.station_name} className="flex items-center justify-between">
                         <span className="text-xs text-gray-600 truncate flex-1 mr-2">{st.station_name}</span>
-                        <span className={`text-xs whitespace-nowrap ${isChemicalCriticalStock(st.days_remaining) ? 'text-red-600' : 'text-orange-500'}`}>
+                        <span className={`text-xs whitespace-nowrap flex items-center gap-1 ${isChemicalCriticalStock(st.days_remaining) ? 'text-red-600' : 'text-orange-500'}`}>
+                          <AlertTriangle className="w-3 h-3 flex-shrink-0" />
                           {st.days_remaining} day{st.days_remaining !== 1 ? 's' : ''} left
                         </span>
                       </div>
@@ -1590,7 +1591,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="h-full flex flex-col p-6 gap-6 overflow-hidden">
+    <div className="h-full flex flex-col pt-8 px-6 pb-6 gap-6 overflow-hidden">
       <style dangerouslySetInnerHTML={{__html: `
         .thin-scrollbar::-webkit-scrollbar {
           width: 4px;
@@ -1624,7 +1625,7 @@ export default function Dashboard() {
                     onClick={() => setMergedTab(tab)}
                     className={`flex-shrink-0 flex items-center justify-center gap-1.5 px-4 py-3 text-xs font-semibold transition-colors whitespace-nowrap ${
                       mergedTab === tab
-                        ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
+                        ? 'text-blue-700 border-b-2 border-blue-500 bg-blue-50'
                         : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                     }`}
                   >
@@ -1680,7 +1681,7 @@ export default function Dashboard() {
                 onClick={() => setTrendsTab('cw')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                   trendsTab === 'cw'
-                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
+                    ? 'text-blue-700 border-b-2 border-blue-500 bg-blue-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1690,7 +1691,7 @@ export default function Dashboard() {
                 onClick={() => setTrendsTab('rw')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                   trendsTab === 'rw'
-                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
+                    ? 'text-blue-700 border-b-2 border-blue-500 bg-blue-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1700,7 +1701,7 @@ export default function Dashboard() {
                 onClick={() => setTrendsTab('kpis')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                   trendsTab === 'kpis'
-                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
+                    ? 'text-blue-700 border-b-2 border-blue-500 bg-blue-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1710,7 +1711,7 @@ export default function Dashboard() {
                 onClick={() => setTrendsTab('reports')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                   trendsTab === 'reports'
-                    ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
+                    ? 'text-blue-700 border-b-2 border-blue-500 bg-blue-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1744,7 +1745,7 @@ export default function Dashboard() {
               onClick={() => setAlertsTab('alerts')}
               className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                 alertsTab === 'alerts'
-                  ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
+                  ? 'text-blue-700 border-b-2 border-blue-500 bg-blue-50'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -1760,7 +1761,7 @@ export default function Dashboard() {
               onClick={() => setAlertsTab('followups')}
               className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors ${
                 alertsTab === 'followups'
-                  ? 'text-blue-800 border-b-2 border-blue-400 bg-blue-300'
+                  ? 'text-blue-700 border-b-2 border-blue-500 bg-blue-50'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
