@@ -8,6 +8,7 @@ import { validateRoleScope } from '../lib/rbacMatrix';
 import { fetchCatchments, fetchServiceCentresByCatchment, fetchCatchmentById, ServiceCentre, Catchment } from '../lib/scopeUtils';
 
 interface UserRole {
+  id: string;
   user_id: string;
   user_email: string;
   user_name: string;
@@ -93,6 +94,7 @@ export default function RoleManagement() {
         supabase
           .from('user_roles')
           .select(`
+            id,
             user_id,
             role_id,
             scope_type,
@@ -141,6 +143,7 @@ export default function RoleManagement() {
         }
 
         transformedUsers.push({
+          id: ur.id,
           user_id: ur.user_id,
           user_email: (ur.user_profiles as any).email,
           user_name: (ur.user_profiles as any).full_name,
@@ -202,19 +205,16 @@ export default function RoleManagement() {
         throw new Error('Selected role must have higher rank than current role');
       }
 
-      // Validate role-scope compatibility
       const validation = validateRoleScope(newRole.name, selectedUser.scope_type);
       if (!validation.valid) throw new Error(validation.error);
 
-      // Retire old role
-      await supabase
+      const { error: retireErr } = await supabase
         .from('user_roles')
         .update({ effective_to: new Date().toISOString() })
-        .eq('user_id', selectedUser.user_id)
-        .is('effective_to', null);
+        .eq('id', selectedUser.id);
+      if (retireErr) throw retireErr;
 
-      // Assign new role with same scope
-      await supabase
+      const { error: insertErr } = await supabase
         .from('user_roles')
         .insert({
           user_id: selectedUser.user_id,
@@ -224,8 +224,8 @@ export default function RoleManagement() {
           effective_from: new Date().toISOString(),
           assigned_by: currentUser.id,
         });
+      if (insertErr) throw insertErr;
 
-      // Log action
       await supabase.from('audit_logs').insert({
         user_id: currentUser.id,
         action_type: 'ROLE_PROMOTED',
@@ -256,19 +256,16 @@ export default function RoleManagement() {
         throw new Error('Selected role must have lower rank than current role');
       }
 
-      // Validate role-scope compatibility
       const validation = validateRoleScope(newRole.name, selectedUser.scope_type);
       if (!validation.valid) throw new Error(validation.error);
 
-      // Retire old role
-      await supabase
+      const { error: retireErr } = await supabase
         .from('user_roles')
         .update({ effective_to: new Date().toISOString() })
-        .eq('user_id', selectedUser.user_id)
-        .is('effective_to', null);
+        .eq('id', selectedUser.id);
+      if (retireErr) throw retireErr;
 
-      // Assign new role with same scope
-      await supabase
+      const { error: insertErr } = await supabase
         .from('user_roles')
         .insert({
           user_id: selectedUser.user_id,
@@ -278,8 +275,8 @@ export default function RoleManagement() {
           effective_from: new Date().toISOString(),
           assigned_by: currentUser.id,
         });
+      if (insertErr) throw insertErr;
 
-      // Log action
       await supabase.from('audit_logs').insert({
         user_id: currentUser.id,
         action_type: 'ROLE_DEMOTED',
@@ -308,7 +305,6 @@ export default function RoleManagement() {
       let newScopeId: string | null = null;
       let newScopeName: string = '';
 
-      // For SC-scoped users, transfer within SC scope
       if (selectedUser.scope_type === 'SC') {
         if (!transferSCId) throw new Error('Please select a Service Centre');
 
@@ -317,9 +313,7 @@ export default function RoleManagement() {
 
         newScopeId = transferSCId;
         newScopeName = newSC.name;
-      }
-      // For CATCHMENT-scoped users, transfer within CATCHMENT scope
-      else if (selectedUser.scope_type === 'CATCHMENT') {
+      } else if (selectedUser.scope_type === 'CATCHMENT') {
         if (!transferCatchmentId) throw new Error('Please select a Catchment');
 
         const newCatchment = catchments.find(c => c.id === transferCatchmentId);
@@ -327,20 +321,17 @@ export default function RoleManagement() {
 
         newScopeId = transferCatchmentId;
         newScopeName = newCatchment.name;
-      }
-      else {
+      } else {
         throw new Error('Transfer not available for National-scoped roles');
       }
 
-      // Retire old role
-      await supabase
+      const { error: retireErr } = await supabase
         .from('user_roles')
         .update({ effective_to: new Date().toISOString() })
-        .eq('user_id', selectedUser.user_id)
-        .is('effective_to', null);
+        .eq('id', selectedUser.id);
+      if (retireErr) throw retireErr;
 
-      // Assign same role to new location
-      await supabase
+      const { error: insertErr } = await supabase
         .from('user_roles')
         .insert({
           user_id: selectedUser.user_id,
@@ -350,8 +341,8 @@ export default function RoleManagement() {
           effective_from: new Date().toISOString(),
           assigned_by: currentUser.id,
         });
+      if (insertErr) throw insertErr;
 
-      // Log action
       await supabase.from('audit_logs').insert({
         user_id: currentUser.id,
         action_type: 'ROLE_TRANSFERRED',
@@ -381,7 +372,6 @@ export default function RoleManagement() {
       const newRole = roles.find(r => r.id === assignRoleId);
       if (!newRole) throw new Error('Role not found');
 
-      // Determine new scope based on selected location
       let newScopeType: 'SC' | 'CATCHMENT' | 'NATIONAL' = selectedUser.scope_type;
       let newScopeId: string | null = selectedUser.scope_id;
 
@@ -393,22 +383,19 @@ export default function RoleManagement() {
         newScopeId = assignCatchmentId;
       }
 
-      // Validate role-scope compatibility
       const validation = validateRoleScope(newRole.name, newScopeType);
       if (!validation.valid) {
         setAssignmentValidationError(validation.error);
         throw new Error(validation.error);
       }
 
-      // Retire old role
-      await supabase
+      const { error: retireErr } = await supabase
         .from('user_roles')
         .update({ effective_to: new Date().toISOString() })
-        .eq('user_id', selectedUser.user_id)
-        .is('effective_to', null);
+        .eq('id', selectedUser.id);
+      if (retireErr) throw retireErr;
 
-      // Assign new role with new scope
-      await supabase
+      const { error: insertErr } = await supabase
         .from('user_roles')
         .insert({
           user_id: selectedUser.user_id,
@@ -418,8 +405,8 @@ export default function RoleManagement() {
           effective_from: new Date().toISOString(),
           assigned_by: currentUser.id,
         });
+      if (insertErr) throw insertErr;
 
-      // Log action
       await supabase.from('audit_logs').insert({
         user_id: currentUser.id,
         action_type: 'ROLE_ASSIGNED',
@@ -445,22 +432,22 @@ export default function RoleManagement() {
     try {
       setConfirming(true);
 
-      await supabase
+      const { error: retireErr } = await supabase
         .from('user_roles')
         .update({ effective_to: new Date().toISOString() })
-        .eq('user_id', selectedUser.user_id)
-        .is('effective_to', null);
+        .eq('id', selectedUser.id);
+      if (retireErr) throw retireErr;
 
       await supabase.from('audit_logs').insert({
         user_id: currentUser.id,
         action_type: 'ROLE_RETIRED',
         entity_type: 'user',
         entity_id: selectedUser.user_id,
-        previous_value: { role: selectedUser.role_name, reason: actionReason },
+        previous_value: { role: selectedUser.role_name, scope: selectedUser.scope_name, scope_type: selectedUser.scope_type, reason: actionReason },
         new_value: { role: null },
       });
 
-      setSuccess(`${selectedUser.user_name}'s role has been retired`);
+      setSuccess(`${selectedUser.user_name}'s ${selectedUser.role_name} role has been retired`);
       resetModal();
       await loadData();
     } catch (err) {
@@ -506,16 +493,18 @@ export default function RoleManagement() {
     try {
       setConfirming(true);
 
-      await supabase
+      const { error: retireErr } = await supabase
         .from('user_roles')
         .update({ effective_to: new Date().toISOString() })
         .eq('user_id', selectedUser.user_id)
         .is('effective_to', null);
+      if (retireErr) throw retireErr;
 
-      await supabase
+      const { error: deactivateErr } = await supabase
         .from('user_profiles')
         .update({ is_active: false })
         .eq('id', selectedUser.user_id);
+      if (deactivateErr) throw deactivateErr;
 
       await supabase.from('audit_logs').insert({
         user_id: currentUser.id,
