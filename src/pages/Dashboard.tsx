@@ -462,8 +462,8 @@ export default function Dashboard() {
         .from('fuel_control_cards')
         .select('balance, entry_date, sort_order')
         .eq('fuel_type', 'diesel')
-        .eq('year', currentYear)
-        .eq('month', currentMonth)
+        .order('year', { ascending: false })
+        .order('month', { ascending: false })
         .order('entry_date', { ascending: false })
         .order('sort_order', { ascending: false })
         .limit(1);
@@ -472,8 +472,8 @@ export default function Dashboard() {
         .from('fuel_control_cards')
         .select('balance, entry_date, sort_order')
         .eq('fuel_type', 'petrol')
-        .eq('year', currentYear)
-        .eq('month', currentMonth)
+        .order('year', { ascending: false })
+        .order('month', { ascending: false })
         .order('entry_date', { ascending: false })
         .order('sort_order', { ascending: false })
         .limit(1);
@@ -553,24 +553,24 @@ export default function Dashboard() {
         const [balancesResult, receiptsResult, prodLogsResult] = await Promise.all([
           supabase
             .from('chemical_stock_balances')
-            .select('station_id, chemical_type, opening_balance')
+            .select('station_id, chemical_type, opening_balance, year, month')
             .in('station_id', ftStationIds)
             .in('chemical_type', ['aluminium_sulphate', 'hth', 'activated_carbon'])
-            .eq('year', currentYear)
-            .eq('month', currentMonth),
+            .order('year', { ascending: false })
+            .order('month', { ascending: false }),
           supabase
             .from('chemical_stock_receipts')
-            .select('station_id, chemical_type, quantity, receipt_type')
+            .select('station_id, chemical_type, quantity, receipt_type, year, month')
             .in('station_id', ftStationIds)
             .in('chemical_type', ['aluminium_sulphate', 'hth', 'activated_carbon'])
-            .eq('year', currentYear)
-            .eq('month', currentMonth),
+            .order('year', { ascending: false })
+            .order('month', { ascending: false }),
           supabase
             .from('production_logs')
-            .select('station_id, alum_kg, hth_kg, activated_carbon_kg')
+            .select('station_id, alum_kg, hth_kg, activated_carbon_kg, date')
             .in('station_id', ftStationIds)
-            .gte('date', startDate)
-            .lt('date', endDate),
+            .order('date', { ascending: false })
+            .limit(1000),
         ]);
 
         const newChemicalAlerts: ChemicalAlerts = {
@@ -588,16 +588,26 @@ export default function Dashboard() {
             const balanceRow = (balancesResult.data || []).find(
               r => r.station_id === stationId && r.chemical_type === chemType
             );
-            const openingBalance = balanceRow ? Number(balanceRow.opening_balance) : 0;
+
+            if (!balanceRow) continue;
+
+            const balanceYear = balanceRow.year;
+            const balanceMonth = balanceRow.month;
+            const openingBalance = Number(balanceRow.opening_balance) || 0;
 
             const stationReceipts = (receiptsResult.data || [])
-              .filter(r => r.station_id === stationId && r.chemical_type === chemType);
+              .filter(r =>
+                r.station_id === stationId &&
+                r.chemical_type === chemType &&
+                (r.year > balanceYear || (r.year === balanceYear && r.month >= balanceMonth))
+              );
             const received = computeReceiptTotal(stationReceipts);
 
+            const balanceStartDate = `${balanceYear}-${String(balanceMonth).padStart(2, '0')}-01`;
             let usedTotal = 0;
             let productionDays = 0;
             (prodLogsResult.data || [])
-              .filter(r => r.station_id === stationId)
+              .filter(r => r.station_id === stationId && r.date >= balanceStartDate)
               .forEach((r: any) => {
                 const val = Number(r[prodField]) || 0;
                 usedTotal += val;
