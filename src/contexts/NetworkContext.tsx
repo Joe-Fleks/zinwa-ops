@@ -18,17 +18,17 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 5000)
+      );
 
-      await fetch('https://www.google.com/favicon.ico', {
+      const fetchPromise = fetch('https://www.google.com/favicon.ico', {
         method: 'HEAD',
         mode: 'no-cors',
         cache: 'no-cache',
-        signal: controller.signal
       });
 
-      clearTimeout(timeoutId);
+      await Promise.race([fetchPromise, timeoutPromise]);
       setIsOnline(true);
     } catch (error) {
       setIsOnline(false);
