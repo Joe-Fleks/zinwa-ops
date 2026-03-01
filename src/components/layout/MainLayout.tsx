@@ -23,7 +23,7 @@ import DamCapacityPage from '../../pages/DamCapacityPage';
 import ChemicalNewStock from '../../pages/ChemicalNewStock';
 import ChemicalDistributor from '../../pages/ChemicalDistributor';
 import { useAuth } from '../../contexts/AuthContext';
-import { getScopeRedirectPath } from '../../lib/scopeUtils';
+import { getScopeRedirectPath, isRouteAuthorizedForUser } from '../../lib/scopeUtils';
 import ChatPanel from '../chat/ChatPanel';
 
 function ScopeRedirector() {
@@ -61,7 +61,11 @@ function RouteTracker() {
     const defaultPath = getScopeRedirectPath(accessContext.scopeType, accessContext.scopeId);
 
     if (savedRoute && location.pathname === defaultPath && savedRoute !== defaultPath) {
-      navigate(savedRoute, { replace: true });
+      if (isRouteAuthorizedForUser(savedRoute, accessContext)) {
+        navigate(savedRoute, { replace: true });
+      } else {
+        localStorage.removeItem('lastRoute');
+      }
     }
   }, [accessContext]);
 
