@@ -864,11 +864,11 @@ export default function Dashboard() {
   const renderAlertsContent = () => (
     <div className="space-y-3">
       {dueTomorrowAlerts.map(a => (
-        <div key={`due-${a.id}`} className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-2.5">
+        <div key={`due-${a.id}`} className="bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 shadow-sm">
           <div className="flex items-start gap-2">
             <Bell className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-gray-800 uppercase" style={{ fontSize: '11px' }}>Deadline Tomorrow</p>
+              <p className="text-[11px] font-bold text-gray-800 uppercase tracking-wide">Deadline Tomorrow</p>
               <p className="text-sm font-semibold text-gray-700 mt-0.5">{a.subtitle || 'Follow-up'}</p>
               {a.body && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{a.body}</p>}
             </div>
@@ -882,11 +882,11 @@ export default function Dashboard() {
         </div>
       ))}
       {equipmentAlerts.length > 0 && (
-        <div className="bg-amber-50 border-2 border-amber-400 rounded-lg px-3 py-2.5">
+        <div className="bg-amber-50 border border-amber-300 rounded-xl px-3.5 py-2.5 shadow-sm">
           <div className="flex items-start gap-2">
             <Cog className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-amber-900 uppercase" style={{ fontSize: '11px' }}>
+              <p className="text-[11px] font-bold text-amber-900 uppercase tracking-wide">
                 Equipment reaching design life in {new Date().toLocaleString('en-US', { month: 'long' })}
               </p>
               <div className="mt-1.5 space-y-1">
@@ -920,11 +920,11 @@ export default function Dashboard() {
         const periodEnd = new Date(report.period_end + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
         const isDownloading = downloadingReportId === report.id;
         return (
-          <div key={report.id} className="bg-sky-50 border-2 border-sky-400 rounded-lg px-3 py-2.5">
+          <div key={report.id} className="bg-sky-50 border border-sky-300 rounded-xl px-3.5 py-2.5 shadow-sm">
             <div className="flex items-start gap-2 mb-2">
               <FileText className="w-4 h-4 text-sky-700 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-sky-900 uppercase" style={{ fontSize: '11px' }}>Weekly Report Ready</p>
+                <p className="text-[11px] font-bold text-sky-900 uppercase tracking-wide">Weekly Report Ready</p>
                 <p className="text-sm font-semibold text-sky-800 mt-0.5">{reportTypeLbl} Report — Week {report.week_number}, {report.year}</p>
                 <p className="text-xs text-sky-700 mt-0.5">{periodStart} – {periodEnd}</p>
               </div>
@@ -957,11 +957,11 @@ export default function Dashboard() {
         const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const monthLabel = MONTH_NAMES[report.month] || `Month ${report.month}`;
         return (
-          <div key={report.id} className="bg-teal-50 border-2 border-teal-400 rounded-lg px-3 py-2.5">
+          <div key={report.id} className="bg-teal-50 border border-teal-300 rounded-xl px-3.5 py-2.5 shadow-sm">
             <div className="flex items-start gap-2 mb-2">
               <FileText className="w-4 h-4 text-teal-700 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-teal-900 uppercase" style={{ fontSize: '11px' }}>Monthly Report Ready</p>
+                <p className="text-[11px] font-bold text-teal-900 uppercase tracking-wide">Monthly Report Ready</p>
                 <p className="text-sm font-semibold text-teal-800 mt-0.5">{monthLabel} {report.year} Operations Report</p>
                 <p className="text-xs text-teal-700 mt-0.5">{report.report_data?.production?.stationCount ?? 0} stations · {report.report_data?.completionPct ?? 0}% data coverage</p>
               </div>
@@ -981,9 +981,12 @@ export default function Dashboard() {
         );
       })}
       {nonFunctionalStats && (nonFunctionalStats.savedPercentage < 100 || nonFunctionalStats.nonFunctionalCount > 0) && (
-        <div className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 space-y-1">
-          <div className="font-bold text-gray-800 uppercase mb-1" style={{ fontSize: '11px' }}>
-            Non-functional Stations — {nonFunctionalStats.yesterdayDate}
+        <div className="bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 space-y-1 shadow-sm border-l-[3px] border-l-amber-500">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+            <span className="text-[11px] font-bold text-gray-800 uppercase tracking-wide">
+              Non-functional Stations — {nonFunctionalStats.yesterdayDate}
+            </span>
           </div>
           {nonFunctionalStats.savedPercentage < 100 && (
             <div className="py-0.5">
@@ -1001,7 +1004,7 @@ export default function Dashboard() {
           )}
           {nonFunctionalStats.nonFunctionalCount > 0 && (
             <>
-              {nonFunctionalStats.savedPercentage < 100 && <div className="border-t border-gray-300 my-1"></div>}
+              {nonFunctionalStats.savedPercentage < 100 && <div className="border-t border-gray-100 my-1"></div>}
               <div className="py-0.5">
                 <p className="text-sm font-bold text-gray-700">{nonFunctionalStats.nonFunctionalCount} out of {nonFunctionalStats.savedRecordsCount} stations not producing</p>
                 <div className="flex items-center justify-between gap-3 mt-0.5">
@@ -1016,10 +1019,10 @@ export default function Dashboard() {
         </div>
       )}
       {fuelBalances && (
-        <div className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-2">
+        <div className="bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <Fuel className="w-4 h-4 text-gray-700" />
-            <span className="font-bold text-gray-800 uppercase" style={{ fontSize: '11px' }}>Fuel Balances</span>
+            <span className="text-[11px] font-bold text-gray-800 uppercase tracking-wide">Fuel Balances</span>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -1033,7 +1036,7 @@ export default function Dashboard() {
                 See control card<ExternalLink className="w-3 h-3" />
               </Link>
             </div>
-            <div className="border-t border-gray-300"></div>
+            <div className="border-t border-gray-100"></div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 flex-1">
                 <span className="text-xs font-bold text-gray-800 w-14">Petrol</span>
@@ -1049,10 +1052,10 @@ export default function Dashboard() {
         </div>
       )}
       {chemicalAlerts && (
-        <div className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-2">
+        <div className="bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <FlaskConical className="w-4 h-4 text-gray-700" />
-            <span className="font-bold text-gray-800 uppercase" style={{ fontSize: '11px' }}>Low Chemical Balances</span>
+            <span className="text-[11px] font-bold text-gray-800 uppercase tracking-wide">Low Chemical Balances</span>
           </div>
           <div className="space-y-2">
             {CHEM_SECTIONS.filter(s => chemicalAlerts[s.key].length > 0).map((section, idx) => {
@@ -1060,7 +1063,7 @@ export default function Dashboard() {
               const hasCritical = stations.some(s => isChemicalCriticalStock(s.days_remaining));
               return (
                 <div key={section.key}>
-                  {idx > 0 && <div className="border-t border-gray-300 mb-2"></div>}
+                  {idx > 0 && <div className="border-t border-gray-100 mb-2"></div>}
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-bold text-gray-800">{section.label}</span>
                     <Link

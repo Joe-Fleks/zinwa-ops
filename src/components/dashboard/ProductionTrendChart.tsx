@@ -532,8 +532,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       const bars: ChartBar[] = [];
       for (let m = startMonth; m <= endMonth; m++) {
         bars.push({
-          label: MONTH_SHORT[m],
-          sublabel: MONTH_FULL[m],
+          label: MONTH_FULL[m],
           actual: Math.round(monthVolumes.get(m) || 0),
           target: Math.round(getMonthTarget(m, selectedYear)),
         });
@@ -558,8 +557,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     const bars: ChartBar[] = [];
     for (let m = startMonth; m <= endMonth; m++) {
       bars.push({
-        label: MONTH_SHORT[m],
-        sublabel: MONTH_FULL[m],
+        label: MONTH_FULL[m],
         actual: Math.round(monthVolumes.get(m) || 0),
         target: Math.round(getMonthTarget(m, selectedYear)),
         monthKey: `${selectedYear}-${String(m + 1).padStart(2, '0')}`,
@@ -869,12 +867,12 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   };
 
   const actualLabel = trendType === 'production' ? 'Actual Production' : 'Actual Sales';
-  const actualMetColor = trendType === 'production' ? 'bg-green-300' : 'bg-blue-400';
-  const actualNotMetColor = 'bg-red-400';
-  const actualMetTextColor = trendType === 'production' ? 'text-green-600' : 'text-blue-600';
-  const actualNotMetTextColor = 'text-red-600';
-  const legendMetColor = trendType === 'production' ? 'bg-green-300' : 'bg-blue-400';
-  const legendNotMetColor = 'bg-red-400';
+  const actualMetColor = trendType === 'production' ? 'bg-emerald-400' : 'bg-blue-400';
+  const actualNotMetColor = 'bg-rose-400';
+  const actualMetTextColor = trendType === 'production' ? 'text-emerald-600' : 'text-blue-600';
+  const actualNotMetTextColor = 'text-rose-500';
+  const legendMetColor = trendType === 'production' ? 'bg-emerald-400' : 'bg-blue-400';
+  const legendNotMetColor = 'bg-rose-400';
 
   const isProdVsSales = trendType === 'production-vs-sales';
 
@@ -883,8 +881,8 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       <div className="flex flex-col gap-2 mb-3">
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <h2 className="text-base font-semibold text-gray-900">{getScopeLabel()}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{getSubtitle()}</p>
+            <h2 className="text-sm font-semibold text-gray-900">{getScopeLabel()}</h2>
+            <p className="text-xs text-gray-500 mt-0.5 leading-tight">{getSubtitle()}</p>
           </div>
           <div className="relative chart-trend-dd flex-shrink-0">
             <button
@@ -892,7 +890,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors text-xs font-semibold text-gray-700"
             >
               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                trendType === 'production' ? 'bg-green-500' :
+                trendType === 'production' ? 'bg-emerald-500' :
                 trendType === 'sales' ? 'bg-blue-500' :
                 'bg-gray-500'
               }`} />
@@ -915,7 +913,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                     }`}
                   >
                     <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      type === 'production' ? 'bg-green-500' :
+                      type === 'production' ? 'bg-emerald-500' :
                       type === 'sales' ? 'bg-blue-500' :
                       'bg-gray-500'
                     }`} />
@@ -1012,43 +1010,32 @@ export default function ProductionTrendChart({ accessContext }: Props) {
           </div>
 
           <div className="flex items-center gap-2">
-            {isProdVsSales ? (
-              <>
-                {(['quarter', 'year'] as ViewMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setViewMode(mode)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                      viewMode === mode
-                        ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200 shadow-sm'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                  </button>
-                ))}
-                <div className="w-px h-5 bg-gray-200 mx-1" />
-              </>
-            ) : (
-              <>
-                {(['week', 'month', 'quarter', 'year'] as ViewMode[])
-                  .filter((mode) => trendType === 'sales' ? (mode === 'quarter' || mode === 'year') : true)
-                  .map((mode) => (
-                    <button
-                      key={mode}
-                      onClick={() => setViewMode(mode)}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                        viewMode === mode
-                          ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200 shadow-sm'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                    </button>
-                  ))}
-                <div className="w-px h-5 bg-gray-200 mx-1" />
-              </>
-            )}
+            {(() => {
+              const modes = isProdVsSales
+                ? (['quarter', 'year'] as ViewMode[])
+                : (['week', 'month', 'quarter', 'year'] as ViewMode[])
+                    .filter((mode) => trendType === 'sales' ? (mode === 'quarter' || mode === 'year') : true);
+              return (
+                <>
+                  <div className="flex items-center rounded-lg border border-gray-300 overflow-hidden">
+                    {modes.map((mode, idx) => (
+                      <button
+                        key={mode}
+                        onClick={() => setViewMode(mode)}
+                        className={`px-3 py-1.5 text-xs font-semibold transition-all ${
+                          viewMode === mode
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                        } ${idx > 0 ? 'border-l border-gray-300' : ''}`}
+                      >
+                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                </>
+              );
+            })()}
 
             <div className="relative chart-year-dd">
               <button
@@ -1160,7 +1147,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         <>
           <div className="flex items-center gap-5 mb-2 text-xs font-medium">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm bg-green-300" />
+              <div className="w-3 h-3 rounded-sm bg-emerald-400" />
               <span className="text-gray-600">Production</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -1191,16 +1178,16 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                       <div className="flex flex-col gap-1 w-full">
                         <div className="flex items-center gap-2 w-full">
                           <div className="w-28 flex-shrink-0">
-                            <span className="text-[10px] font-semibold text-green-700 leading-none whitespace-nowrap">{item.prodLabel}</span>
+                            <span className="text-[10px] font-semibold text-emerald-700 leading-none whitespace-nowrap">{item.prodLabel}</span>
                           </div>
                           <div className="flex-1 bg-gray-100 rounded-full h-[5px] lg:h-[6px] overflow-hidden">
                             <div
-                              className="h-full bg-green-300 rounded-full transition-all duration-500"
+                              className="h-full bg-emerald-400 rounded-full transition-all duration-500"
                               style={{ width: `${Math.max(prodPct, item.production > 0 ? 2 : 0)}%` }}
                             />
                           </div>
                           <div className="w-28 flex-shrink-0 text-right">
-                            <span className="text-[11px] font-bold text-green-600 tabular-nums leading-none whitespace-nowrap">
+                            <span className="text-[11px] font-bold text-emerald-600 tabular-nums leading-none whitespace-nowrap">
                               {item.production.toLocaleString()} m³
                             </span>
                           </div>
@@ -1236,18 +1223,18 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                 <div className="flex flex-col gap-[3px] w-full py-1.5">
                   <div className="flex items-center gap-2 w-full">
                     <div className="w-28 flex-shrink-0">
-                      <span className="text-[10px] font-bold text-green-800 leading-none whitespace-nowrap uppercase tracking-wide">
+                      <span className="text-[10px] font-bold text-emerald-800 leading-none whitespace-nowrap uppercase tracking-wide">
                         {viewMode === 'quarter' ? `Q${selectedQuarter + 1} ` : ''}{selectedYear} Production
                       </span>
                     </div>
                     <div className="flex-1 bg-gray-200 rounded-full h-[7px] lg:h-[9px] overflow-hidden">
                       <div
-                        className="h-full bg-green-400 rounded-full transition-all duration-500"
+                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
                         style={{ width: `${Math.max((totalDualProduction / Math.max(totalDualProduction, totalDualSales, 1)) * 100, totalDualProduction > 0 ? 2 : 0)}%` }}
                       />
                     </div>
                     <div className="w-28 flex-shrink-0 text-right">
-                      <span className="text-[12px] font-extrabold text-green-700 tabular-nums leading-none whitespace-nowrap">
+                      <span className="text-[12px] font-extrabold text-emerald-700 tabular-nums leading-none whitespace-nowrap">
                         {totalDualProduction.toLocaleString()} m³
                       </span>
                     </div>
@@ -1267,10 +1254,10 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                     <div className="w-28 flex-shrink-0 text-right">
                       <span className={`text-[12px] font-extrabold tabular-nums leading-none whitespace-nowrap ${
                         totalDualProduction > 0 && (totalDualSales / totalDualProduction) >= 0.9
-                          ? 'text-green-700'
+                          ? 'text-emerald-700'
                           : totalDualProduction > 0 && (totalDualSales / totalDualProduction) >= 0.7
                           ? 'text-blue-600'
-                          : 'text-red-600'
+                          : 'text-rose-600'
                       }`}>
                         {totalDualSales.toLocaleString()} m³
                         <span className="text-[10px] font-semibold ml-1 opacity-80">
@@ -1391,7 +1378,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                   </div>
                   <div className="flex items-center gap-2 w-full leading-none">
                     <div className="w-24 flex-shrink-0">
-                      <span className="text-[10px] font-bold leading-none uppercase tracking-wide block" style={{ color: totalActual >= totalTarget ? (trendType === 'production' ? '#15803d' : '#1d4ed8') : '#dc2626' }}>
+                      <span className="text-[10px] font-bold leading-none uppercase tracking-wide block" style={{ color: totalActual >= totalTarget ? (trendType === 'production' ? '#059669' : '#1d4ed8') : '#e11d48' }}>
                         {trendType === 'production' ? 'Actual Production' : 'Actual Sales'}
                       </span>
                       <div className="text-[9px] text-gray-400 leading-tight">{getSummaryLabel()}</div>
@@ -1400,8 +1387,8 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
                           totalActual >= totalTarget
-                            ? (trendType === 'production' ? 'bg-green-400' : 'bg-blue-500')
-                            : 'bg-red-500'
+                            ? (trendType === 'production' ? 'bg-emerald-500' : 'bg-blue-500')
+                            : 'bg-rose-500'
                         }`}
                         style={{ width: `${Math.max((totalActual / Math.max(totalTarget, totalActual, 1)) * 100, totalActual > 0 ? 2 : 0)}%` }}
                       />
@@ -1409,11 +1396,11 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                     <div className="w-36 flex-shrink-0">
                       <span className={`text-[12px] font-extrabold tabular-nums leading-none whitespace-nowrap ${
                         totalActual >= totalTarget
-                          ? (trendType === 'production' ? 'text-green-700' : 'text-blue-700')
-                          : 'text-red-600'
+                          ? (trendType === 'production' ? 'text-emerald-700' : 'text-blue-700')
+                          : 'text-rose-600'
                       }`}>
                         {totalActual.toLocaleString()} m³
-                        <span className={`text-[10px] font-semibold ml-1 opacity-80 ${achievement >= 100 ? 'text-green-600' : achievement >= 75 ? 'text-blue-600' : 'text-red-600'}`}>
+                        <span className={`text-[10px] font-semibold ml-1 opacity-80 ${achievement >= 100 ? 'text-emerald-600' : achievement >= 75 ? 'text-blue-600' : 'text-rose-500'}`}>
                           ({achievement.toFixed(1)}%)
                         </span>
                       </span>
