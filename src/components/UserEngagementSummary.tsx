@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, LogIn, Activity, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, LogIn, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface EngagementRow {
   userId: string;
@@ -16,7 +16,6 @@ interface EngagementRow {
 export default function UserEngagementSummary() {
   const [data, setData] = useState<EngagementRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
   const [sortField, setSortField] = useState<'loginCount' | 'adminActionCount' | 'lastLoginAt' | 'fullName'>('loginCount');
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -122,167 +121,149 @@ export default function UserEngagementSummary() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-5 bg-gray-200 rounded w-48" />
-          <div className="grid grid-cols-3 gap-4">
-            <div className="h-20 bg-gray-100 rounded-lg" />
-            <div className="h-20 bg-gray-100 rounded-lg" />
-            <div className="h-20 bg-gray-100 rounded-lg" />
-          </div>
+      <div className="space-y-4">
+        <div className="animate-pulse grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="h-20 bg-gray-100 rounded-lg" />
+          <div className="h-20 bg-gray-100 rounded-lg" />
+          <div className="h-20 bg-gray-100 rounded-lg" />
         </div>
+        <div className="animate-pulse h-64 bg-gray-100 rounded-lg" />
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center justify-between px-6 py-4 bg-gradient-to-r from-slate-800 to-slate-700 text-white hover:from-slate-700 hover:to-slate-600 transition-all"
-      >
-        <div className="flex items-center gap-3">
-          <Activity className="w-5 h-5" />
-          <h2 className="text-base font-semibold">User Engagement Summary</h2>
-          <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
-            Since Jan 2026
-          </span>
-        </div>
-        {collapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
-      </button>
-
-      {!collapsed && (
-        <div className="p-6 space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-center gap-4">
-              <div className="bg-blue-600 text-white p-2.5 rounded-lg">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{activeUsers}</p>
-                <p className="text-xs text-gray-500">Active Users</p>
-              </div>
-            </div>
-            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 flex items-center gap-4">
-              <div className="bg-emerald-600 text-white p-2.5 rounded-lg">
-                <LogIn className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{totalLogins}</p>
-                <p className="text-xs text-gray-500">Total Logins Recorded</p>
-              </div>
-            </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 flex items-center gap-4">
-              <div className="bg-amber-600 text-white p-2.5 rounded-lg">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{totalActions}</p>
-                <p className="text-xs text-gray-500">Admin Actions</p>
-              </div>
-            </div>
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex items-center gap-4">
+          <div className="bg-blue-600 text-white p-2.5 rounded-lg">
+            <Users className="w-5 h-5" />
           </div>
+          <div>
+            <p className="text-2xl font-bold text-gray-900">{activeUsers}</p>
+            <p className="text-xs text-gray-500">Active Users</p>
+          </div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex items-center gap-4">
+          <div className="bg-emerald-600 text-white p-2.5 rounded-lg">
+            <LogIn className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-gray-900">{totalLogins}</p>
+            <p className="text-xs text-gray-500">Total Logins Recorded</p>
+          </div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex items-center gap-4">
+          <div className="bg-amber-600 text-white p-2.5 rounded-lg">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-gray-900">{totalActions}</p>
+            <p className="text-xs text-gray-500">Admin Actions</p>
+          </div>
+        </div>
+      </div>
 
-          <div className="overflow-x-auto border border-gray-200 rounded-lg">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th
-                    onClick={() => handleSort('fullName')}
-                    className="text-left py-3 px-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
-                  >
-                    <span className="flex items-center gap-1">
-                      User <SortIcon field="fullName" />
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th
+                  onClick={() => handleSort('fullName')}
+                  className="text-left py-3 px-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <span className="flex items-center gap-1">
+                    User <SortIcon field="fullName" />
+                  </span>
+                </th>
+                <th
+                  onClick={() => handleSort('loginCount')}
+                  className="text-center py-3 px-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <span className="flex items-center justify-center gap-1">
+                    Logins <SortIcon field="loginCount" />
+                  </span>
+                </th>
+                <th
+                  onClick={() => handleSort('adminActionCount')}
+                  className="text-center py-3 px-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <span className="flex items-center justify-center gap-1">
+                    Admin Actions <SortIcon field="adminActionCount" />
+                  </span>
+                </th>
+                <th
+                  onClick={() => handleSort('lastLoginAt')}
+                  className="text-left py-3 px-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <span className="flex items-center gap-1">
+                    Last Login <SortIcon field="lastLoginAt" />
+                  </span>
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Account Created</th>
+                <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((row) => (
+                <tr key={row.userId} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <td className="py-3 px-4">
+                    <div>
+                      <p className="font-medium text-gray-900">{row.fullName}</p>
+                      <p className="text-xs text-gray-500">{row.email}</p>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <span className={`inline-block min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      row.loginCount > 0
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {row.loginCount}
                     </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort('loginCount')}
-                    className="text-center py-3 px-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
-                  >
-                    <span className="flex items-center justify-center gap-1">
-                      Logins <SortIcon field="loginCount" />
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <span className={`inline-block min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      row.adminActionCount > 0
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {row.adminActionCount}
                     </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort('adminActionCount')}
-                    className="text-center py-3 px-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
-                  >
-                    <span className="flex items-center justify-center gap-1">
-                      Admin Actions <SortIcon field="adminActionCount" />
+                  </td>
+                  <td className="py-3 px-4 text-xs text-gray-600">
+                    {formatDate(row.lastLoginAt)}
+                  </td>
+                  <td className="py-3 px-4 text-xs text-gray-600">
+                    {formatDate(row.accountCreated)}
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                      row.isActive
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {row.isActive ? 'Active' : 'Inactive'}
                     </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort('lastLoginAt')}
-                    className="text-left py-3 px-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
-                  >
-                    <span className="flex items-center gap-1">
-                      Last Login <SortIcon field="lastLoginAt" />
-                    </span>
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Account Created</th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {sorted.map((row) => (
-                  <tr key={row.userId} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4">
-                      <div>
-                        <p className="font-medium text-gray-900">{row.fullName}</p>
-                        <p className="text-xs text-gray-500">{row.email}</p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-block min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        row.loginCount > 0
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-gray-100 text-gray-500'
-                      }`}>
-                        {row.loginCount}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-block min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        row.adminActionCount > 0
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-gray-100 text-gray-500'
-                      }`}>
-                        {row.adminActionCount}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-xs text-gray-600">
-                      {formatDate(row.lastLoginAt)}
-                    </td>
-                    <td className="py-3 px-4 text-xs text-gray-600">
-                      {formatDate(row.accountCreated)}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                        row.isActive
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {row.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {sorted.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-gray-500">
-                      No user data available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <p className="text-xs text-gray-400 italic">
-            Login counts are recorded from the date this feature was enabled. Historical logins before that date are not included.
-          </p>
+              ))}
+              {sorted.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-gray-500">
+                    No user data available
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
+
+      <p className="text-xs text-gray-400 italic">
+        Login counts are recorded from the date this feature was enabled. Historical logins before that date are not included.
+      </p>
     </div>
   );
 }
