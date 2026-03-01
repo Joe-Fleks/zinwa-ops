@@ -207,7 +207,6 @@ export default function EmbeddedChatPanel() {
           <Bot className="w-5 h-5 text-blue-600" />
           <div>
             <p className="text-sm font-semibold text-gray-800">ZINWA AI Assistant</p>
-            <p className="text-[10px] text-gray-500">Powered by Gemini</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
