@@ -615,6 +615,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .update({ failed_attempts: 0, locked_until: null })
         .eq('email', normalizedEmail);
 
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession?.user) {
+        supabase
+          .from('user_login_history')
+          .insert({ user_id: currentSession.user.id, email: normalizedEmail })
+          .then(({ error: lhErr }) => {
+            if (lhErr) console.error('[LOGIN] Failed to record login history:', lhErr);
+          });
+      }
+
       // Step 5: Wait for session and load user data
       await new Promise(r => setTimeout(r, 500));
       await getSessionInfo('AFTER_SIGNIN');

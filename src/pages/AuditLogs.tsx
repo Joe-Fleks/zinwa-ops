@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { ArrowLeft } from 'lucide-react';
+import UserEngagementSummary from '../components/UserEngagementSummary';
 
 interface AuditLog {
   id: string;
@@ -16,8 +17,9 @@ interface AuditLog {
 }
 
 export default function AuditLogs() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, accessContext } = useAuth();
   const navigate = useNavigate();
+  const isGlobalAdmin = (accessContext?.userSystemRank ?? 0) >= 100;
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedActionType, setSelectedActionType] = useState('');
@@ -89,6 +91,8 @@ export default function AuditLogs() {
         <h1 className="text-3xl font-bold text-gray-900">Audit Logs</h1>
         <p className="text-gray-600 mt-2">System activity and change history</p>
       </div>
+
+      {isGlobalAdmin && <UserEngagementSummary />}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <div className="flex gap-4">
