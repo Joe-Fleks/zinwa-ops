@@ -1,6 +1,12 @@
 import { supabase } from './supabase';
 import type { ChemicalType } from './chemicalStockService';
-import { getChemicalProdField } from './chemicalStockService';
+import {
+  getChemicalProdField,
+  fetchOpeningBalances,
+  fetchPreviousMonthClosingBalances,
+  fetchReceivedTotals,
+  fetchUsedTotals,
+} from './chemicalStockService';
 
 export interface StationDistributionData {
   station_id: string;
@@ -162,67 +168,24 @@ export async function fetchCurrentBalances(
 ): Promise<Map<string, number>> {
   if (stationIds.length === 0) return new Map();
 
-  const prodField = getChemicalProdField(chemicalType);
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
 
-  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-  const endMonth = month === 12 ? 1 : month + 1;
-  const endYear = month === 12 ? year + 1 : year;
-  const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
-
-  const [balancesRes, receiptsRes, usedRes] = await Promise.all([
-    supabase
-      .from('chemical_stock_balances')
-      .select('station_id, opening_balance')
-      .in('station_id', stationIds)
-      .eq('chemical_type', chemicalType)
-      .eq('year', year)
-      .eq('month', month),
-    supabase
-      .from('chemical_stock_receipts')
-      .select('station_id, quantity, receipt_type')
-      .in('station_id', stationIds)
-      .eq('chemical_type', chemicalType)
-      .eq('year', year)
-      .eq('month', month),
-    supabase
-      .from('production_logs')
-      .select('station_id, alum_kg, hth_kg, activated_carbon_kg')
-      .in('station_id', stationIds)
-      .gte('date', startDate)
-      .lt('date', endDate),
+  const [balances, prevClosing, received, used] = await Promise.all([
+    fetchOpeningBalances(stationIds, chemicalType, year, month),
+    fetchPreviousMonthClosingBalances(stationIds, chemicalType, year, month),
+    fetchReceivedTotals(stationIds, chemicalType, year, month),
+    fetchUsedTotals(stationIds, chemicalType, year, month),
   ]);
-
-  if (balancesRes.error) throw balancesRes.error;
-  if (receiptsRes.error) throw receiptsRes.error;
-  if (usedRes.error) throw usedRes.error;
-
-  const openingMap = new Map<string, number>();
-  for (const r of (balancesRes.data || []) as any[]) {
-    openingMap.set(r.station_id, Number(r.opening_balance) || 0);
-  }
-
-  const receivedMap = new Map<string, number>();
-  for (const r of (receiptsRes.data || []) as any[]) {
-    const cur = receivedMap.get(r.station_id) || 0;
-    const qty = Number(r.quantity) || 0;
-    receivedMap.set(r.station_id, r.receipt_type === 'transfer_out' ? cur - qty : cur + qty);
-  }
-
-  const usedMap = new Map<string, number>();
-  for (const r of (usedRes.data || []) as any[]) {
-    const cur = usedMap.get(r.station_id) || 0;
-    usedMap.set(r.station_id, cur + (Number(r[prodField]) || 0));
-  }
 
   const balanceMap = new Map<string, number>();
   for (const sid of stationIds) {
-    const opening = openingMap.get(sid) ?? 0;
-    const received = receivedMap.get(sid) ?? 0;
-    const used = usedMap.get(sid) ?? 0;
-    balanceMap.set(sid, opening + received - used);
+    const existing = balances.get(sid);
+    const openBal = existing ? existing.opening_balance : (prevClosing.get(sid) ?? 0);
+    const rec = received.get(sid) ?? 0;
+    const usedKg = used.get(sid) ?? 0;
+    balanceMap.set(sid, openBal + rec - usedKg);
   }
 
   return balanceMap;
