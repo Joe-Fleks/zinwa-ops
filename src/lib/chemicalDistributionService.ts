@@ -314,10 +314,11 @@ export async function buildDistributionData(
     const sid = row.station_id;
     const usage = Number(row[prodField]) || 0;
     const cwVolume = Number(row.cw_volume_m3) || 0;
-    const rwVolume = Number(row.rw_volume_m3) || 0;
 
-    dailyUsageMap.set(sid, (dailyUsageMap.get(sid) || 0) + usage);
-    if (cwVolume > 0 && rwVolume > 0) {
+    if (usage > 0) {
+      dailyUsageMap.set(sid, (dailyUsageMap.get(sid) || 0) + usage);
+      stationDayCounts.set(sid, (stationDayCounts.get(sid) || 0) + 1);
+    } else if (cwVolume > 0) {
       stationDayCounts.set(sid, (stationDayCounts.get(sid) || 0) + 1);
     }
   }
