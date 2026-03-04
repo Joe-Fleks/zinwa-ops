@@ -35,9 +35,6 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
           ZINWA Operations System
         </h1>
-        <p className="text-center text-gray-600 mb-8">
-          Sign in to access the operations dashboard
-        </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
@@ -93,9 +90,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="mt-4 text-center text-xs text-gray-500">
-          <p>Demo: demo@murombedzi.sc / demo123</p>
-        </div>
+
       </div>
     </div>
   );
