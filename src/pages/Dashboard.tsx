@@ -102,6 +102,7 @@ export default function Dashboard() {
   const [allMonthlyReports, setAllMonthlyReports] = useState<MonthlyReportRecord[]>([]);
   const [equipmentAlerts, setEquipmentAlerts] = useState<{ type: string; label: string; station: string; tag: string; expiry: string; daysLeft: number }[]>([]);
   const [missingLogsInfo, setMissingLogsInfo] = useState<MissingLogsInfo | null>(null);
+  const [reportGenError, setReportGenError] = useState<string | null>(null);
   const [isRefreshingReports, setIsRefreshingReports] = useState(false);
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
   const [refreshingReportId, setRefreshingReportId] = useState<string | null>(null);
@@ -144,19 +145,32 @@ export default function Dashboard() {
 
   const triggerAndLoadReports = async (scId: string) => {
     if (!accessContext) return;
+    setReportGenError(null);
     const scope = { isSCScoped: accessContext.isSCScoped, scopeId: accessContext.scopeId };
     const scName = accessContext.serviceCentre?.name ?? '';
     try {
-      const [weeklyResult] = await Promise.allSettled([
+      const [weeklyResult, monthlyResult] = await Promise.allSettled([
         checkAndTriggerWeeklyReport(scope, scId, scName),
         checkAndTriggerMonthlyReport(scope, scId, scName),
       ]);
-      if (weeklyResult.status === 'fulfilled' && weeklyResult.value.missingLogs) {
-        setMissingLogsInfo(weeklyResult.value.missingLogs);
+      if (weeklyResult.status === 'fulfilled') {
+        if (weeklyResult.value.missingLogs) {
+          setMissingLogsInfo(weeklyResult.value.missingLogs);
+        } else {
+          setMissingLogsInfo(null);
+        }
       } else {
+        const errMsg = weeklyResult.reason?.message || 'Unknown error generating weekly report';
+        console.error('Weekly report generation failed:', weeklyResult.reason);
+        setReportGenError(errMsg);
         setMissingLogsInfo(null);
       }
-    } catch {
+      if (monthlyResult.status === 'rejected') {
+        console.error('Monthly report generation failed:', monthlyResult.reason);
+      }
+    } catch (err) {
+      console.error('Report trigger error:', err);
+      setReportGenError(err instanceof Error ? err.message : 'Failed to check reports');
     }
     await Promise.all([
       loadWeeklyReports(scId),
@@ -168,6 +182,7 @@ export default function Dashboard() {
   const handleGlobalRefreshReports = async () => {
     if (!serviceCentreId || !accessContext || isRefreshingReports) return;
     setIsRefreshingReports(true);
+    setReportGenError(null);
     try {
       await triggerAndLoadReports(serviceCentreId);
     } finally {
@@ -931,6 +946,28 @@ export default function Dashboard() {
           </Link>
         </div>
       )}
+      {reportGenError && (
+        <div className="bg-red-50 border border-red-300 rounded-xl px-3.5 py-2.5 shadow-sm">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold text-red-900 uppercase tracking-wide">Report Generation Error</p>
+              <p className="text-xs text-red-700 mt-1">{reportGenError}</p>
+            </div>
+            <button onClick={() => setReportGenError(null)} className="text-red-400 hover:text-red-600">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <button
+            onClick={handleGlobalRefreshReports}
+            disabled={isRefreshingReports}
+            className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-red-100 hover:bg-red-200 disabled:bg-red-50 text-red-800 text-xs font-semibold rounded transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingReports ? 'animate-spin' : ''}`} />
+            {isRefreshingReports ? 'Retrying...' : 'Retry'}
+          </button>
+        </div>
+      )}
       {missingLogsInfo && (
         <div className="bg-orange-50 border border-orange-300 rounded-xl px-3.5 py-2.5 shadow-sm">
           <div className="flex items-start gap-2 mb-2">
@@ -1556,6 +1593,10 @@ export default function Dashboard() {
         </div>
         {REPORT_SECTIONS.map(section => {
           const isActive = reportSection === section.key;
+          const hasMissingLogs = missingLogsInfo && (
+            (section.key === 'midweek' && missingLogsInfo.reportType === 'tuesday') ||
+            (section.key === 'endofweek' && missingLogsInfo.reportType === 'friday')
+          );
           const hasReady = section.key === 'midweek'
             ? midweekReports.some(r => r.status === 'ready')
             : section.key === 'endofweek'
@@ -1574,9 +1615,11 @@ export default function Dashboard() {
               }`}
             >
               <span className="text-xs leading-tight">{section.label}</span>
-              {hasReady && (
+              {hasMissingLogs ? (
+                <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" />
+              ) : hasReady ? (
                 <span className="w-2 h-2 rounded-full bg-sky-500 flex-shrink-0" />
-              )}
+              ) : null}
             </button>
           );
         })}
