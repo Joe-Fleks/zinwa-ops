@@ -1,4 +1,4 @@
-import { AlertTriangle, ExternalLink, Fuel, FlaskConical, ClipboardList, Plus, Pencil, Check, X, FileText, Download, Bell, Calendar, Flag, Search, Droplets, TestTube, Cog, Bot } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Fuel, FlaskConical, ClipboardList, Plus, Pencil, Check, X, FileText, Download, Bell, Calendar, Flag, Search, Droplets, TestTube, Cog, Bot, RefreshCw } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,7 +18,7 @@ import MeanTimeToRepairKPI from '../components/dashboard/MeanTimeToRepairKPI';
 import RawWaterNRWKPI from '../components/dashboard/RawWaterNRWKPI';
 import UnitCostRWDeliveredKPI from '../components/dashboard/UnitCostRWDeliveredKPI';
 import RWVolumeSoldKPI from '../components/dashboard/RWVolumeSoldKPI';
-import { fetchPendingWeeklyReports, markReportDownloaded, checkAndTriggerWeeklyReport, refreshWeeklyReportData, type WeeklyReportRecord } from '../lib/weeklyReportService';
+import { fetchPendingWeeklyReports, markReportDownloaded, checkAndTriggerWeeklyReport, refreshWeeklyReportData, type WeeklyReportRecord, type MissingLogsInfo } from '../lib/weeklyReportService';
 import { downloadWeeklyReport } from '../lib/weeklyReportDocument';
 import { fetchPendingMonthlyReports, markMonthlyReportDownloaded, checkAndTriggerMonthlyReport, refreshMonthlyReportData, type MonthlyReportRecord } from '../lib/monthlyReportService';
 import { downloadMonthlyReport } from '../lib/monthlyReportDocument';
@@ -101,6 +101,8 @@ export default function Dashboard() {
   const [allWeeklyReports, setAllWeeklyReports] = useState<WeeklyReportRecord[]>([]);
   const [allMonthlyReports, setAllMonthlyReports] = useState<MonthlyReportRecord[]>([]);
   const [equipmentAlerts, setEquipmentAlerts] = useState<{ type: string; label: string; station: string; tag: string; expiry: string; daysLeft: number }[]>([]);
+  const [missingLogsInfo, setMissingLogsInfo] = useState<MissingLogsInfo | null>(null);
+  const [isRefreshingReports, setIsRefreshingReports] = useState(false);
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
   const [refreshingReportId, setRefreshingReportId] = useState<string | null>(null);
   const [viewingReport, setViewingReport] = useState<{ type: 'weekly' | 'monthly'; record: WeeklyReportRecord | MonthlyReportRecord } | null>(null);
@@ -145,10 +147,15 @@ export default function Dashboard() {
     const scope = { isSCScoped: accessContext.isSCScoped, scopeId: accessContext.scopeId };
     const scName = accessContext.serviceCentre?.name ?? '';
     try {
-      await Promise.allSettled([
+      const [weeklyResult] = await Promise.allSettled([
         checkAndTriggerWeeklyReport(scope, scId, scName),
         checkAndTriggerMonthlyReport(scope, scId, scName),
       ]);
+      if (weeklyResult.status === 'fulfilled' && weeklyResult.value.missingLogs) {
+        setMissingLogsInfo(weeklyResult.value.missingLogs);
+      } else {
+        setMissingLogsInfo(null);
+      }
     } catch {
     }
     await Promise.all([
@@ -156,6 +163,16 @@ export default function Dashboard() {
       loadMonthlyReports(scId),
       loadAllReports(scId),
     ]);
+  };
+
+  const handleGlobalRefreshReports = async () => {
+    if (!serviceCentreId || !accessContext || isRefreshingReports) return;
+    setIsRefreshingReports(true);
+    try {
+      await triggerAndLoadReports(serviceCentreId);
+    } finally {
+      setIsRefreshingReports(false);
+    }
   };
 
   const loadWeeklyReports = async (scId: string) => {
@@ -914,6 +931,43 @@ export default function Dashboard() {
           </Link>
         </div>
       )}
+      {missingLogsInfo && (
+        <div className="bg-orange-50 border border-orange-300 rounded-xl px-3.5 py-2.5 shadow-sm">
+          <div className="flex items-start gap-2 mb-2">
+            <AlertTriangle className="w-4 h-4 text-orange-700 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold text-orange-900 uppercase tracking-wide">Weekly Report Due — Logs Missing</p>
+              <p className="text-sm font-semibold text-orange-800 mt-0.5">{missingLogsInfo.reportLabel}</p>
+              <p className="text-xs text-orange-700 mt-1">
+                {missingLogsInfo.loggedCount} of {missingLogsInfo.totalStations} stations have logs for {missingLogsInfo.checkDateLabel}.
+                Update the missing logs to generate this report.
+              </p>
+              <div className="mt-2 space-y-0.5">
+                {missingLogsInfo.missingStations.map(s => (
+                  <div key={s.id} className="flex items-center gap-1.5 text-xs text-orange-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0" />
+                    <span>{s.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMissingLogsInfo(null)}
+              className="flex items-center justify-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />Dismiss
+            </button>
+            <Link
+              to="/production"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-orange-100 hover:bg-orange-200 text-orange-800 ring-1 ring-orange-300 text-xs font-semibold rounded transition-colors"
+            >
+              <ClipboardList className="w-3.5 h-3.5" />Go to Production Logs
+            </Link>
+          </div>
+        </div>
+      )}
       {weeklyReports.length > 0 && weeklyReports.map(report => {
         const reportTypeLbl = report.report_type === 'friday' ? 'Friday' : 'Tuesday';
         const periodStart = new Date(report.period_start + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
@@ -1102,7 +1156,7 @@ export default function Dashboard() {
           </div>
         </div>
       ))}
-      {dueTomorrowAlerts.length === 0 && weeklyReports.length === 0 && monthlyReports.length === 0 && !nonFunctionalStats && !fuelBalances && !chemicalAlerts && alerts.length === 0 && (
+      {dueTomorrowAlerts.length === 0 && weeklyReports.length === 0 && monthlyReports.length === 0 && !missingLogsInfo && !nonFunctionalStats && !fuelBalances && !chemicalAlerts && alerts.length === 0 && (
         <div className="text-center py-8">
           <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 text-sm">No active alerts</p>
@@ -1489,7 +1543,17 @@ export default function Dashboard() {
 
     return (
     <div className="flex h-full min-h-[400px]">
-      <div className="w-44 flex-shrink-0 border-r border-gray-200 bg-gray-50 py-3">
+      <div className="w-44 flex-shrink-0 border-r border-gray-200 bg-gray-50 py-3 flex flex-col">
+        <div className="px-3 pb-2 mb-1 border-b border-gray-200">
+          <button
+            onClick={handleGlobalRefreshReports}
+            disabled={isRefreshingReports}
+            className="w-full flex items-center justify-center gap-2 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-semibold rounded transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingReports ? 'animate-spin' : ''}`} />
+            {isRefreshingReports ? 'Checking...' : 'Refresh Reports'}
+          </button>
+        </div>
         {REPORT_SECTIONS.map(section => {
           const isActive = reportSection === section.key;
           const hasReady = section.key === 'midweek'
@@ -1519,31 +1583,111 @@ export default function Dashboard() {
       </div>
 
       <div className="flex-1 overflow-y-auto thin-scrollbar px-4 py-4">
-        {reportSection === 'midweek' && renderWeeklyReportList(midweekReports, {
-          bg: 'bg-blue-50',
-          border: 'border-blue-300',
-          readyBg: 'bg-blue-50',
-          readyText: 'text-blue-800',
-          badgeBg: 'bg-blue-100',
-          badgeText: 'text-blue-800',
-          btnBg: 'bg-blue-50',
-          btnHover: 'hover:bg-blue-100',
-          btnDisabled: 'disabled:bg-blue-50/50 disabled:ring-blue-100',
-          iconColor: 'text-blue-600',
-        })}
+        {reportSection === 'midweek' && (
+          <>
+            {missingLogsInfo && missingLogsInfo.reportType === 'tuesday' && (
+              <div className="mb-3 rounded-lg border border-orange-300 bg-orange-50 px-3.5 py-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-orange-800">{missingLogsInfo.reportLabel}</p>
+                    <p className="text-xs text-orange-700 mt-0.5">
+                      {missingLogsInfo.loggedCount}/{missingLogsInfo.totalStations} stations logged for {missingLogsInfo.checkDateLabel}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {missingLogsInfo.missingStations.map(s => (
+                        <span key={s.id} className="inline-flex items-center gap-1 text-[10px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded font-medium">
+                          <span className="w-1 h-1 rounded-full bg-orange-500" />{s.name}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      <Link
+                        to="/production"
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-200 hover:bg-orange-300 text-orange-900 text-xs font-semibold rounded transition-colors"
+                      >
+                        <ClipboardList className="w-3 h-3" />Update Logs
+                      </Link>
+                      <button
+                        onClick={handleGlobalRefreshReports}
+                        disabled={isRefreshingReports}
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 hover:bg-blue-200 disabled:bg-blue-50 text-blue-700 text-xs font-semibold rounded transition-colors"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isRefreshingReports ? 'animate-spin' : ''}`} />
+                        {isRefreshingReports ? 'Checking...' : 'Re-check'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {renderWeeklyReportList(midweekReports, {
+              bg: 'bg-blue-50',
+              border: 'border-blue-300',
+              readyBg: 'bg-blue-50',
+              readyText: 'text-blue-800',
+              badgeBg: 'bg-blue-100',
+              badgeText: 'text-blue-800',
+              btnBg: 'bg-blue-50',
+              btnHover: 'hover:bg-blue-100',
+              btnDisabled: 'disabled:bg-blue-50/50 disabled:ring-blue-100',
+              iconColor: 'text-blue-600',
+            })}
+          </>
+        )}
 
-        {reportSection === 'endofweek' && renderWeeklyReportList(endOfWeekReports, {
-          bg: 'bg-sky-50',
-          border: 'border-sky-300',
-          readyBg: 'bg-sky-50',
-          readyText: 'text-sky-800',
-          badgeBg: 'bg-sky-200',
-          badgeText: 'text-sky-800',
-          btnBg: 'bg-blue-50',
-          btnHover: 'hover:bg-blue-100',
-          btnDisabled: 'disabled:bg-blue-50/50 disabled:ring-blue-100',
-          iconColor: 'text-blue-600',
-        })}
+        {reportSection === 'endofweek' && (
+          <>
+            {missingLogsInfo && missingLogsInfo.reportType === 'friday' && (
+              <div className="mb-3 rounded-lg border border-orange-300 bg-orange-50 px-3.5 py-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-orange-800">{missingLogsInfo.reportLabel}</p>
+                    <p className="text-xs text-orange-700 mt-0.5">
+                      {missingLogsInfo.loggedCount}/{missingLogsInfo.totalStations} stations logged for {missingLogsInfo.checkDateLabel}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {missingLogsInfo.missingStations.map(s => (
+                        <span key={s.id} className="inline-flex items-center gap-1 text-[10px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded font-medium">
+                          <span className="w-1 h-1 rounded-full bg-orange-500" />{s.name}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      <Link
+                        to="/production"
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-200 hover:bg-orange-300 text-orange-900 text-xs font-semibold rounded transition-colors"
+                      >
+                        <ClipboardList className="w-3 h-3" />Update Logs
+                      </Link>
+                      <button
+                        onClick={handleGlobalRefreshReports}
+                        disabled={isRefreshingReports}
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 hover:bg-blue-200 disabled:bg-blue-50 text-blue-700 text-xs font-semibold rounded transition-colors"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isRefreshingReports ? 'animate-spin' : ''}`} />
+                        {isRefreshingReports ? 'Checking...' : 'Re-check'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {renderWeeklyReportList(endOfWeekReports, {
+              bg: 'bg-sky-50',
+              border: 'border-sky-300',
+              readyBg: 'bg-sky-50',
+              readyText: 'text-sky-800',
+              badgeBg: 'bg-sky-200',
+              badgeText: 'text-sky-800',
+              btnBg: 'bg-blue-50',
+              btnHover: 'hover:bg-blue-100',
+              btnDisabled: 'disabled:bg-blue-50/50 disabled:ring-blue-100',
+              iconColor: 'text-blue-600',
+            })}
+          </>
+        )}
 
         {reportSection === 'monthly' && (
           allMonthlyReports.length === 0 ? (
@@ -1655,7 +1799,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden flex-1 min-h-0">
             <div className="flex flex-shrink-0 border-b border-gray-200 overflow-x-auto">
               {(['cw', 'rw', 'kpis', 'reports', 'ai', 'alerts', 'followups'] as const).map((tab) => {
-                const alertCount = weeklyReports.length + monthlyReports.length + alerts.length + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0);
+                const alertCount = weeklyReports.length + monthlyReports.length + alerts.length + (missingLogsInfo ? 1 : 0) + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0);
                 const readyReportCount = allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length;
                 return (
                   <button
@@ -1804,9 +1948,9 @@ export default function Dashboard() {
             >
               <Bell className="w-3.5 h-3.5" />
               Alerts
-              {(weeklyReports.length > 0 || monthlyReports.length > 0 || (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0) || alerts.length > 0) && (
+              {(weeklyReports.length > 0 || monthlyReports.length > 0 || missingLogsInfo || (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0) || alerts.length > 0) && (
                 <span className="ml-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>
-                  {weeklyReports.length + monthlyReports.length + alerts.length + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0)}
+                  {weeklyReports.length + monthlyReports.length + alerts.length + (missingLogsInfo ? 1 : 0) + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0)}
                 </span>
               )}
             </button>

@@ -137,25 +137,79 @@ export async function refreshWeeklyReportData(
   return reportData;
 }
 
+export interface MissingLogsInfo {
+  reportType: 'friday' | 'tuesday';
+  reportLabel: string;
+  checkDate: string;
+  checkDateLabel: string;
+  totalStations: number;
+  loggedCount: number;
+  missingStations: { id: string; name: string }[];
+}
+
+export interface WeeklyReportTriggerResult {
+  triggered: boolean;
+  reportType?: string;
+  missingLogs?: MissingLogsInfo;
+}
+
+async function fetchStationsWithLogStatus(
+  serviceCentreId: string,
+  checkDate: string
+): Promise<{ stations: { id: string; name: string }[]; loggedIds: Set<string> }> {
+  const stationsRes = await supabase
+    .from('stations')
+    .select('id, station_name')
+    .eq('service_centre_id', serviceCentreId)
+    .in('station_type', ['Full Treatment', 'Borehole']);
+
+  if (stationsRes.error || !stationsRes.data?.length) return { stations: [], loggedIds: new Set() };
+
+  const stations = stationsRes.data.map(s => ({ id: s.id, name: s.station_name }));
+  const stationIds = stations.map(s => s.id);
+
+  const { data: logs } = await supabase
+    .from('production_logs')
+    .select('station_id')
+    .in('station_id', stationIds)
+    .eq('date', checkDate);
+
+  const loggedIds = new Set((logs || []).map((l: { station_id: string }) => l.station_id));
+  return { stations, loggedIds };
+}
+
+function computeWeekNumber(referenceDate: Date): number {
+  const daysFromFriday = (referenceDate.getDay() + 2) % 7;
+  const currentWeekStart = new Date(referenceDate);
+  currentWeekStart.setDate(referenceDate.getDate() - daysFromFriday);
+
+  const firstFridayOfYear = new Date(referenceDate.getFullYear(), 0, 1, 12, 0, 0);
+  const firstDayOfWeek = firstFridayOfYear.getDay();
+  const daysToFirstFriday = firstDayOfWeek <= 5 ? 5 - firstDayOfWeek : 12 - firstDayOfWeek;
+  firstFridayOfYear.setDate(firstFridayOfYear.getDate() + daysToFirstFriday);
+  const daysDifference = Math.floor((currentWeekStart.getTime() - firstFridayOfYear.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.max(1, Math.floor(daysDifference / 7) + 1);
+}
+
 export async function checkAndTriggerWeeklyReport(
   scope: ScopeFilter,
   serviceCentreId: string,
   serviceCentreName: string
-): Promise<{ triggered: boolean; reportType?: string }> {
+): Promise<WeeklyReportTriggerResult> {
   const today = new Date();
   const dayOfWeek = today.getDay();
 
   const canTriggerFriday = dayOfWeek >= 5 || dayOfWeek <= 1;
   const canTriggerTuesday = dayOfWeek >= 2 && dayOfWeek <= 4;
 
-  if (canTriggerFriday) {
-    const result = await tryGenerateFridayReport(scope, serviceCentreId, serviceCentreName, today);
-    if (result) return { triggered: true, reportType: 'friday' };
-  }
-
   if (canTriggerTuesday) {
     const result = await tryGenerateTuesdayReport(scope, serviceCentreId, serviceCentreName, today);
-    if (result) return { triggered: true, reportType: 'tuesday' };
+    if (result.triggered || result.missingLogs) return result;
+  }
+
+  if (canTriggerFriday) {
+    const result = await tryGenerateFridayReport(scope, serviceCentreId, serviceCentreName, today);
+    if (result.triggered || result.missingLogs) return result;
   }
 
   return { triggered: false };
@@ -166,7 +220,7 @@ async function tryGenerateFridayReport(
   serviceCentreId: string,
   serviceCentreName: string,
   today: Date
-): Promise<boolean> {
+): Promise<WeeklyReportTriggerResult> {
   const dayOfWeek = today.getDay();
   const daysAfterFriday = dayOfWeek >= 5 ? dayOfWeek - 5 : dayOfWeek + 2;
   const lastFriday = new Date(today);
@@ -176,41 +230,45 @@ async function tryGenerateFridayReport(
   thursday.setDate(lastFriday.getDate() - 1);
   const thursdayStr = thursday.toISOString().split('T')[0];
 
-  const stationsRes = await supabase
-    .from('stations')
+  const reportingDate = thursday;
+  const weekNumber = computeWeekNumber(reportingDate);
+
+  const { data: existing } = await supabase
+    .from('weekly_reports')
     .select('id')
     .eq('service_centre_id', serviceCentreId)
-    .in('station_type', ['Full Treatment', 'Booster']);
+    .eq('week_number', weekNumber)
+    .eq('year', reportingDate.getFullYear())
+    .eq('report_type', 'friday')
+    .maybeSingle();
 
-  if (stationsRes.error || !stationsRes.data?.length) return false;
+  if (existing) return { triggered: false };
 
-  const stationIds = stationsRes.data.map(s => s.id);
-  const { count } = await supabase
-    .from('production_logs')
-    .select('id', { count: 'exact', head: true })
-    .in('station_id', stationIds)
-    .eq('date', thursdayStr);
+  const { stations, loggedIds } = await fetchStationsWithLogStatus(serviceCentreId, thursdayStr);
+  if (stations.length === 0) return { triggered: false };
 
-  const threshold = Math.ceil(stationIds.length * 0.5);
-  if (!count || count < threshold) return false;
+  const missingStations = stations.filter(s => !loggedIds.has(s.id));
 
-  const reportingDate = thursday;
-  const daysFromFriday = (reportingDate.getDay() + 2) % 7;
-  const currentWeekStart = new Date(reportingDate);
-  currentWeekStart.setDate(reportingDate.getDate() - daysFromFriday);
-
-  const firstFridayOfYear = new Date(reportingDate.getFullYear(), 0, 1, 12, 0, 0);
-  const firstDayOfWeek = firstFridayOfYear.getDay();
-  const daysToFirstFriday = firstDayOfWeek <= 5 ? 5 - firstDayOfWeek : 12 - firstDayOfWeek;
-  firstFridayOfYear.setDate(firstFridayOfYear.getDate() + daysToFirstFriday);
-  const daysDifference = Math.floor((currentWeekStart.getTime() - firstFridayOfYear.getTime()) / (1000 * 60 * 60 * 24));
-  const weekNumber = Math.max(1, Math.floor(daysDifference / 7) + 1);
+  if (missingStations.length > 0) {
+    return {
+      triggered: false,
+      missingLogs: {
+        reportType: 'friday',
+        reportLabel: `End of Week Report — Week ${weekNumber}, ${reportingDate.getFullYear()}`,
+        checkDate: thursdayStr,
+        checkDateLabel: new Date(thursdayStr + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }),
+        totalStations: stations.length,
+        loggedCount: loggedIds.size,
+        missingStations,
+      },
+    };
+  }
 
   const result = await generateAndSaveWeeklyReport(
     scope, serviceCentreId, serviceCentreName, weekNumber, reportingDate.getFullYear(), 'friday'
   );
 
-  return result !== null;
+  return { triggered: result !== null, reportType: result ? 'friday' : undefined };
 }
 
 async function tryGenerateTuesdayReport(
@@ -218,7 +276,7 @@ async function tryGenerateTuesdayReport(
   serviceCentreId: string,
   serviceCentreName: string,
   today: Date
-): Promise<boolean> {
+): Promise<WeeklyReportTriggerResult> {
   const dayOfWeek = today.getDay();
   const daysAfterTuesday = dayOfWeek >= 2 ? dayOfWeek - 2 : dayOfWeek + 5;
   const lastTuesday = new Date(today);
@@ -228,41 +286,44 @@ async function tryGenerateTuesdayReport(
   monday.setDate(lastTuesday.getDate() - 1);
   const mondayStr = monday.toISOString().split('T')[0];
 
-  const stationsRes = await supabase
-    .from('stations')
-    .select('id')
-    .eq('service_centre_id', serviceCentreId)
-    .in('station_type', ['Full Treatment', 'Booster']);
-
-  if (stationsRes.error || !stationsRes.data?.length) return false;
-
-  const stationIds = stationsRes.data.map(s => s.id);
-  const { count } = await supabase
-    .from('production_logs')
-    .select('id', { count: 'exact', head: true })
-    .in('station_id', stationIds)
-    .eq('date', mondayStr);
-
-  const threshold = Math.ceil(stationIds.length * 0.5);
-  if (!count || count < threshold) return false;
-
-  const daysFromFriday = (lastTuesday.getDay() + 2) % 7;
-  const currentWeekStart = new Date(lastTuesday);
-  currentWeekStart.setDate(lastTuesday.getDate() - daysFromFriday);
-
-  const firstFridayOfYear = new Date(lastTuesday.getFullYear(), 0, 1, 12, 0, 0);
-  const firstDayOfWeek = firstFridayOfYear.getDay();
-  const daysToFirstFriday = firstDayOfWeek <= 5 ? 5 - firstDayOfWeek : 12 - firstDayOfWeek;
-  firstFridayOfYear.setDate(firstFridayOfYear.getDate() + daysToFirstFriday);
-  const daysDifference = Math.floor((currentWeekStart.getTime() - firstFridayOfYear.getTime()) / (1000 * 60 * 60 * 24));
-  const weekNumber = Math.max(1, Math.floor(daysDifference / 7) + 1);
-
+  const weekNumber = computeWeekNumber(lastTuesday);
   const prevWeekNum = weekNumber > 1 ? weekNumber - 1 : 1;
   const prevWeekYear = weekNumber > 1 ? lastTuesday.getFullYear() : lastTuesday.getFullYear() - 1;
+
+  const { data: existing } = await supabase
+    .from('weekly_reports')
+    .select('id')
+    .eq('service_centre_id', serviceCentreId)
+    .eq('week_number', prevWeekNum)
+    .eq('year', prevWeekYear)
+    .eq('report_type', 'tuesday')
+    .maybeSingle();
+
+  if (existing) return { triggered: false };
+
+  const { stations, loggedIds } = await fetchStationsWithLogStatus(serviceCentreId, mondayStr);
+  if (stations.length === 0) return { triggered: false };
+
+  const missingStations = stations.filter(s => !loggedIds.has(s.id));
+
+  if (missingStations.length > 0) {
+    return {
+      triggered: false,
+      missingLogs: {
+        reportType: 'tuesday',
+        reportLabel: `Mid-week Report — Week ${prevWeekNum}, ${prevWeekYear}`,
+        checkDate: mondayStr,
+        checkDateLabel: new Date(mondayStr + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }),
+        totalStations: stations.length,
+        loggedCount: loggedIds.size,
+        missingStations,
+      },
+    };
+  }
 
   const result = await generateAndSaveWeeklyReport(
     scope, serviceCentreId, serviceCentreName, prevWeekNum, prevWeekYear, 'tuesday'
   );
 
-  return result !== null;
+  return { triggered: result !== null, reportType: result ? 'tuesday' : undefined };
 }
