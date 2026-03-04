@@ -145,17 +145,15 @@ export async function checkAndTriggerWeeklyReport(
   const today = new Date();
   const dayOfWeek = today.getDay();
 
-  const isFriday = dayOfWeek === 5;
-  const isTuesday = dayOfWeek === 2;
+  const canTriggerFriday = dayOfWeek >= 5 || dayOfWeek <= 1;
+  const canTriggerTuesday = dayOfWeek >= 2 && dayOfWeek <= 4;
 
-  if (!isFriday && !isTuesday) return { triggered: false };
-
-  if (isFriday) {
+  if (canTriggerFriday) {
     const result = await tryGenerateFridayReport(scope, serviceCentreId, serviceCentreName, today);
     if (result) return { triggered: true, reportType: 'friday' };
   }
 
-  if (isTuesday) {
+  if (canTriggerTuesday) {
     const result = await tryGenerateTuesdayReport(scope, serviceCentreId, serviceCentreName, today);
     if (result) return { triggered: true, reportType: 'tuesday' };
   }
@@ -169,14 +167,20 @@ async function tryGenerateFridayReport(
   serviceCentreName: string,
   today: Date
 ): Promise<boolean> {
-  const thursday = new Date(today);
-  thursday.setDate(today.getDate() - 1);
+  const dayOfWeek = today.getDay();
+  const daysAfterFriday = dayOfWeek >= 5 ? dayOfWeek - 5 : dayOfWeek + 2;
+  const lastFriday = new Date(today);
+  lastFriday.setDate(today.getDate() - daysAfterFriday);
+
+  const thursday = new Date(lastFriday);
+  thursday.setDate(lastFriday.getDate() - 1);
   const thursdayStr = thursday.toISOString().split('T')[0];
 
   const stationsRes = await supabase
     .from('stations')
     .select('id')
-    .eq('service_centre_id', serviceCentreId);
+    .eq('service_centre_id', serviceCentreId)
+    .in('station_type', ['Full Treatment', 'Booster']);
 
   if (stationsRes.error || !stationsRes.data?.length) return false;
 
@@ -187,7 +191,8 @@ async function tryGenerateFridayReport(
     .in('station_id', stationIds)
     .eq('date', thursdayStr);
 
-  if (!count || count < stationIds.length) return false;
+  const threshold = Math.ceil(stationIds.length * 0.5);
+  if (!count || count < threshold) return false;
 
   const reportingDate = thursday;
   const daysFromFriday = (reportingDate.getDay() + 2) % 7;
@@ -214,14 +219,20 @@ async function tryGenerateTuesdayReport(
   serviceCentreName: string,
   today: Date
 ): Promise<boolean> {
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - 1);
+  const dayOfWeek = today.getDay();
+  const daysAfterTuesday = dayOfWeek >= 2 ? dayOfWeek - 2 : dayOfWeek + 5;
+  const lastTuesday = new Date(today);
+  lastTuesday.setDate(today.getDate() - daysAfterTuesday);
+
+  const monday = new Date(lastTuesday);
+  monday.setDate(lastTuesday.getDate() - 1);
   const mondayStr = monday.toISOString().split('T')[0];
 
   const stationsRes = await supabase
     .from('stations')
     .select('id')
-    .eq('service_centre_id', serviceCentreId);
+    .eq('service_centre_id', serviceCentreId)
+    .in('station_type', ['Full Treatment', 'Booster']);
 
   if (stationsRes.error || !stationsRes.data?.length) return false;
 
@@ -232,13 +243,14 @@ async function tryGenerateTuesdayReport(
     .in('station_id', stationIds)
     .eq('date', mondayStr);
 
-  if (!count || count < stationIds.length) return false;
+  const threshold = Math.ceil(stationIds.length * 0.5);
+  if (!count || count < threshold) return false;
 
-  const daysFromFriday = (today.getDay() + 2) % 7;
-  const currentWeekStart = new Date(today);
-  currentWeekStart.setDate(today.getDate() - daysFromFriday);
+  const daysFromFriday = (lastTuesday.getDay() + 2) % 7;
+  const currentWeekStart = new Date(lastTuesday);
+  currentWeekStart.setDate(lastTuesday.getDate() - daysFromFriday);
 
-  const firstFridayOfYear = new Date(today.getFullYear(), 0, 1, 12, 0, 0);
+  const firstFridayOfYear = new Date(lastTuesday.getFullYear(), 0, 1, 12, 0, 0);
   const firstDayOfWeek = firstFridayOfYear.getDay();
   const daysToFirstFriday = firstDayOfWeek <= 5 ? 5 - firstDayOfWeek : 12 - firstDayOfWeek;
   firstFridayOfYear.setDate(firstFridayOfYear.getDate() + daysToFirstFriday);
@@ -246,7 +258,7 @@ async function tryGenerateTuesdayReport(
   const weekNumber = Math.max(1, Math.floor(daysDifference / 7) + 1);
 
   const prevWeekNum = weekNumber > 1 ? weekNumber - 1 : 1;
-  const prevWeekYear = weekNumber > 1 ? today.getFullYear() : today.getFullYear() - 1;
+  const prevWeekYear = weekNumber > 1 ? lastTuesday.getFullYear() : lastTuesday.getFullYear() - 1;
 
   const result = await generateAndSaveWeeklyReport(
     scope, serviceCentreId, serviceCentreName, prevWeekNum, prevWeekYear, 'tuesday'
