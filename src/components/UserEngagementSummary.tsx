@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, LogIn, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, LogIn, Clock, ChevronDown, ChevronUp, Circle } from 'lucide-react';
+
+type PresenceStatus = 'online' | 'idle' | 'offline';
 
 interface EngagementRow {
   userId: string;
@@ -11,6 +13,57 @@ interface EngagementRow {
   lastLoginAt: string | null;
   accountCreated: string;
   isActive: boolean;
+  presenceStatus: PresenceStatus;
+  lastActiveAt: string | null;
+}
+
+function formatRelativeTime(dateString: string | null): string {
+  if (!dateString) return 'Never';
+  const now = Date.now();
+  const then = new Date(dateString).getTime();
+  const diffMs = now - then;
+
+  const minutes = Math.floor(diffMs / 60_000);
+  const hours = Math.floor(diffMs / 3_600_000);
+  const days = Math.floor(diffMs / 86_400_000);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+
+  return new Date(dateString).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function PresenceBadge({ status, lastActiveAt }: { status: PresenceStatus; lastActiveAt: string | null }) {
+  if (status === 'online') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+        <Circle className="w-2 h-2 fill-green-500 text-green-500" />
+        Online
+      </span>
+    );
+  }
+  if (status === 'idle') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+        <Circle className="w-2 h-2 fill-amber-400 text-amber-400" />
+        Idle
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-500 border border-gray-200" title={lastActiveAt ? new Date(lastActiveAt).toLocaleString() : 'Never seen'}>
+      <Circle className="w-2 h-2 fill-gray-300 text-gray-300" />
+      {lastActiveAt ? `Last seen ${formatRelativeTime(lastActiveAt)}` : 'Never seen'}
+    </span>
+  );
 }
 
 export default function UserEngagementSummary() {
@@ -19,13 +72,21 @@ export default function UserEngagementSummary() {
   const [sortField, setSortField] = useState<'loginCount' | 'adminActionCount' | 'lastLoginAt' | 'fullName'>('loginCount');
   const [sortAsc, setSortAsc] = useState(false);
 
-  useEffect(() => {
-    loadEngagementData();
+  const resolvePresence = useCallback((lastActiveAt: string | null, isIdle: boolean): PresenceStatus => {
+    if (!lastActiveAt) return 'offline';
+    const now = Date.now();
+    const lastActive = new Date(lastActiveAt).getTime();
+    const diffMs = now - lastActive;
+    const TWO_MIN = 2 * 60_000;
+
+    if (diffMs <= TWO_MIN && !isIdle) return 'online';
+    if (diffMs <= TWO_MIN && isIdle) return 'idle';
+    return 'offline';
   }, []);
 
-  const loadEngagementData = async () => {
+  const loadEngagementData = useCallback(async () => {
     try {
-      const [profilesRes, loginsRes, actionsRes] = await Promise.all([
+      const [profilesRes, loginsRes, actionsRes, presenceRes] = await Promise.all([
         supabase
           .from('user_profiles')
           .select('id, full_name, email, last_login_at, created_at, is_active'),
@@ -37,11 +98,20 @@ export default function UserEngagementSummary() {
           .from('audit_logs')
           .select('user_id, action_type')
           .gte('created_at', '2026-01-01T00:00:00Z'),
+        supabase
+          .from('user_presence')
+          .select('user_id, last_active_at, is_idle'),
       ]);
 
       const profiles = profilesRes.data || [];
       const logins = loginsRes.data || [];
       const actions = actionsRes.data || [];
+      const presenceData = presenceRes.data || [];
+
+      const presenceMap: Record<string, { last_active_at: string; is_idle: boolean }> = {};
+      for (const p of presenceData) {
+        presenceMap[p.user_id] = { last_active_at: p.last_active_at, is_idle: p.is_idle };
+      }
 
       const loginCounts: Record<string, number> = {};
       for (const l of logins) {
@@ -53,16 +123,21 @@ export default function UserEngagementSummary() {
         actionCounts[a.user_id] = (actionCounts[a.user_id] || 0) + 1;
       }
 
-      const rows: EngagementRow[] = profiles.map((p: any) => ({
-        userId: p.id,
-        fullName: p.full_name || 'Unknown',
-        email: p.email || '',
-        loginCount: loginCounts[p.id] || 0,
-        adminActionCount: actionCounts[p.id] || 0,
-        lastLoginAt: p.last_login_at || null,
-        accountCreated: p.created_at,
-        isActive: p.is_active ?? true,
-      }));
+      const rows: EngagementRow[] = profiles.map((p: any) => {
+        const presence = presenceMap[p.id];
+        return {
+          userId: p.id,
+          fullName: p.full_name || 'Unknown',
+          email: p.email || '',
+          loginCount: loginCounts[p.id] || 0,
+          adminActionCount: actionCounts[p.id] || 0,
+          lastLoginAt: p.last_login_at || null,
+          accountCreated: p.created_at,
+          isActive: p.is_active ?? true,
+          presenceStatus: resolvePresence(presence?.last_active_at || null, presence?.is_idle ?? false),
+          lastActiveAt: presence?.last_active_at || null,
+        };
+      });
 
       setData(rows);
     } catch (err) {
@@ -70,7 +145,15 @@ export default function UserEngagementSummary() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [resolvePresence]);
+
+  useEffect(() => {
+    loadEngagementData();
+    const refreshInterval = setInterval(() => {
+      loadEngagementData();
+    }, 30_000);
+    return () => clearInterval(refreshInterval);
+  }, [loadEngagementData]);
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -202,7 +285,7 @@ export default function UserEngagementSummary() {
                   </span>
                 </th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Account Created</th>
-                <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
+                <th className="text-center py-3 px-4 font-semibold text-gray-700">Activity Status</th>
               </tr>
             </thead>
             <tbody>
@@ -239,13 +322,7 @@ export default function UserEngagementSummary() {
                     {formatDate(row.accountCreated)}
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                      row.isActive
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      {row.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    <PresenceBadge status={row.presenceStatus} lastActiveAt={row.lastActiveAt} />
                   </td>
                 </tr>
               ))}

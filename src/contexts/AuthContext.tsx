@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase, UserProfile } from '../lib/supabase';
+import { startPresenceTracking, stopPresenceTracking } from '../lib/presenceService';
 import {
   ScopeType,
   ServiceCentre,
@@ -99,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         loadUserData(session.user.id);
       } else {
+        stopPresenceTracking();
         setProfile(null);
         setRoles([]);
         setScopes([]);
@@ -270,6 +272,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setScopes(scopesData || []);
 
       await buildAccessContext(userId, userRoles, operationalRoles, adminRoles, maxAuthorityRank, maxSystemRank, profileData);
+
+      startPresenceTracking(userId);
     } catch (error) {
       console.error('[RBAC AUDIT] ERROR loading user data:', error);
     } finally {
@@ -661,6 +665,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    stopPresenceTracking();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
 
