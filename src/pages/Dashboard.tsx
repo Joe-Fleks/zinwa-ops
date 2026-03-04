@@ -8,6 +8,7 @@ import { THRESHOLDS, CHEMICAL_PROD_FIELDS, CHEMICAL_TYPES } from '../lib/metrics
 import { computeReceiptTotal, computeChemicalBalance, computeAvgUsagePerDay, computeDaysRemaining, isChemicalLowStock, isChemicalCriticalStock, computeTotalClients, computeDowntime, isStationNonFunctional } from '../lib/metrics';
 import { fetchDailyDemandByStationId } from '../lib/metrics/demandMetrics';
 import ProductionTrendChart from '../components/dashboard/ProductionTrendChart';
+import RWTrendChart from '../components/dashboard/RWTrendChart';
 import ChemicalDosageKPI from '../components/dashboard/ChemicalDosageKPI';
 import NRWDashboardKPI from '../components/dashboard/NRWDashboardKPI';
 import LabourKPI from '../components/dashboard/LabourKPI';
@@ -1880,7 +1881,7 @@ export default function Dashboard() {
             <div className="overflow-y-auto thin-scrollbar flex-1">
               {mergedTab === 'cw' && <ProductionTrendChart accessContext={accessContext} />}
               {mergedTab === 'rw' && (
-                <div className="flex items-center justify-center h-full min-h-[200px] text-gray-400 text-sm">RW Trends coming soon</div>
+                <RWTrendChart accessContext={accessContext} />
               )}
               {mergedTab === 'kpis' && renderKpisContent()}
               {mergedTab === 'reports' && renderReportsContent()}
@@ -1967,9 +1968,7 @@ export default function Dashboard() {
                 <ProductionTrendChart accessContext={accessContext} />
               )}
               {trendsTab === 'rw' && (
-                <div className="flex items-center justify-center h-full min-h-[200px] text-gray-400 text-sm">
-                  RW Trends coming soon
-                </div>
+                <RWTrendChart accessContext={accessContext} />
               )}
               {trendsTab === 'kpis' && renderKpisContent()}
               {trendsTab === 'reports' && renderReportsContent()}

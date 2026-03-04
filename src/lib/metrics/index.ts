@@ -115,3 +115,13 @@ export type {
   RWSalesVsTargetMetrics,
   RWSalesSummary,
 } from './salesMetrics';
+
+export {
+  fetchRWAllocationsByDamMonthly,
+  fetchRWAllocationVsSales,
+  computeWeeklyAllocation,
+} from './rwAllocationMetrics';
+export type {
+  RWAllocationMonthly,
+  RWAllocationVsSales,
+} from './rwAllocationMetrics';
