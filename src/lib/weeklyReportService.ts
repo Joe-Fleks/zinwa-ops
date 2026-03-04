@@ -153,6 +153,13 @@ export interface WeeklyReportTriggerResult {
   missingLogs?: MissingLogsInfo;
 }
 
+function toLocalDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 async function fetchStationsWithLogStatus(
   serviceCentreId: string,
   checkDate: string
@@ -180,14 +187,18 @@ async function fetchStationsWithLogStatus(
 
 function computeWeekNumber(referenceDate: Date): number {
   const daysFromFriday = (referenceDate.getDay() + 2) % 7;
-  const currentWeekStart = new Date(referenceDate);
-  currentWeekStart.setDate(referenceDate.getDate() - daysFromFriday);
+  const currentWeekStart = new Date(
+    referenceDate.getFullYear(),
+    referenceDate.getMonth(),
+    referenceDate.getDate() - daysFromFriday,
+    12, 0, 0
+  );
 
   const firstFridayOfYear = new Date(referenceDate.getFullYear(), 0, 1, 12, 0, 0);
   const firstDayOfWeek = firstFridayOfYear.getDay();
   const daysToFirstFriday = firstDayOfWeek <= 5 ? 5 - firstDayOfWeek : 12 - firstDayOfWeek;
   firstFridayOfYear.setDate(firstFridayOfYear.getDate() + daysToFirstFriday);
-  const daysDifference = Math.floor((currentWeekStart.getTime() - firstFridayOfYear.getTime()) / (1000 * 60 * 60 * 24));
+  const daysDifference = Math.round((currentWeekStart.getTime() - firstFridayOfYear.getTime()) / (1000 * 60 * 60 * 24));
   return Math.max(1, Math.floor(daysDifference / 7) + 1);
 }
 
@@ -228,7 +239,7 @@ async function tryGenerateFridayReport(
 
   const thursday = new Date(lastFriday);
   thursday.setDate(lastFriday.getDate() - 1);
-  const thursdayStr = thursday.toISOString().split('T')[0];
+  const thursdayStr = toLocalDateString(thursday);
 
   const reportingDate = thursday;
   const weekNumber = computeWeekNumber(reportingDate);
@@ -284,7 +295,7 @@ async function tryGenerateTuesdayReport(
 
   const monday = new Date(lastTuesday);
   monday.setDate(lastTuesday.getDate() - 1);
-  const mondayStr = monday.toISOString().split('T')[0];
+  const mondayStr = toLocalDateString(monday);
 
   const weekNumber = computeWeekNumber(lastTuesday);
   const prevWeekNum = weekNumber > 1 ? weekNumber - 1 : 1;
