@@ -388,7 +388,10 @@ export async function fetchWeeklyReportData(
     hoursLost: Number(b.hours_lost) || 0,
   }));
 
-  const reportMonth = new Date(dateRange.start + 'T12:00:00').getMonth();
+  const reportStartDate = new Date(dateRange.start + 'T12:00:00');
+  const reportMonth = reportStartDate.getMonth();
+  const currentYear = reportStartDate.getFullYear();
+  const currentMonth = reportMonth;
 
   const weekOnWeekChemicals = await fetchWeekOnWeekChemicalUsage(scope, year, reportMonth);
 
