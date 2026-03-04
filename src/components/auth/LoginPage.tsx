@@ -33,7 +33,7 @@ export default function LoginPage() {
         </div>
 
         <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
-          Murombedzi SC Operations
+          ZINWA Operations System
         </h1>
         <p className="text-center text-gray-600 mb-8">
           Sign in to access the operations dashboard
