@@ -13,6 +13,8 @@ import {
 } from './coreCalculations';
 import type { WeekOnWeekChemicalUsage } from './chemicalMetrics';
 import { fetchWeekOnWeekChemicalUsage } from './chemicalMetrics';
+import { fetchRWDamYTDAllocations } from './rwAllocationMetrics';
+import type { RWDamYTDAllocation } from './rwAllocationMetrics';
 
 const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
@@ -182,6 +184,7 @@ export interface WeeklyReportData {
   powerSupply: PowerSupplySummary;
   connections: ConnectionsSummary;
   ytdProductionVsTarget: YTDProductionVsTarget;
+  rwYTDAllocations: RWDamYTDAllocation[];
   totalExpectedLogs: number;
   totalActualLogs: number;
   completionPct: number;
@@ -490,6 +493,9 @@ export async function fetchWeeklyReportData(
     ? roundTo((totalLogCount / totalExpectedLogs) * 100, 1)
     : 0;
 
+  const endMonth = new Date(dateRange.end + 'T00:00:00').getMonth() + 1;
+  const rwYTDAllocations = await fetchRWDamYTDAllocations(scope, year, endMonth);
+
   return {
     serviceCentreName,
     serviceCentreId: scope.scopeId || '',
@@ -508,6 +514,7 @@ export async function fetchWeeklyReportData(
     powerSupply,
     connections,
     ytdProductionVsTarget,
+    rwYTDAllocations,
     totalExpectedLogs,
     totalActualLogs: totalLogCount,
     completionPct,
@@ -825,6 +832,7 @@ function buildEmptyReport(
     ytdProductionVsTarget: {
       stations: [], totalYTDProduction: 0, totalYTDTarget: 0, totalVariance: 0, totalAchievementPct: null,
     },
+    rwYTDAllocations: [],
     totalExpectedLogs: 0,
     totalActualLogs: 0,
     completionPct: 0,

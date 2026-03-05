@@ -123,6 +123,8 @@ interface PastableDateInputProps {
 
 function PastableDateInput({ value, onChange }: PastableDateInputProps) {
   const hiddenDateRef = useRef<HTMLInputElement>(null);
+  const [localText, setLocalText] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
 
   const displayValue = useMemo(() => {
     if (!value) return '';
@@ -131,21 +133,33 @@ function PastableDateInput({ value, onChange }: PastableDateInputProps) {
     return value;
   }, [value]);
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const parsed = parseDateValue(raw);
+  const commitText = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      onChange('');
+      return;
+    }
+    const parsed = parseDateValue(trimmed);
     if (parsed) {
       onChange(parsed);
-    } else if (raw === '') {
-      onChange('');
+      setLocalText('');
     }
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const raw = e.target.value.trim();
-    if (raw && !value) {
-      const parsed = parseDateValue(raw);
-      if (parsed) onChange(parsed);
+  const handleFocus = () => {
+    setLocalText(displayValue);
+    setIsFocused(true);
+  };
+
+  const handleBlur = () => {
+    commitText(localText);
+    setIsFocused(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      commitText(localText);
+      (e.target as HTMLInputElement).blur();
     }
   };
 
@@ -153,9 +167,11 @@ function PastableDateInput({ value, onChange }: PastableDateInputProps) {
     <div className="flex items-center w-full" style={{ minWidth: '140px', height: '28px' }}>
       <input
         type="text"
-        value={displayValue}
-        onChange={handleTextChange}
+        value={isFocused ? localText : displayValue}
+        onChange={(e) => setLocalText(e.target.value)}
+        onFocus={handleFocus}
         onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
         placeholder="DD/MM/YYYY"
         className="flex-1 px-2 text-sm border-0 focus:ring-1 focus:ring-blue-500 min-w-0"
         style={{ height: '28px' }}

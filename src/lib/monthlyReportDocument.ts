@@ -466,7 +466,71 @@ function buildContent(d: MonthlyReportData): string {
 
   parts.push(hline());
 
-  parts.push(heading1('8. OBSERVATIONS & RECOMMENDATIONS'));
+  parts.push(heading1('8. RAW WATER'));
+
+  const rw = d.rwDamReport || [];
+  const rwStats = d.rwAgreementStats;
+
+  if (rw.length > 0) {
+    parts.push(heading2('8.1 Water Allocation & Sales by Dam'));
+    parts.push(tblStart());
+    parts.push(trow([
+      { text: 'Dam', shade: '1A3A5C' },
+      { text: 'Code', shade: '1A3A5C' },
+      { text: `Allocated (ML)`, shade: '1A3A5C', align: 'right' },
+      { text: `Sales (ML)`, shade: '1A3A5C', align: 'right' },
+    ], true));
+
+    let totAlloc = 0;
+    let totSales = 0;
+    rw.forEach((dam, i) => {
+      totAlloc += dam.allocationVolume;
+      totSales += dam.salesVolume;
+      parts.push(trow([
+        { text: dam.damName, shade: rowAlt(i) },
+        { text: dam.damCode || '-', shade: rowAlt(i) },
+        { text: fmt(dam.allocationVolume, 2), shade: rowAlt(i), align: 'right' },
+        { text: fmt(dam.salesVolume, 2), shade: rowAlt(i), align: 'right' },
+      ]));
+    });
+
+    parts.push(trow([
+      { text: 'TOTAL', shade: 'E8EEF5', bold: true },
+      { text: '', shade: 'E8EEF5' },
+      { text: fmt(totAlloc, 2), shade: 'E8EEF5', bold: true, align: 'right' },
+      { text: fmt(totSales, 2), shade: 'E8EEF5', bold: true, align: 'right' },
+    ]));
+    parts.push('</w:tbl>');
+  } else {
+    parts.push(para('No raw water allocation data available for this month.'));
+  }
+
+  if (rwStats) {
+    parts.push(heading2('8.2 Agreement Statistics'));
+    parts.push(tblStart());
+    parts.push(trow([
+      { text: 'Metric', shade: '1A3A5C' },
+      { text: 'Count', shade: '1A3A5C', align: 'right' },
+    ], true));
+    const statsRows = [
+      { label: `Active agreements in ${d.year}`, value: rwStats.totalActiveInYear },
+      { label: 'Currently active agreements', value: rwStats.currentlyActive },
+      { label: `Expired in ${d.monthName}`, value: rwStats.expiredInMonth },
+      { label: 'Expiring next month', value: rwStats.expiringNextMonth },
+    ];
+    statsRows.forEach((row, i) => {
+      const shade = row.label.includes('Expiring') && row.value > 0 ? 'FFF3CD' : rowAlt(i);
+      parts.push(trow([
+        { text: row.label, shade },
+        { text: String(row.value), shade, align: 'right', bold: row.value > 0 },
+      ]));
+    });
+    parts.push('</w:tbl>');
+  }
+
+  parts.push(hline());
+
+  parts.push(heading1('9. OBSERVATIONS & RECOMMENDATIONS'));
   for (let i = 0; i < 5; i++) {
     parts.push(`<w:p>
       <w:pPr><w:spacing w:after="0"/>

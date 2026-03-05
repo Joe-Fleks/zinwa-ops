@@ -14,6 +14,8 @@ import {
   computeNRWLosses,
 } from './coreCalculations';
 import { fetchMonthlyEnergySummary, type MonthlyEnergySummary } from './energyMetrics';
+import { fetchRWMonthlyDamReport, fetchRWAgreementStats } from './rwAllocationMetrics';
+import type { RWMonthlyDamReport, RWAgreementStats } from './rwAllocationMetrics';
 
 export interface MonthlyStationProduction {
   stationId: string;
@@ -167,6 +169,8 @@ export interface MonthlyReportData {
   breakdowns: MonthlyBreakdown[];
   ytdProductionVsTarget: YTDProductionVsTarget;
   energy: MonthlyEnergySummary;
+  rwDamReport: RWMonthlyDamReport[];
+  rwAgreementStats: RWAgreementStats;
   totalExpectedLogs: number;
   totalActualLogs: number;
   completionPct: number;
@@ -626,6 +630,11 @@ export async function fetchMonthlyReportData(
 
   const energy = await fetchMonthlyEnergySummary(scope, year, month);
 
+  const [rwDamReport, rwAgreementStats] = await Promise.all([
+    fetchRWMonthlyDamReport(scope, year, month),
+    fetchRWAgreementStats(scope, year, month),
+  ]);
+
   return {
     serviceCentreName,
     serviceCentreId: scope.scopeId || '',
@@ -640,6 +649,8 @@ export async function fetchMonthlyReportData(
     breakdowns,
     ytdProductionVsTarget,
     energy,
+    rwDamReport,
+    rwAgreementStats,
     totalExpectedLogs,
     totalActualLogs: totLogCount,
     completionPct: totalExpectedLogs > 0 ? roundTo((totLogCount / totalExpectedLogs) * 100, 1) : 0,
@@ -836,6 +847,8 @@ function buildEmptyMonthlyReport(
       totalEstimatedKWh: 0, totalEstimatedCost: 0, totalActualBill: 0, totalActualKWh: 0,
       overallVariancePct: null, stations: [],
     },
+    rwDamReport: [],
+    rwAgreementStats: { totalActiveInYear: 0, expiredInMonth: 0, expiringNextMonth: 0, currentlyActive: 0 },
     totalExpectedLogs: 0,
     totalActualLogs: 0,
     completionPct: 0,

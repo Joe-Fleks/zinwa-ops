@@ -177,6 +177,156 @@ export function computeWeeklyAllocation(
   return roundTo(dailyAllocation * overlapDays, 2);
 }
 
+export interface RWDamYTDAllocation {
+  damId: string;
+  damName: string;
+  damCode: string | null;
+  ytdAllocationVolume: number;
+}
+
+export async function fetchRWDamYTDAllocations(
+  scope: ScopeFilter,
+  year: number,
+  throughMonth: number
+): Promise<RWDamYTDAllocation[]> {
+  const months = Array.from({ length: throughMonth }, (_, i) => i + 1);
+  const monthlyData = await fetchRWAllocationsByDamMonthly(scope, year, months);
+
+  let damsQuery = supabase.from('dams').select('id, name, dam_code');
+  damsQuery = applyScopeToQuery(damsQuery, scope);
+  const { data: damsData } = await damsQuery;
+  const damCodeMap = new Map<string, string | null>();
+  for (const d of (damsData || [])) {
+    damCodeMap.set(d.id, d.dam_code);
+  }
+
+  const totals = new Map<string, { name: string; volume: number }>();
+  for (const row of monthlyData) {
+    const existing = totals.get(row.damId);
+    if (existing) {
+      existing.volume += row.allocationVolume;
+    } else {
+      totals.set(row.damId, { name: row.damName, volume: row.allocationVolume });
+    }
+  }
+
+  const results: RWDamYTDAllocation[] = [];
+  for (const [damId, val] of totals) {
+    if (val.volume > 0) {
+      results.push({
+        damId,
+        damName: val.name,
+        damCode: damCodeMap.get(damId) || null,
+        ytdAllocationVolume: roundTo(val.volume, 2),
+      });
+    }
+  }
+
+  return results.sort((a, b) => a.damName.localeCompare(b.damName));
+}
+
+export interface RWMonthlyDamReport {
+  damId: string;
+  damName: string;
+  damCode: string | null;
+  allocationVolume: number;
+  salesVolume: number;
+}
+
+export interface RWAgreementStats {
+  totalActiveInYear: number;
+  expiredInMonth: number;
+  expiringNextMonth: number;
+  currentlyActive: number;
+}
+
+export async function fetchRWMonthlyDamReport(
+  scope: ScopeFilter,
+  year: number,
+  month: number
+): Promise<RWMonthlyDamReport[]> {
+  const vsSales = await fetchRWAllocationVsSales(scope, year, [month]);
+
+  let damsQuery = supabase.from('dams').select('id, dam_code');
+  damsQuery = applyScopeToQuery(damsQuery, scope);
+  const { data: damsData } = await damsQuery;
+  const damCodeMap = new Map<string, string | null>();
+  for (const d of (damsData || [])) {
+    damCodeMap.set(d.id, d.dam_code);
+  }
+
+  return vsSales
+    .filter(r => r.allocationVolume > 0 || r.salesVolume > 0)
+    .map(r => ({
+      damId: r.damId,
+      damName: r.damName,
+      damCode: damCodeMap.get(r.damId) || null,
+      allocationVolume: r.allocationVolume,
+      salesVolume: r.salesVolume,
+    }))
+    .sort((a, b) => a.damName.localeCompare(b.damName));
+}
+
+export async function fetchRWAgreementStats(
+  scope: ScopeFilter,
+  year: number,
+  month: number
+): Promise<RWAgreementStats> {
+  let damsQuery = supabase.from('dams').select('id, name');
+  damsQuery = applyScopeToQuery(damsQuery, scope);
+  const { data: damsData } = await damsQuery;
+  const damNames = new Set((damsData || []).map((d: any) => d.name.toLowerCase()));
+
+  const { data: allocData, error: allocErr } = await supabase
+    .from('rw_allocations')
+    .select('allocation_id, source, agreement_start_date, agreement_expiry_date');
+  if (allocErr) throw allocErr;
+
+  const allocs = (allocData || []).filter(
+    (a: any) => a.source && damNames.has(a.source.toLowerCase())
+  );
+
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 0);
+  const nextMonthStart = new Date(year, month, 1);
+  const nextMonthEnd = new Date(year, month + 1, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let totalActiveInYear = 0;
+  let expiredInMonth = 0;
+  let expiringNextMonth = 0;
+  let currentlyActive = 0;
+
+  for (const alloc of allocs) {
+    if (!alloc.agreement_start_date || !alloc.agreement_expiry_date) continue;
+    const start = new Date(alloc.agreement_start_date + 'T00:00:00');
+    const expiry = new Date(alloc.agreement_expiry_date + 'T00:00:00');
+    const yStart = new Date(yearStart + 'T00:00:00');
+    const yEnd = new Date(yearEnd + 'T00:00:00');
+
+    if (start <= yEnd && expiry >= yStart) {
+      totalActiveInYear++;
+    }
+
+    if (expiry >= monthStart && expiry <= monthEnd) {
+      expiredInMonth++;
+    }
+
+    if (expiry >= nextMonthStart && expiry <= nextMonthEnd) {
+      expiringNextMonth++;
+    }
+
+    if (start <= today && expiry >= today) {
+      currentlyActive++;
+    }
+  }
+
+  return { totalActiveInYear, expiredInMonth, expiringNextMonth, currentlyActive };
+}
+
 export async function fetchRWAllocationVsSales(
   scope: ScopeFilter,
   year: number,

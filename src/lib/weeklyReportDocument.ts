@@ -558,6 +558,44 @@ function buildChemicalsSection(data: WeeklyReportData): string {
   return parts.join('\n');
 }
 
+function buildRWSection(data: WeeklyReportData): string {
+  const parts: string[] = [];
+  parts.push(heading1('9. RAW WATER ALLOCATIONS'));
+
+  if (!data.rwYTDAllocations || data.rwYTDAllocations.length === 0) {
+    parts.push(para('No raw water allocation data available for this period.'));
+    return parts.join('\n');
+  }
+
+  parts.push(heading2('9.1 YTD Water Allocated per Dam'));
+  parts.push(tableStart());
+  parts.push(tableRow([
+    { text: 'Dam', shade: '1A3A5C', bold: true },
+    { text: 'Code', shade: '1A3A5C', bold: true },
+    { text: 'YTD Allocated (ML)', shade: '1A3A5C', bold: true, align: 'right' },
+  ], true));
+
+  let totalAlloc = 0;
+  data.rwYTDAllocations.forEach((dam, idx) => {
+    const bg = idx % 2 === 0 ? 'F5F8FC' : 'FFFFFF';
+    totalAlloc += dam.ytdAllocationVolume;
+    parts.push(tableRow([
+      { text: dam.damName, shade: bg },
+      { text: dam.damCode || '-', shade: bg },
+      { text: formatNum(dam.ytdAllocationVolume, 2), shade: bg, align: 'right' },
+    ]));
+  });
+
+  parts.push(tableRow([
+    { text: 'TOTAL', shade: 'E8EEF5', bold: true },
+    { text: '', shade: 'E8EEF5' },
+    { text: formatNum(totalAlloc, 2), shade: 'E8EEF5', bold: true, align: 'right' },
+  ]));
+  parts.push('</w:tbl>');
+
+  return parts.join('\n');
+}
+
 function buildDocumentContent(data: WeeklyReportData): string {
   const reportTypeLbl = data.reportType === 'friday' ? 'Friday' : 'Tuesday';
   const reportTitle = `WEEKLY OPERATIONS REPORT \u2014 ${reportTypeLbl.toUpperCase()} REPORT`;
@@ -645,9 +683,10 @@ function buildDocumentContent(data: WeeklyReportData): string {
   parts.push(buildDowntimeSection(data));
   parts.push(buildBreakdownsSection(data));
   parts.push(buildChemicalsSection(data));
+  parts.push(buildRWSection(data));
 
   parts.push(horizontalLine());
-  parts.push(heading1('9. NOTES & OBSERVATIONS'));
+  parts.push(heading1('10. NOTES & OBSERVATIONS'));
   parts.push(para('Please add any operational notes, incidents, or observations for this week below:'));
   for (let i = 0; i < 4; i++) {
     parts.push(`

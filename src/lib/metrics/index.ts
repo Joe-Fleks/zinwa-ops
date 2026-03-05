@@ -48,6 +48,7 @@ export type {
   MonthlyNRWSummary,
   MonthlyChemicalSummary,
   MonthlyBreakdown,
+  YTDProductionVsTarget as MonthlyYTDProductionVsTarget,
 } from './monthlyReportMetrics';
 
 export { fetchWeeklyReportData } from './weeklyReportMetrics';
@@ -120,8 +121,14 @@ export {
   fetchRWAllocationsByDamMonthly,
   fetchRWAllocationVsSales,
   computeWeeklyAllocation,
+  fetchRWDamYTDAllocations,
+  fetchRWMonthlyDamReport,
+  fetchRWAgreementStats,
 } from './rwAllocationMetrics';
 export type {
   RWAllocationMonthly,
   RWAllocationVsSales,
+  RWDamYTDAllocation,
+  RWMonthlyDamReport,
+  RWAgreementStats,
 } from './rwAllocationMetrics';
