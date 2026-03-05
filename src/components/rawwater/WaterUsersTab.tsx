@@ -6,7 +6,7 @@ import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetwork } from '../../contexts/NetworkContext';
-import { Plus, Save, Edit3, CheckCircle2, AlertCircle, Users, X } from 'lucide-react';
+import { Plus, Save, CreditCard as Edit3, CheckCircle2, AlertCircle, Users, X } from 'lucide-react';
 import { ExcelLikeTable } from '../ExcelLikeTable';
 import { PasteHandler, FieldConfig } from '../../lib/pasteHandlers';
 import TableColumnSearch from '../TableColumnSearch';

@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetwork } from '../../contexts/NetworkContext';
-import { Save, Download, Edit3, CheckCircle2, AlertCircle, Circle, Edit, ChevronDown, X, Calendar } from 'lucide-react';
+import { Save, Download, CreditCard as Edit3, CheckCircle2, AlertCircle, Circle, CreditCard as Edit, ChevronDown, X, Calendar } from 'lucide-react';
 import { ExcelLikeTable } from '../ExcelLikeTable';
 import { PasteHandler, FieldConfig, parseDateValue } from '../../lib/pasteHandlers';
 import TableColumnSearch from '../TableColumnSearch';
