@@ -37,7 +37,7 @@ export default function Administration() {
         <p className="text-gray-600">System administration and governance tools</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="flex flex-wrap gap-3">
         {modules.map((module) => {
           const Icon = module.icon;
           const canAccess = hasPermission(module.permission);
@@ -47,26 +47,25 @@ export default function Administration() {
               key={module.path}
               onClick={() => canAccess && navigate(module.path)}
               disabled={!canAccess}
-              className={`text-left p-6 rounded-lg border-2 transition-all ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-all ${
                 canAccess
-                  ? 'bg-white border-blue-200 hover:border-blue-500 hover:shadow-md cursor-pointer'
+                  ? 'bg-white border-blue-200 hover:border-blue-500 hover:shadow-md hover:bg-blue-50 cursor-pointer'
                   : 'bg-gray-50 border-gray-200 opacity-50 cursor-not-allowed'
               }`}
             >
               <div
-                className={`w-12 h-12 rounded-lg flex items-center justify-center mb-4 ${
+                className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
                   canAccess ? 'bg-blue-100' : 'bg-gray-100'
                 }`}
               >
-                <Icon className={`w-6 h-6 ${canAccess ? 'text-blue-600' : 'text-gray-400'}`} />
+                <Icon className={`w-5 h-5 ${canAccess ? 'text-blue-600' : 'text-gray-400'}`} />
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">{module.title}</h3>
-              <p className={`text-sm ${canAccess ? 'text-gray-600' : 'text-gray-500'}`}>
-                {module.description}
-              </p>
-              {!canAccess && (
-                <p className="text-xs text-red-600 mt-4 font-medium">Access Restricted</p>
-              )}
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900 text-sm">{module.title}</h3>
+                <p className={`text-xs leading-tight ${canAccess ? 'text-gray-500' : 'text-gray-400'}`}>
+                  {module.description}
+                </p>
+              </div>
             </button>
           );
         })}
