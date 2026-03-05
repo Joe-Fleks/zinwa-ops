@@ -275,26 +275,6 @@ export default function RWDatabaseTab({ stationId }: Props) {
     { label: 'Crop', field: 'crop' },
   ], []);
 
-  const handleFilterChange = useCallback((field: string, value: string) => {
-    const api = gridRef.current?.api;
-    if (!api) return;
-    api.setFilterModel(null);
-    if (value) {
-      const filterInstance = api.getFilterInstance(field);
-      if (filterInstance) {
-        filterInstance.setModel({ type: 'contains', filter: value });
-        api.onFilterChanged();
-      }
-    }
-  }, []);
-
-  const handleFilterClear = useCallback(() => {
-    const api = gridRef.current?.api;
-    if (!api) return;
-    api.setFilterModel(null);
-    api.onFilterChanged();
-  }, []);
-
   useEffect(() => {
     loadData();
   }, [stationId, accessContext?.scopeId]);
@@ -747,7 +727,12 @@ export default function RWDatabaseTab({ stationId }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <p className="text-lg font-bold text-gray-900">RW Database</p>
+        <div className="flex items-center gap-4">
+          <p className="text-lg font-bold text-gray-900">RW Database</p>
+          {mode === 'view' && (
+            <TableColumnSearch columns={searchColumns} gridRef={gridRef} />
+          )}
+        </div>
         <div className="flex gap-3">
           {mode === 'view' ? (
             <>
@@ -811,13 +796,7 @@ export default function RWDatabaseTab({ stationId }: Props) {
       )}
 
       {mode === 'view' && (
-        <>
-        <TableColumnSearch
-          columns={searchColumns}
-          onFilterChange={handleFilterChange}
-          onClear={handleFilterClear}
-        />
-        <div className="ag-theme-alpine" style={{ height: 'calc(100vh - 300px)', width: '100%' }}>
+        <div className="ag-theme-alpine" style={{ height: 'calc(100vh - 280px)', width: '100%' }}>
           <AgGridReact
             ref={gridRef}
             rowData={allocations}
@@ -833,7 +812,6 @@ export default function RWDatabaseTab({ stationId }: Props) {
             enableRangeSelection={true}
           />
         </div>
-        </>
       )}
 
       {mode === 'edit' && (

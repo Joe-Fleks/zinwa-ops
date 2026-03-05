@@ -62,26 +62,6 @@ export default function DamsTab() {
     { label: 'Status', field: 'operational_status' },
   ], []);
 
-  const handleFilterChange = useCallback((field: string, value: string) => {
-    const api = gridRef.current?.api;
-    if (!api) return;
-    api.setFilterModel(null);
-    if (value) {
-      const filterInstance = api.getFilterInstance(field);
-      if (filterInstance) {
-        filterInstance.setModel({ type: 'contains', filter: value });
-        api.onFilterChanged();
-      }
-    }
-  }, []);
-
-  const handleFilterClear = useCallback(() => {
-    const api = gridRef.current?.api;
-    if (!api) return;
-    api.setFilterModel(null);
-    api.onFilterChanged();
-  }, []);
-
   useEffect(() => {
     loadDams();
   }, [accessContext?.scopeId]);
@@ -422,7 +402,12 @@ export default function DamsTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-900">Dams</h2>
+        <div className="flex items-center gap-4">
+          <p className="text-lg font-bold text-gray-900">Dams</p>
+          {mode === 'view' && (
+            <TableColumnSearch columns={searchColumns} gridRef={gridRef} />
+          )}
+        </div>
         <div className="flex gap-3">
           {mode === 'view' ? (
             <>
@@ -479,13 +464,7 @@ export default function DamsTab() {
       )}
 
       {mode === 'view' && (
-        <>
-        <TableColumnSearch
-          columns={searchColumns}
-          onFilterChange={handleFilterChange}
-          onClear={handleFilterClear}
-        />
-        <div className="ag-theme-alpine" style={{ height: 'calc(100vh - 300px)', width: '100%' }}>
+        <div className="ag-theme-alpine" style={{ height: 'calc(100vh - 280px)', width: '100%' }}>
           <AgGridReact
             ref={gridRef}
             rowData={dams}
@@ -499,7 +478,6 @@ export default function DamsTab() {
             animateRows={true}
           />
         </div>
-        </>
       )}
 
       {mode === 'edit' && (
