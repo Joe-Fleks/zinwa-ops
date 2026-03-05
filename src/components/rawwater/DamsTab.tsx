@@ -6,10 +6,11 @@ import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetwork } from '../../contexts/NetworkContext';
-import { Plus, Save, CreditCard as Edit3, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Save, CreditCard as Edit3, CheckCircle2, AlertCircle, BarChart3 } from 'lucide-react';
 import { ExcelLikeTable } from '../ExcelLikeTable';
 import { PasteHandler, FieldConfig } from '../../lib/pasteHandlers';
 import TableColumnSearch from '../TableColumnSearch';
+import MonthlyDamLevels from './MonthlyDamLevels';
 
 interface Dam {
   id: string;
@@ -47,6 +48,7 @@ export default function DamsTab() {
   const [dams, setDams] = useState<Dam[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<'view' | 'edit'>('view');
+  const [showLevels, setShowLevels] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const gridRef = useRef<AgGridReact>(null);
@@ -399,6 +401,10 @@ export default function DamsTab() {
     );
   }
 
+  if (showLevels) {
+    return <MonthlyDamLevels onClose={() => setShowLevels(false)} />;
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -411,6 +417,13 @@ export default function DamsTab() {
         <div className="flex gap-3">
           {mode === 'view' ? (
             <>
+              <button
+                onClick={() => setShowLevels(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-teal-100 text-teal-800 rounded-lg hover:bg-teal-200 transition-colors"
+              >
+                <BarChart3 className="w-4 h-4" />
+                Dam Levels
+              </button>
               <button
                 onClick={() => setMode('edit')}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"

@@ -132,3 +132,6 @@ export type {
   RWMonthlyDamReport,
   RWAgreementStats,
 } from './rwAllocationMetrics';
+
+export { fetchRWNRWMetrics, fetchRWNRWByMonth } from './rwNrwMetrics';
+export type { RWNRWDamMetrics, RWNRWSummaryMetrics } from './rwNrwMetrics';
