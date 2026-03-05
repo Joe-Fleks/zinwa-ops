@@ -276,14 +276,7 @@ export default function UserEngagementSummary() {
                     Admin Actions <SortIcon field="adminActionCount" />
                   </span>
                 </th>
-                <th
-                  onClick={() => handleSort('lastLoginAt')}
-                  className="text-left py-3 px-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
-                >
-                  <span className="flex items-center gap-1">
-                    Last Login <SortIcon field="lastLoginAt" />
-                  </span>
-                </th>
+
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Account Created</th>
                 <th className="text-center py-3 px-4 font-semibold text-gray-700">Activity Status</th>
               </tr>
@@ -316,9 +309,6 @@ export default function UserEngagementSummary() {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-xs text-gray-600">
-                    {formatDate(row.lastLoginAt)}
-                  </td>
-                  <td className="py-3 px-4 text-xs text-gray-600">
                     {formatDate(row.accountCreated)}
                   </td>
                   <td className="py-3 px-4 text-center">
@@ -328,7 +318,7 @@ export default function UserEngagementSummary() {
               ))}
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-gray-500">
+                  <td colSpan={5} className="py-8 text-center text-gray-500">
                     No user data available
                   </td>
                 </tr>
