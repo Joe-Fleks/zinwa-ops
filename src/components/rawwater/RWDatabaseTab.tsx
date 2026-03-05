@@ -10,6 +10,7 @@ import { useNetwork } from '../../contexts/NetworkContext';
 import { Save, Download, Edit3, CheckCircle2, AlertCircle, Circle, Edit, ChevronDown, X, Calendar } from 'lucide-react';
 import { ExcelLikeTable } from '../ExcelLikeTable';
 import { PasteHandler, FieldConfig, parseDateValue } from '../../lib/pasteHandlers';
+import TableColumnSearch from '../TableColumnSearch';
 
 interface DamSearchSelectProps {
   value: string;
@@ -262,6 +263,37 @@ export default function RWDatabaseTab({ stationId }: Props) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const gridRef = useRef<AgGridReact>(null);
+
+  const searchColumns = useMemo(() => [
+    { label: 'Client / Company', field: 'client_company_name' },
+    { label: 'Source', field: 'source' },
+    { label: 'Property Name', field: 'property_name' },
+    { label: 'Address', field: 'address' },
+    { label: 'District', field: 'district' },
+    { label: 'Province', field: 'province' },
+    { label: 'Category', field: 'category' },
+    { label: 'Crop', field: 'crop' },
+  ], []);
+
+  const handleFilterChange = useCallback((field: string, value: string) => {
+    const api = gridRef.current?.api;
+    if (!api) return;
+    api.setFilterModel(null);
+    if (value) {
+      const filterInstance = api.getFilterInstance(field);
+      if (filterInstance) {
+        filterInstance.setModel({ type: 'contains', filter: value });
+        api.onFilterChanged();
+      }
+    }
+  }, []);
+
+  const handleFilterClear = useCallback(() => {
+    const api = gridRef.current?.api;
+    if (!api) return;
+    api.setFilterModel(null);
+    api.onFilterChanged();
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -779,7 +811,13 @@ export default function RWDatabaseTab({ stationId }: Props) {
       )}
 
       {mode === 'view' && (
-        <div className="ag-theme-alpine" style={{ height: 'calc(100vh - 250px)', width: '100%' }}>
+        <>
+        <TableColumnSearch
+          columns={searchColumns}
+          onFilterChange={handleFilterChange}
+          onClear={handleFilterClear}
+        />
+        <div className="ag-theme-alpine" style={{ height: 'calc(100vh - 300px)', width: '100%' }}>
           <AgGridReact
             ref={gridRef}
             rowData={allocations}
@@ -795,6 +833,7 @@ export default function RWDatabaseTab({ stationId }: Props) {
             enableRangeSelection={true}
           />
         </div>
+        </>
       )}
 
       {mode === 'edit' && (

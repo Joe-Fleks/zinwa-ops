@@ -9,6 +9,7 @@ import { useNetwork } from '../../contexts/NetworkContext';
 import { Plus, Save, Edit3, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ExcelLikeTable } from '../ExcelLikeTable';
 import { PasteHandler, FieldConfig } from '../../lib/pasteHandlers';
+import TableColumnSearch from '../TableColumnSearch';
 
 interface Dam {
   id: string;
@@ -49,6 +50,37 @@ export default function DamsTab() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const gridRef = useRef<AgGridReact>(null);
+
+  const searchColumns = useMemo(() => [
+    { label: 'Dam Code', field: 'dam_code' },
+    { label: 'Dam Name', field: 'name' },
+    { label: 'Location', field: 'location' },
+    { label: 'River', field: 'river' },
+    { label: 'Bailiff', field: 'bailiff' },
+    { label: 'Purposes', field: 'purposes' },
+    { label: 'Owner', field: 'owner' },
+    { label: 'Status', field: 'operational_status' },
+  ], []);
+
+  const handleFilterChange = useCallback((field: string, value: string) => {
+    const api = gridRef.current?.api;
+    if (!api) return;
+    api.setFilterModel(null);
+    if (value) {
+      const filterInstance = api.getFilterInstance(field);
+      if (filterInstance) {
+        filterInstance.setModel({ type: 'contains', filter: value });
+        api.onFilterChanged();
+      }
+    }
+  }, []);
+
+  const handleFilterClear = useCallback(() => {
+    const api = gridRef.current?.api;
+    if (!api) return;
+    api.setFilterModel(null);
+    api.onFilterChanged();
+  }, []);
 
   useEffect(() => {
     loadDams();
@@ -447,7 +479,13 @@ export default function DamsTab() {
       )}
 
       {mode === 'view' && (
-        <div className="ag-theme-alpine" style={{ height: 'calc(100vh - 250px)', width: '100%' }}>
+        <>
+        <TableColumnSearch
+          columns={searchColumns}
+          onFilterChange={handleFilterChange}
+          onClear={handleFilterClear}
+        />
+        <div className="ag-theme-alpine" style={{ height: 'calc(100vh - 300px)', width: '100%' }}>
           <AgGridReact
             ref={gridRef}
             rowData={dams}
@@ -461,6 +499,7 @@ export default function DamsTab() {
             animateRows={true}
           />
         </div>
+        </>
       )}
 
       {mode === 'edit' && (
