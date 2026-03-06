@@ -998,7 +998,7 @@ export default function Dashboard() {
               <X className="w-3.5 h-3.5" />Dismiss
             </button>
             <Link
-              to="/production"
+              to={`/sc/${scId}/clearwater?tab=production`}
               className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-orange-100 hover:bg-orange-200 text-orange-800 ring-1 ring-orange-300 text-xs font-semibold rounded transition-colors"
             >
               <ClipboardList className="w-3.5 h-3.5" />Go to Production Logs
@@ -1647,7 +1647,7 @@ export default function Dashboard() {
                     </div>
                     <div className="mt-2 flex gap-2">
                       <Link
-                        to="/production"
+                        to={`/sc/${scId}/clearwater?tab=production`}
                         className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-200 hover:bg-orange-300 text-orange-900 text-xs font-semibold rounded transition-colors"
                       >
                         <ClipboardList className="w-3 h-3" />Update Logs
@@ -1700,7 +1700,7 @@ export default function Dashboard() {
                     </div>
                     <div className="mt-2 flex gap-2">
                       <Link
-                        to="/production"
+                        to={`/sc/${scId}/clearwater?tab=production`}
                         className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-200 hover:bg-orange-300 text-orange-900 text-xs font-semibold rounded transition-colors"
                       >
                         <ClipboardList className="w-3 h-3" />Update Logs
