@@ -17,6 +17,7 @@ export interface RWNRWDamMetrics {
   nrwVolumeMl: number | null;
   nrwPct: number | null;
   hasCompleteData: boolean;
+  agreementCount: number;
 }
 
 export interface RWNRWSummaryMetrics {
@@ -28,6 +29,7 @@ export interface RWNRWSummaryMetrics {
   nrwPct: number | null;
   damsWithData: number;
   totalDams: number;
+  totalAgreements: number;
   dams: RWNRWDamMetrics[];
 }
 
@@ -84,6 +86,27 @@ export async function fetchRWNRWMetrics(
     salesMap.set(row.dam_id, vol);
   }
 
+  const { data: allocData, error: allocErr } = await supabase
+    .from('rw_allocations')
+    .select('allocation_id, source, agreement_start_date, agreement_expiry_date');
+  if (allocErr) throw allocErr;
+
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 0);
+
+  const agreementCountMap = new Map<string, number>();
+  for (const alloc of (allocData || [])) {
+    if (!alloc.source || !alloc.agreement_start_date || !alloc.agreement_expiry_date) continue;
+    const start = new Date(alloc.agreement_start_date + 'T00:00:00');
+    const expiry = new Date(alloc.agreement_expiry_date + 'T00:00:00');
+    if (start > monthEnd || expiry < monthStart) continue;
+
+    const damMatch = dams.find((d: any) => d.name.toLowerCase() === alloc.source.toLowerCase());
+    if (!damMatch) continue;
+
+    agreementCountMap.set(damMatch.id, (agreementCountMap.get(damMatch.id) || 0) + 1);
+  }
+
   const damMetrics: RWNRWDamMetrics[] = dams.map((dam: any) => {
     const levels = levelsMap.get(dam.id);
     const opening = levels?.opening ?? null;
@@ -121,6 +144,7 @@ export async function fetchRWNRWMetrics(
       nrwVolumeMl,
       nrwPct,
       hasCompleteData,
+      agreementCount: agreementCountMap.get(dam.id) || 0,
     };
   });
 
@@ -147,6 +171,8 @@ export async function fetchRWNRWMetrics(
     overallPct = 0;
   }
 
+  const totalAgreements = damMetrics.reduce((s, d) => s + d.agreementCount, 0);
+
   return {
     totalOpeningMl: totalOpening,
     totalClosingMl: totalClosing,
@@ -156,6 +182,7 @@ export async function fetchRWNRWMetrics(
     nrwPct: overallPct,
     damsWithData: completeDams.length,
     totalDams: dams.length,
+    totalAgreements,
     dams: damMetrics,
   };
 }
@@ -185,6 +212,7 @@ function emptyRWNRWSummary(): RWNRWSummaryMetrics {
     nrwPct: null,
     damsWithData: 0,
     totalDams: 0,
+    totalAgreements: 0,
     dams: [],
   };
 }

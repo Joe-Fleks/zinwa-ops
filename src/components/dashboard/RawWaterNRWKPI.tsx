@@ -118,9 +118,14 @@ export default function RawWaterNRWKPI() {
               <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">
                 {scName ? `${scName} — SC Summary` : 'Summary'}
               </span>
-              <span className="text-xs text-gray-500">
-                {summary.damsWithData}/{summary.totalDams} dams with data
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500">
+                  {summary.totalAgreements} agreement{summary.totalAgreements !== 1 ? 's' : ''}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {summary.damsWithData}/{summary.totalDams} dams with data
+                </span>
+              </div>
             </div>
 
             {summary.nrwPct !== null ? (
@@ -202,6 +207,7 @@ function DamNRWRow({ dam }: { dam: RWNRWDamMetrics }) {
         <div className="flex items-center gap-2">
           {dam.damCode && <span className="text-[10px] font-mono text-gray-400">{dam.damCode}</span>}
           <span className="text-xs font-semibold text-gray-800">{dam.damName}</span>
+          <span className="text-[10px] text-gray-400 tabular-nums">{dam.agreementCount} agmt{dam.agreementCount !== 1 ? 's' : ''}</span>
         </div>
         {dam.nrwPct !== null ? (
           <span className={`text-sm font-bold ${pctColor(dam.nrwPct)}`}>

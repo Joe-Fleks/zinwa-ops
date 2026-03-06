@@ -182,6 +182,7 @@ export interface RWDamYTDAllocation {
   damName: string;
   damCode: string | null;
   ytdAllocationVolume: number;
+  agreementCount: number;
 }
 
 export async function fetchRWDamYTDAllocations(
@@ -196,8 +197,28 @@ export async function fetchRWDamYTDAllocations(
   damsQuery = applyScopeToQuery(damsQuery, scope);
   const { data: damsData } = await damsQuery;
   const damCodeMap = new Map<string, string | null>();
+  const damNameMap = new Map<string, string>();
   for (const d of (damsData || [])) {
     damCodeMap.set(d.id, d.dam_code);
+    damNameMap.set(d.name.toLowerCase(), d.id);
+  }
+
+  const { data: allocData } = await supabase
+    .from('rw_allocations')
+    .select('allocation_id, source, agreement_start_date, agreement_expiry_date');
+
+  const yearStart = new Date(year, 0, 1);
+  const ytdEnd = new Date(year, throughMonth, 0);
+  const agreementCountMap = new Map<string, number>();
+  for (const alloc of (allocData || [])) {
+    if (!alloc.source || !alloc.agreement_start_date || !alloc.agreement_expiry_date) continue;
+    const start = new Date(alloc.agreement_start_date + 'T00:00:00');
+    const expiry = new Date(alloc.agreement_expiry_date + 'T00:00:00');
+    if (start > ytdEnd || expiry < yearStart) continue;
+
+    const damId = damNameMap.get(alloc.source.toLowerCase());
+    if (!damId) continue;
+    agreementCountMap.set(damId, (agreementCountMap.get(damId) || 0) + 1);
   }
 
   const totals = new Map<string, { name: string; volume: number }>();
@@ -218,6 +239,7 @@ export async function fetchRWDamYTDAllocations(
         damName: val.name,
         damCode: damCodeMap.get(damId) || null,
         ytdAllocationVolume: roundTo(val.volume, 2),
+        agreementCount: agreementCountMap.get(damId) || 0,
       });
     }
   }
@@ -231,6 +253,7 @@ export interface RWMonthlyDamReport {
   damCode: string | null;
   allocationVolume: number;
   salesVolume: number;
+  agreementCount: number;
 }
 
 export interface RWAgreementStats {
@@ -247,12 +270,32 @@ export async function fetchRWMonthlyDamReport(
 ): Promise<RWMonthlyDamReport[]> {
   const vsSales = await fetchRWAllocationVsSales(scope, year, [month]);
 
-  let damsQuery = supabase.from('dams').select('id, dam_code');
+  let damsQuery = supabase.from('dams').select('id, name, dam_code');
   damsQuery = applyScopeToQuery(damsQuery, scope);
   const { data: damsData } = await damsQuery;
   const damCodeMap = new Map<string, string | null>();
+  const damNameMap = new Map<string, string>();
   for (const d of (damsData || [])) {
     damCodeMap.set(d.id, d.dam_code);
+    damNameMap.set(d.name.toLowerCase(), d.id);
+  }
+
+  const { data: allocData } = await supabase
+    .from('rw_allocations')
+    .select('allocation_id, source, agreement_start_date, agreement_expiry_date');
+
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 0);
+  const agreementCountMap = new Map<string, number>();
+  for (const alloc of (allocData || [])) {
+    if (!alloc.source || !alloc.agreement_start_date || !alloc.agreement_expiry_date) continue;
+    const start = new Date(alloc.agreement_start_date + 'T00:00:00');
+    const expiry = new Date(alloc.agreement_expiry_date + 'T00:00:00');
+    if (start > monthEnd || expiry < monthStart) continue;
+
+    const damId = damNameMap.get(alloc.source.toLowerCase());
+    if (!damId) continue;
+    agreementCountMap.set(damId, (agreementCountMap.get(damId) || 0) + 1);
   }
 
   return vsSales
@@ -263,6 +306,7 @@ export async function fetchRWMonthlyDamReport(
       damCode: damCodeMap.get(r.damId) || null,
       allocationVolume: r.allocationVolume,
       salesVolume: r.salesVolume,
+      agreementCount: agreementCountMap.get(r.damId) || 0,
     }))
     .sort((a, b) => a.damName.localeCompare(b.damName));
 }

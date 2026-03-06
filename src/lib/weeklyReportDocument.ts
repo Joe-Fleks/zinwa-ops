@@ -572,16 +572,20 @@ function buildRWSection(data: WeeklyReportData): string {
   parts.push(tableRow([
     { text: 'Dam', shade: '1A3A5C', bold: true },
     { text: 'Code', shade: '1A3A5C', bold: true },
+    { text: 'Agreements', shade: '1A3A5C', bold: true, align: 'right' },
     { text: 'YTD Allocated (ML)', shade: '1A3A5C', bold: true, align: 'right' },
   ], true));
 
   let totalAlloc = 0;
+  let totalAgreements = 0;
   data.rwYTDAllocations.forEach((dam, idx) => {
     const bg = idx % 2 === 0 ? 'F5F8FC' : 'FFFFFF';
     totalAlloc += dam.ytdAllocationVolume;
+    totalAgreements += dam.agreementCount;
     parts.push(tableRow([
       { text: dam.damName, shade: bg },
       { text: dam.damCode || '-', shade: bg },
+      { text: String(dam.agreementCount), shade: bg, align: 'right' },
       { text: formatNum(dam.ytdAllocationVolume, 2), shade: bg, align: 'right' },
     ]));
   });
@@ -589,6 +593,7 @@ function buildRWSection(data: WeeklyReportData): string {
   parts.push(tableRow([
     { text: 'TOTAL', shade: 'E8EEF5', bold: true },
     { text: '', shade: 'E8EEF5' },
+    { text: String(totalAgreements), shade: 'E8EEF5', bold: true, align: 'right' },
     { text: formatNum(totalAlloc, 2), shade: 'E8EEF5', bold: true, align: 'right' },
   ]));
   parts.push('</w:tbl>');

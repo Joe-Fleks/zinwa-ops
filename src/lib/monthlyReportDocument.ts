@@ -477,18 +477,22 @@ function buildContent(d: MonthlyReportData): string {
     parts.push(trow([
       { text: 'Dam', shade: '1A3A5C' },
       { text: 'Code', shade: '1A3A5C' },
+      { text: 'Agreements', shade: '1A3A5C', align: 'right' },
       { text: `Allocated (ML)`, shade: '1A3A5C', align: 'right' },
       { text: `Sales (ML)`, shade: '1A3A5C', align: 'right' },
     ], true));
 
     let totAlloc = 0;
     let totSales = 0;
+    let totAgreements = 0;
     rw.forEach((dam, i) => {
       totAlloc += dam.allocationVolume;
       totSales += dam.salesVolume;
+      totAgreements += dam.agreementCount;
       parts.push(trow([
         { text: dam.damName, shade: rowAlt(i) },
         { text: dam.damCode || '-', shade: rowAlt(i) },
+        { text: String(dam.agreementCount), shade: rowAlt(i), align: 'right' },
         { text: fmt(dam.allocationVolume, 2), shade: rowAlt(i), align: 'right' },
         { text: fmt(dam.salesVolume, 2), shade: rowAlt(i), align: 'right' },
       ]));
@@ -497,6 +501,7 @@ function buildContent(d: MonthlyReportData): string {
     parts.push(trow([
       { text: 'TOTAL', shade: 'E8EEF5', bold: true },
       { text: '', shade: 'E8EEF5' },
+      { text: String(totAgreements), shade: 'E8EEF5', bold: true, align: 'right' },
       { text: fmt(totAlloc, 2), shade: 'E8EEF5', bold: true, align: 'right' },
       { text: fmt(totSales, 2), shade: 'E8EEF5', bold: true, align: 'right' },
     ]));
