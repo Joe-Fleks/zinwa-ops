@@ -280,18 +280,21 @@ function buildCapacitySection(data: WeeklyReportData): string {
         { text: 'Installed (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
         { text: 'Weekly RW (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
         { text: 'YTD Avg RW (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'Utilization (%)', shade: '1A3A5C', bold: true, align: 'right' },
       ], true)}
       ${ftStations.map((st, i) => tableRow([
         { text: st.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
         { text: st.installedCapacity > 0 ? formatNum(st.installedCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
         { text: st.weeklyRWCapacity !== null ? formatNum(st.weeklyRWCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
         { text: st.ytdRWCapacity !== null ? formatNum(st.ytdRWCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: (st as any).rwUtilizationPct != null ? formatNum((st as any).rwUtilizationPct, 1) + '%' : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
       ])).join('')}
       ${tableRow([
         { text: 'Total / Avg', shade: 'D6EAF8', bold: true },
         { text: cap.rwInstalledTotal > 0 ? formatNum(cap.rwInstalledTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
         { text: cap.rwWeeklyActualTotal !== null ? formatNum(cap.rwWeeklyActualTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
         { text: cap.rwYtdAvgTotal !== null ? formatNum(cap.rwYtdAvgTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
+        { text: (cap as any).rwUtilizationPct != null ? formatNum((cap as any).rwUtilizationPct, 1) + '%' : '-', align: 'right', shade: 'D6EAF8', bold: true },
       ])}
     </w:tbl>`);
 
@@ -304,6 +307,7 @@ function buildCapacitySection(data: WeeklyReportData): string {
         { text: 'Installed (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
         { text: 'Weekly CW (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
         { text: 'YTD Avg CW (m\u00B3/hr)', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'Utilization (%)', shade: '1A3A5C', bold: true, align: 'right' },
       ], true)}
       ${cap.stations.map((st, i) => tableRow([
         { text: st.stationName, shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
@@ -311,6 +315,7 @@ function buildCapacitySection(data: WeeklyReportData): string {
         { text: st.installedCapacity > 0 ? formatNum(st.installedCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
         { text: st.weeklyCWCapacity !== null ? formatNum(st.weeklyCWCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
         { text: st.ytdCWCapacity !== null ? formatNum(st.ytdCWCapacity, 1) : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
+        { text: (st as any).cwUtilizationPct != null ? formatNum((st as any).cwUtilizationPct, 1) + '%' : '-', align: 'right', shade: i % 2 === 0 ? 'EBF5FB' : 'FFFFFF' },
       ])).join('')}
       ${tableRow([
         { text: 'Total / Avg', shade: 'D6EAF8', bold: true },
@@ -318,6 +323,7 @@ function buildCapacitySection(data: WeeklyReportData): string {
         { text: cap.cwInstalledTotal > 0 ? formatNum(cap.cwInstalledTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
         { text: cap.cwWeeklyActualTotal !== null ? formatNum(cap.cwWeeklyActualTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
         { text: cap.cwYtdAvgTotal !== null ? formatNum(cap.cwYtdAvgTotal, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
+        { text: (cap as any).cwUtilizationPct != null ? formatNum((cap as any).cwUtilizationPct, 1) + '%' : '-', align: 'right', shade: 'D6EAF8', bold: true },
       ])}
     </w:tbl>`);
 
@@ -336,23 +342,32 @@ function buildPowerSupplySection(data: WeeklyReportData): string {
       ${tableRow([
         { text: 'Station', shade: '1A3A5C', bold: true },
         { text: 'Required Hours', shade: '1A3A5C', bold: true, align: 'right' },
-        { text: 'Actual Hours Run', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'Load Shedding (hrs)', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'Power Available (hrs)', shade: '1A3A5C', bold: true, align: 'right' },
         { text: 'Power Availability (%)', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'Actual Hours Run', shade: '1A3A5C', bold: true, align: 'right' },
+        { text: 'Grid Utilization (%)', shade: '1A3A5C', bold: true, align: 'right' },
       ], true)}
       ${ps.stations.map((st, i) => {
-        const shade = st.powerAvailabilityPct < 50 ? 'FFE5E5' : (i % 2 === 0 ? 'EBF5FB' : 'FFFFFF');
+        const shade = (st as any).gridUtilizationPct < 50 ? 'FFE5E5' : (i % 2 === 0 ? 'EBF5FB' : 'FFFFFF');
         return tableRow([
           { text: st.stationName, shade },
           { text: formatNum(st.requiredHours, 1), align: 'right', shade },
-          { text: formatNum(st.actualHoursRun, 1), align: 'right', shade },
+          { text: (st as any).loadSheddingHours > 0 ? formatNum((st as any).loadSheddingHours, 1) : '-', align: 'right', shade },
+          { text: formatNum((st as any).powerAvailableHours || 0, 1), align: 'right', shade },
           { text: formatNum(st.powerAvailabilityPct, 1) + '%', align: 'right', shade },
+          { text: formatNum(st.actualHoursRun, 1), align: 'right', shade },
+          { text: formatNum((st as any).gridUtilizationPct || 0, 1) + '%', align: 'right', shade },
         ]);
       }).join('')}
       ${tableRow([
         { text: 'TOTAL', shade: 'D6EAF8', bold: true },
         { text: formatNum(ps.totalRequiredHours, 1), align: 'right', shade: 'D6EAF8', bold: true },
-        { text: formatNum(ps.totalActualHours, 1), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: (ps as any).totalLoadSheddingHours > 0 ? formatNum((ps as any).totalLoadSheddingHours, 1) : '-', align: 'right', shade: 'D6EAF8', bold: true },
+        { text: formatNum((ps as any).totalPowerAvailableHours || 0, 1), align: 'right', shade: 'D6EAF8', bold: true },
         { text: formatNum(ps.overallAvailabilityPct, 1) + '%', align: 'right', shade: 'D6EAF8', bold: true },
+        { text: formatNum(ps.totalActualHours, 1), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: formatNum((ps as any).overallGridUtilizationPct || 0, 1) + '%', align: 'right', shade: 'D6EAF8', bold: true },
       ])}
     </w:tbl>`);
 

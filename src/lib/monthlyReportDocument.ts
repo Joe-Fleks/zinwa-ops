@@ -386,9 +386,64 @@ function buildContent(d: MonthlyReportData): string {
     parts.push(para('No breakdowns recorded during this month.'));
   }
 
+  const energy = (d as any).energy;
+  if (energy && (energy.stations || []).length > 0) {
+    parts.push(hline());
+    parts.push(heading1('7. ENERGY CONSUMPTION & COST ANALYSIS'));
+
+    parts.push(tblStart());
+    parts.push(trow([
+      { text: 'Metric', shade: '1A3A5C' },
+      { text: 'Value', shade: '1A3A5C', align: 'right' },
+    ], true));
+    const energySummary: [string, string][] = [
+      ['Estimated Consumption', fmt(energy.totalEstimatedKWh) + ' kWh'],
+      ['Estimated Cost', '$' + fmt(energy.totalEstimatedCost, 2)],
+      ['Actual ZESA Bill', energy.totalActualBill > 0 ? '$' + fmt(energy.totalActualBill, 2) : '---'],
+      ['Variance', energy.overallVariancePct != null ? (energy.overallVariancePct >= 0 ? '+' : '') + fmt(energy.overallVariancePct, 1) + '%' : '---'],
+    ];
+    energySummary.forEach(([label, value], i) => {
+      parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: rowAlt(i) }]));
+    });
+    parts.push('</w:tbl>');
+
+    parts.push(heading2('7.1 Station Energy Detail'));
+    parts.push(tblStart());
+    parts.push(trow([
+      { text: 'Station', shade: '2E6FA3' },
+      { text: 'Est. kWh', shade: '2E6FA3', align: 'right' },
+      { text: 'Est. Cost ($)', shade: '2E6FA3', align: 'right' },
+      { text: 'Actual Bill ($)', shade: '2E6FA3', align: 'right' },
+      { text: 'Actual kWh', shade: '2E6FA3', align: 'right' },
+      { text: 'Variance (%)', shade: '2E6FA3', align: 'right' },
+    ], true));
+    (energy.stations || []).forEach((st: any, i: number) => {
+      const vPct = st.totalEstCost > 0 ? ((st.totalActBill - st.totalEstCost) / st.totalEstCost) * 100 : null;
+      const varShade = vPct == null ? rowAlt(i)
+        : Math.abs(vPct) <= 10 ? 'E8F5E9' : Math.abs(vPct) <= 25 ? 'FFF3CD' : 'FFE5E5';
+      parts.push(trow([
+        { text: st.stationName, shade: rowAlt(i) },
+        { text: fmt(st.totalEstKWh), align: 'right', shade: rowAlt(i) },
+        { text: fmt(st.totalEstCost, 2), align: 'right', shade: rowAlt(i) },
+        { text: st.totalActBill > 0 ? fmt(st.totalActBill, 2) : '---', align: 'right', shade: rowAlt(i) },
+        { text: st.totalActKWh > 0 ? fmt(st.totalActKWh) : '---', align: 'right', shade: rowAlt(i) },
+        { text: vPct != null ? (vPct >= 0 ? '+' : '') + fmt(vPct, 1) + '%' : '---', align: 'right', shade: varShade },
+      ]));
+    });
+    parts.push(trow([
+      { text: 'TOTAL', shade: 'D6EAF8', bold: true },
+      { text: fmt(energy.totalEstimatedKWh), align: 'right', shade: 'D6EAF8', bold: true },
+      { text: fmt(energy.totalEstimatedCost, 2), align: 'right', shade: 'D6EAF8', bold: true },
+      { text: energy.totalActualBill > 0 ? fmt(energy.totalActualBill, 2) : '---', align: 'right', shade: 'D6EAF8', bold: true },
+      { text: energy.totalActualKWh > 0 ? fmt(energy.totalActualKWh) : '---', align: 'right', shade: 'D6EAF8', bold: true },
+      { text: energy.overallVariancePct != null ? (energy.overallVariancePct >= 0 ? '+' : '') + fmt(energy.overallVariancePct, 1) + '%' : '---', align: 'right', shade: 'D6EAF8', bold: true },
+    ]));
+    parts.push('</w:tbl>');
+  }
+
   parts.push(hline());
 
-  parts.push(heading1('7. KPI SUMMARY ANALYSIS'));
+  parts.push(heading1(energy && (energy.stations || []).length > 0 ? '8. KPI SUMMARY ANALYSIS' : '7. KPI SUMMARY ANALYSIS'));
   parts.push(para('The table below identifies the worst-performing station under each key performance indicator for the reporting month.'));
 
   const kpi = d.kpiAnalysis;
@@ -466,13 +521,16 @@ function buildContent(d: MonthlyReportData): string {
 
   parts.push(hline());
 
-  parts.push(heading1('8. RAW WATER'));
+  const hasEnergy = energy && (energy.stations || []).length > 0;
+  const rwSectionNum = hasEnergy ? 9 : 8;
+
+  parts.push(heading1(`${rwSectionNum}. RAW WATER`));
 
   const rw = d.rwDamReport || [];
   const rwStats = d.rwAgreementStats;
 
   if (rw.length > 0) {
-    parts.push(heading2('8.1 Water Allocation & Sales by Dam'));
+    parts.push(heading2(`${rwSectionNum}.1 Water Allocation & Sales by Dam`));
     parts.push(tblStart());
     parts.push(trow([
       { text: 'Dam', shade: '1A3A5C' },
@@ -511,7 +569,7 @@ function buildContent(d: MonthlyReportData): string {
   }
 
   if (rwStats) {
-    parts.push(heading2('8.2 Agreement Statistics'));
+    parts.push(heading2(`${rwSectionNum}.2 Agreement Statistics`));
     parts.push(tblStart());
     parts.push(trow([
       { text: 'Metric', shade: '1A3A5C' },
@@ -535,7 +593,7 @@ function buildContent(d: MonthlyReportData): string {
 
   parts.push(hline());
 
-  parts.push(heading1('9. OBSERVATIONS & RECOMMENDATIONS'));
+  parts.push(heading1(`${rwSectionNum + 1}. OBSERVATIONS & RECOMMENDATIONS`));
   for (let i = 0; i < 5; i++) {
     parts.push(`<w:p>
       <w:pPr><w:spacing w:after="0"/>

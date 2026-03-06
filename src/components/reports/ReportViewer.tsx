@@ -486,6 +486,40 @@ function WeeklyReportView({ data }: { data: WeeklyReportData }) {
           )}
         </div>
       ))}
+
+      {(data as any).rwYTDAllocations && (data as any).rwYTDAllocations.length > 0 && (
+        <>
+          <SectionTitle>9. Raw Water Allocations</SectionTitle>
+          <SubTitle>9.1 YTD Water Allocated per Dam</SubTitle>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  {['Dam', 'Code', 'Agreements', 'YTD Allocated (ML)'].map(h => (
+                    <th key={h} className={HDR}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {((data as any).rwYTDAllocations || []).map((dam: any, i: number) => (
+                  <tr key={dam.damName} className={TR_ALT(i)}>
+                    <td className={TD + ' font-medium'}>{dam.damName}</td>
+                    <td className={TD}>{dam.damCode || '-'}</td>
+                    <td className={TD + ' text-right'}>{dam.agreementCount}</td>
+                    <td className={TD + ' text-right'}>{fmt(dam.ytdAllocationVolume, 2)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-[#E8EEF5] font-semibold">
+                  <td className={TD + ' font-bold'}>TOTAL</td>
+                  <td className={TD}></td>
+                  <td className={TD + ' text-right font-bold'}>{((data as any).rwYTDAllocations || []).reduce((s: number, d: any) => s + d.agreementCount, 0)}</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(((data as any).rwYTDAllocations || []).reduce((s: number, d: any) => s + d.ytdAllocationVolume, 0), 2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -776,6 +810,16 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
                   </td>
                 </tr>
               ))}
+              {(prod.totalBreakdownHoursLost ?? 0) > 0 && (
+                <tr className="bg-yellow-50 font-semibold">
+                  <td className={TD + ' font-bold'}>TOTAL PUMPING HRS LOST</td>
+                  <td className={TD}></td>
+                  <td className={TD}>Stopped pumping</td>
+                  <td className={TD}></td>
+                  <td className={TD + ' text-right font-bold bg-red-50'}>{fmt(prod.totalBreakdownHoursLost, 1)}</td>
+                  <td className={TD}></td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -870,6 +914,69 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
               </tbody>
             </table>
           </div>
+        </>
+      )}
+
+      {((data as any).rwDamReport || []).length > 0 && (
+        <>
+          <SectionTitle>9. Raw Water</SectionTitle>
+          <SubTitle>9.1 Water Allocation &amp; Sales by Dam</SubTitle>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  {['Dam', 'Code', 'Agreements', 'Allocated (ML)', 'Sales (ML)'].map(h => (
+                    <th key={h} className={HDR}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {((data as any).rwDamReport || []).map((dam: any, i: number) => (
+                  <tr key={dam.damName} className={TR_ALT(i)}>
+                    <td className={TD + ' font-medium'}>{dam.damName}</td>
+                    <td className={TD}>{dam.damCode || '-'}</td>
+                    <td className={TD + ' text-right'}>{dam.agreementCount}</td>
+                    <td className={TD + ' text-right'}>{fmt(dam.allocationVolume, 2)}</td>
+                    <td className={TD + ' text-right'}>{fmt(dam.salesVolume, 2)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-[#E8EEF5] font-semibold">
+                  <td className={TD + ' font-bold'}>TOTAL</td>
+                  <td className={TD}></td>
+                  <td className={TD + ' text-right font-bold'}>{((data as any).rwDamReport || []).reduce((s: number, d: any) => s + d.agreementCount, 0)}</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(((data as any).rwDamReport || []).reduce((s: number, d: any) => s + d.allocationVolume, 0), 2)}</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(((data as any).rwDamReport || []).reduce((s: number, d: any) => s + d.salesVolume, 0), 2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {(data as any).rwAgreementStats && (
+        <>
+          <SubTitle>9.2 Agreement Statistics</SubTitle>
+          <table className="w-full border border-gray-200 rounded text-left mb-3">
+            <thead>
+              <tr>
+                <th className={HDR}>Metric</th>
+                <th className={HDR + ' text-right'}>Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { label: `Active agreements in ${data.year}`, value: (data as any).rwAgreementStats.totalActiveInYear },
+                { label: 'Currently active agreements', value: (data as any).rwAgreementStats.currentlyActive },
+                { label: `Expired in ${data.monthName}`, value: (data as any).rwAgreementStats.expiredInMonth },
+                { label: 'Expiring next month', value: (data as any).rwAgreementStats.expiringNextMonth },
+              ].map((row, i) => (
+                <tr key={row.label} className={row.label.includes('Expiring') && row.value > 0 ? 'bg-yellow-50' : TR_ALT(i)}>
+                  <td className={TD + ' font-medium text-gray-700'}>{row.label}</td>
+                  <td className={TD + ' text-right font-semibold'}>{row.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </>
       )}
     </div>
