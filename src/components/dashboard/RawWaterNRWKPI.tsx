@@ -161,9 +161,16 @@ export default function RawWaterNRWKPI() {
                 </div>
                 <div className="flex justify-between col-span-2 border-t border-gray-200 pt-1 mt-1">
                   <span className="text-gray-600 font-medium">NRW Volume</span>
-                  <span className={`font-bold tabular-nums ${summary.totalNRWVolumeMl > 0 ? 'text-red-600' : 'text-green-700'}`}>
-                    {fmt(summary.totalNRWVolumeMl)} ML
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-bold tabular-nums ${summary.totalNRWVolumeMl > 0 ? 'text-red-600' : 'text-green-700'}`}>
+                      {fmt(summary.totalNRWVolumeMl)} ML
+                    </span>
+                    {summary.nrwPct !== null && (
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${summary.nrwPct > 20 ? 'bg-red-100 text-red-700' : summary.nrwPct > 10 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                        {summary.nrwPct.toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -209,16 +216,23 @@ function DamNRWRow({ dam }: { dam: RWNRWDamMetrics }) {
           <span className="text-xs font-semibold text-gray-800">{dam.damName}</span>
           <span className="text-[10px] text-gray-400 tabular-nums">{dam.agreementCount} agmt{dam.agreementCount !== 1 ? 's' : ''}</span>
         </div>
-        {dam.nrwPct !== null ? (
-          <span className={`text-sm font-bold ${pctColor(dam.nrwPct)}`}>
-            {dam.nrwPct.toFixed(1)}%
-          </span>
-        ) : (
-          <span className="text-xs text-gray-400">-</span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {dam.nrwVolumeMl !== null && (
+            <span className={`text-[10px] font-medium tabular-nums ${dam.nrwVolumeMl > 0 ? 'text-red-500' : 'text-gray-500'}`}>
+              {fmt(dam.nrwVolumeMl)} ML
+            </span>
+          )}
+          {dam.nrwPct !== null ? (
+            <span className={`text-sm font-bold ${pctColor(dam.nrwPct)}`}>
+              {dam.nrwPct.toFixed(1)}%
+            </span>
+          ) : (
+            <span className="text-xs text-gray-400">-</span>
+          )}
+        </div>
       </div>
       <NRWBar pct={dam.nrwPct} />
-      <div className="grid grid-cols-4 gap-x-2 mt-1.5 text-[10px]">
+      <div className="grid grid-cols-5 gap-x-2 mt-1.5 text-[10px]">
         <div>
           <span className="text-gray-400 block">Open</span>
           <span className="text-gray-700 font-medium tabular-nums">
@@ -240,6 +254,12 @@ function DamNRWRow({ dam }: { dam: RWNRWDamMetrics }) {
         <div>
           <span className="text-gray-400 block">Sales</span>
           <span className="text-gray-700 font-medium tabular-nums">{fmt(dam.rwSalesMl)}</span>
+        </div>
+        <div>
+          <span className="text-gray-400 block">NRW Vol</span>
+          <span className={`font-medium tabular-nums ${dam.nrwVolumeMl !== null && dam.nrwVolumeMl > 0 ? 'text-red-600' : 'text-gray-700'}`}>
+            {dam.nrwVolumeMl !== null ? fmt(dam.nrwVolumeMl) : '-'}
+          </span>
         </div>
       </div>
     </div>
