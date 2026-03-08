@@ -121,11 +121,10 @@ export async function fetchRWNRWMetrics(
 
     if (hasCompleteData) {
       changeMl = opening! - closing!;
-      const waterThatLeftDam = changeMl;
-      nrwVolumeMl = waterThatLeftDam - rwSales;
-      if (waterThatLeftDam > 0) {
-        nrwPct = roundTo((nrwVolumeMl / waterThatLeftDam) * 100, 1);
-      } else if (waterThatLeftDam === 0 && rwSales === 0) {
+      nrwVolumeMl = changeMl - rwSales;
+      if (changeMl > 0) {
+        nrwPct = roundTo((nrwVolumeMl / changeMl) * 100, 1);
+      } else if (changeMl === 0 && rwSales === 0) {
         nrwPct = 0;
       } else {
         nrwPct = null;
