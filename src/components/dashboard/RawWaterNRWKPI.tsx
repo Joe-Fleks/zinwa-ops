@@ -113,7 +113,7 @@ export default function RawWaterNRWKPI() {
         </div>
       ) : (
         <>
-          <div className={`rounded-lg border px-4 py-3 ${summary.nrwPct !== null ? pctBg(summary.nrwPct) : summary.damsWithData > 0 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+          <div className={`rounded-lg border px-4 py-3 ${summary.nrwPct !== null ? pctBg(summary.nrwPct) : 'bg-gray-50 border-gray-200'}`}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">
                 {scName ? `${scName} — SC Summary` : 'Summary'}
@@ -134,17 +134,8 @@ export default function RawWaterNRWKPI() {
                   {summary.nrwPct.toFixed(1)}%
                 </span>
                 <span className="text-xs text-gray-500">RW NRW</span>
-              </div>
-            ) : summary.damsWithData > 0 ? (
-              <div className="mb-2">
-                <div className="flex items-baseline gap-2">
-                  <span className={`text-2xl font-bold ${summary.totalNRWVolumeMl > 0 ? 'text-red-600' : 'text-green-700'}`}>
-                    {fmt(summary.totalNRWVolumeMl)} ML
-                  </span>
-                  <span className="text-xs text-gray-500">NRW Volume</span>
-                </div>
-                {summary.totalChangeMl <= 0 && (
-                  <p className="text-[10px] text-gray-400 mt-0.5">Dam levels rose this month — NRW % not applicable</p>
+                {summary.totalChangeMl < 0 && (
+                  <span className="text-[10px] text-blue-500 ml-1">(based on sales)</span>
                 )}
               </div>
             ) : (

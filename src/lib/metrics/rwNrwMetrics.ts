@@ -145,10 +145,12 @@ export async function fetchRWNRWMetrics(
       nrwVolumeMl = changeMl - rwSales;
       if (changeMl > 0) {
         nrwPct = roundTo((nrwVolumeMl / changeMl) * 100, 1);
-      } else if (changeMl === 0 && rwSales === 0) {
+      } else if (rwSales > 0) {
+        nrwPct = roundTo((nrwVolumeMl / rwSales) * 100, 1);
+      } else if (changeMl === 0) {
         nrwPct = 0;
       } else {
-        nrwPct = null;
+        nrwPct = 0;
       }
     }
 
@@ -187,7 +189,9 @@ export async function fetchRWNRWMetrics(
   let overallPct: number | null = null;
   if (totalChange > 0) {
     overallPct = roundTo((totalNRW / totalChange) * 100, 1);
-  } else if (totalChange === 0 && totalSales === 0) {
+  } else if (totalSales > 0) {
+    overallPct = roundTo((totalNRW / totalSales) * 100, 1);
+  } else {
     overallPct = 0;
   }
 
