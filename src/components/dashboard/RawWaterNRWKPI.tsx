@@ -134,9 +134,6 @@ export default function RawWaterNRWKPI() {
                   {summary.nrwPct.toFixed(1)}%
                 </span>
                 <span className="text-xs text-gray-500">RW NRW</span>
-                {summary.totalChangeMl < 0 && (
-                  <span className="text-[10px] text-blue-500 ml-1">(based on sales)</span>
-                )}
               </div>
             ) : (
               <p className="text-sm text-gray-500 mb-2">Insufficient data for this month</p>
