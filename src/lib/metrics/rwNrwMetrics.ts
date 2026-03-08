@@ -62,10 +62,31 @@ export async function fetchRWNRWMetrics(
     .eq('month', month);
   if (levelsErr) throw levelsErr;
 
+  const needsPrevMonth = (levelsData || []).some(r => r.opening_level_ml === null);
+  let prevClosingMap = new Map<string, number>();
+  if (needsPrevMonth) {
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const { data: prevData } = await supabase
+      .from('dam_monthly_levels')
+      .select('dam_id, closing_level_ml')
+      .in('dam_id', damIds)
+      .eq('year', prevYear)
+      .eq('month', prevMonth);
+    for (const row of (prevData || [])) {
+      if (row.closing_level_ml !== null) {
+        prevClosingMap.set(row.dam_id, Number(row.closing_level_ml));
+      }
+    }
+  }
+
   const levelsMap = new Map<string, { opening: number | null; closing: number | null }>();
   for (const row of (levelsData || [])) {
+    const opening = row.opening_level_ml !== null
+      ? Number(row.opening_level_ml)
+      : prevClosingMap.get(row.dam_id) ?? null;
     levelsMap.set(row.dam_id, {
-      opening: row.opening_level_ml !== null ? Number(row.opening_level_ml) : null,
+      opening,
       closing: row.closing_level_ml !== null ? Number(row.closing_level_ml) : null,
     });
   }
