@@ -95,7 +95,7 @@ export default function SalesDataTab({ initialFilter = 'all' }: SalesDataTabProp
     try {
       let query = supabase
         .from('stations')
-        .select('id, station_name, service_centre_id')
+        .select('id, station_name, service_centre_id, station_type')
         .order('station_name');
 
       if (accessContext?.isSCScoped && accessContext?.scopeId) {
@@ -159,7 +159,8 @@ export default function SalesDataTab({ initialFilter = 'all' }: SalesDataTabProp
           newPendingIds.add(station.id);
         }
 
-        const expectedSales = Math.round(prevCwVolume * 0.75);
+        const isBorehole = station.station_type === 'Borehole';
+        const expectedSales = Math.round(prevCwVolume * (isBorehole ? 1.0 : 0.75));
 
         return {
           station_id: station.id,
