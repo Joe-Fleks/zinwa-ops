@@ -28,6 +28,7 @@ const ROLE_SCOPE_MATRIX: Record<string, string[]> = {
   'Maintenance Manager': ['NATIONAL'],
   'Global Admin': ['NATIONAL'],
   'Standard User': ['SC', 'CATCHMENT', 'NATIONAL'],
+  'Viewer': ['SC', 'CATCHMENT', 'NATIONAL'],
 };
 
 function validateRoleScope(roleName: string, scopeType: string): { valid: boolean; error?: string } {

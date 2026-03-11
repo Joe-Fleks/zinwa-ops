@@ -1,6 +1,6 @@
 import { ScopeType } from './scopeUtils';
 
-export type RoleKey = 'TO' | 'RO' | 'MO' | 'STL' | 'CM' | 'WSSE' | 'WSSM' | 'Director' | 'CEO' | 'Maintenance Manager' | 'Global Admin' | 'Standard User';
+export type RoleKey = 'TO' | 'RO' | 'MO' | 'STL' | 'CM' | 'WSSE' | 'WSSM' | 'Director' | 'CEO' | 'Maintenance Manager' | 'Global Admin' | 'Standard User' | 'Viewer';
 
 export const ROLE_SCOPE_MATRIX: Record<RoleKey, ScopeType[]> = {
   'TO': ['SC'],
@@ -15,6 +15,7 @@ export const ROLE_SCOPE_MATRIX: Record<RoleKey, ScopeType[]> = {
   'Maintenance Manager': ['NATIONAL'],
   'Global Admin': ['NATIONAL'],
   'Standard User': ['SC', 'CATCHMENT', 'NATIONAL'],
+  'Viewer': ['SC', 'CATCHMENT', 'NATIONAL'],
 };
 
 export function getAllowedScopesForRole(roleName: string): ScopeType[] {
