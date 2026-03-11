@@ -124,7 +124,7 @@ export default function About() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Background</h2>
         <p className="text-gray-700 leading-relaxed">
-          The Murombedzi Service Center Operations Management System is a purpose-built internal
+          The ZINWA Operations Management System is a purpose-built internal
           platform designed to streamline and enhance operational decision-making for water utility
           services. This system serves as a complementary tool to the existing Sage finance system,
           focusing exclusively on operational data management, analytics, and performance monitoring.
