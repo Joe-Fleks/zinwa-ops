@@ -166,7 +166,7 @@ export default function About() {
             </div>
             <span className="text-gray-700">
               Provide a centralized platform for recording and monitoring daily production data
-              across all 11 clear water stations
+              across all clear water stations
             </span>
           </li>
           <li className="flex items-start gap-3">
