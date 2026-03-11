@@ -300,26 +300,31 @@ export interface WeekOnWeekChemicalUsage {
 export async function fetchWeekOnWeekChemicalUsage(
   scope: ScopeFilter,
   year: number,
-  monthIndex: number
+  currentWeekNumber: number
 ): Promise<WeekOnWeekChemicalUsage> {
   const stationIds = await fetchStationIdsByScope(scope, 'Full Treatment');
   if (stationIds.length === 0) {
     return { weeks: [], avgAlumKg: 0, avgHthKg: 0, avgActivatedCarbonKg: 0 };
   }
 
-  const monthStart = new Date(year, monthIndex, 1);
-  const monthEnd = new Date(year, monthIndex + 1, 0);
-  const daysInMonth = monthEnd.getDate();
+  const NUM_WEEKS = 10;
+  const startWeek = Math.max(1, currentWeekNumber - NUM_WEEKS + 1);
 
-  const startDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`;
-  const endDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+  const weekRanges: Array<{ weekNum: number; start: string; end: string }> = [];
+  for (let w = startWeek; w <= currentWeekNumber; w++) {
+    const range = getWeekDateRange(w, year);
+    weekRanges.push({ weekNum: w, ...range });
+  }
+
+  const queryStart = weekRanges[0].start;
+  const queryEnd = weekRanges[weekRanges.length - 1].end;
 
   const { data: logs, error } = await supabase
     .from('production_logs')
     .select('date, alum_kg, hth_kg, activated_carbon_kg')
     .in('station_id', stationIds)
-    .gte('date', startDate)
-    .lte('date', endDate)
+    .gte('date', queryStart)
+    .lte('date', queryEnd)
     .order('date', { ascending: true });
 
   if (error) throw error;
@@ -327,25 +332,25 @@ export async function fetchWeekOnWeekChemicalUsage(
   const weeklyData = new Map<number, { alum: number; hth: number; ac: number }>();
 
   for (const log of (logs || [])) {
-    const logDate = new Date(log.date + 'T12:00:00');
-    const dayOfMonth = logDate.getDate();
-    const weekNum = Math.ceil(dayOfMonth / 7);
-
-    const existing = weeklyData.get(weekNum) || { alum: 0, hth: 0, ac: 0 };
-    existing.alum += Number(log.alum_kg) || 0;
-    existing.hth += Number(log.hth_kg) || 0;
-    existing.ac += Number(log.activated_carbon_kg) || 0;
-    weeklyData.set(weekNum, existing);
+    const logDate = log.date;
+    for (const wr of weekRanges) {
+      if (logDate >= wr.start && logDate <= wr.end) {
+        const existing = weeklyData.get(wr.weekNum) || { alum: 0, hth: 0, ac: 0 };
+        existing.alum += Number(log.alum_kg) || 0;
+        existing.hth += Number(log.hth_kg) || 0;
+        existing.ac += Number(log.activated_carbon_kg) || 0;
+        weeklyData.set(wr.weekNum, existing);
+        break;
+      }
+    }
   }
 
   const weeks: WeeklyChemicalUsage[] = [];
-  const numWeeks = 8;
-
-  for (let w = 1; w <= numWeeks; w++) {
-    const data = weeklyData.get(w) || { alum: 0, hth: 0, ac: 0 };
+  for (const wr of weekRanges) {
+    const data = weeklyData.get(wr.weekNum) || { alum: 0, hth: 0, ac: 0 };
     weeks.push({
-      weekNumber: w,
-      weekLabel: `Wk ${w}`,
+      weekNumber: wr.weekNum,
+      weekLabel: `Wk ${wr.weekNum}`,
       alumKg: roundTo(data.alum, 0),
       hthKg: roundTo(data.hth, 0),
       activatedCarbonKg: roundTo(data.ac, 0),
@@ -357,12 +362,30 @@ export async function fetchWeekOnWeekChemicalUsage(
   const totalAc = weeks.reduce((s, w) => s + w.activatedCarbonKg, 0);
 
   const weeksWithData = weeks.filter(w => w.alumKg > 0 || w.hthKg > 0 || w.activatedCarbonKg > 0).length;
-  const divisor = weeksWithData > 0 ? weeksWithData : numWeeks;
+  const divisor = weeksWithData > 0 ? weeksWithData : weeks.length;
 
   return {
     weeks,
     avgAlumKg: roundTo(totalAlum / divisor, 0),
     avgHthKg: roundTo(totalHth / divisor, 0),
     avgActivatedCarbonKg: roundTo(totalAc / divisor, 0),
+  };
+}
+
+function getWeekDateRange(weekNumber: number, year: number): { start: string; end: string } {
+  const jan1 = new Date(year, 0, 1, 12, 0, 0);
+  const dayOfWeek = jan1.getDay();
+  const daysToFirstFriday = dayOfWeek <= 5 ? 5 - dayOfWeek : 12 - dayOfWeek;
+  const firstFriday = new Date(year, 0, 1 + daysToFirstFriday, 12, 0, 0);
+
+  const weekStart = new Date(firstFriday);
+  weekStart.setDate(firstFriday.getDate() + ((weekNumber - 1) * 7));
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  return {
+    start: weekStart.toISOString().split('T')[0],
+    end: weekEnd.toISOString().split('T')[0],
   };
 }

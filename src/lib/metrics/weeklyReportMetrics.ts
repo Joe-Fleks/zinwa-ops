@@ -396,7 +396,7 @@ export async function fetchWeeklyReportData(
   const currentYear = reportStartDate.getFullYear();
   const currentMonth = reportMonth;
 
-  const weekOnWeekChemicals = await fetchWeekOnWeekChemicalUsage(scope, year, reportMonth);
+  const weekOnWeekChemicals = await fetchWeekOnWeekChemicalUsage(scope, year, weekNumber);
 
   const chemicals: WeeklyChemicalSummary[] = [];
   const chemLabels: Record<string, string> = {
