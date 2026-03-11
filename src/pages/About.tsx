@@ -289,10 +289,10 @@ export default function About() {
 
       <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
         <p className="text-sm text-gray-600 text-center">
-          Version 1.0 | Built for Murombedzi Service Center | 2026
+          Version 1.0 | Built for ZINWA | 2026
         </p>
         <p className="text-sm text-gray-600 text-center mt-2">
-          Demo developed by Joseph Mufaro Mlambo
+          Developed by Joseph Mufaro Mlambo
         </p>
       </div>
     </div>
