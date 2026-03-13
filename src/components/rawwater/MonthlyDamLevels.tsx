@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Save, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, AlertCircle, CheckCircle2, X, Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetwork } from '../../contexts/NetworkContext';
@@ -34,7 +34,7 @@ interface Props {
 }
 
 export default function MonthlyDamLevels({ onClose }: Props) {
-  const { user, accessContext } = useAuth();
+  const { user, accessContext, isViewer } = useAuth();
   const { isOnline, showOfflineWarning } = useNetwork();
 
   const now = new Date();
@@ -230,6 +230,101 @@ export default function MonthlyDamLevels({ onClose }: Props) {
     }
   };
 
+  const handleExportExcel = () => {
+    if (rows.length === 0) return;
+
+    const monthLabel = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
+    const headers = ['Code', 'Dam Name', 'FSC (ML)', 'Opening (ML)', '% Full', 'Closing (ML)', '% Full', 'Change (ML)'];
+
+    const dataRows = rows.map(row => {
+      const openPct = computePctFull(row.opening_level_ml, row.full_supply_capacity_ml);
+      const closePct = computePctFull(row.closing_level_ml, row.full_supply_capacity_ml);
+      const change = computeChange(row.opening_level_ml, row.closing_level_ml);
+      return [
+        row.dam_code || '',
+        row.dam_name,
+        row.full_supply_capacity_ml,
+        row.opening_level_ml ?? '',
+        openPct !== null ? +(openPct.toFixed(1)) : '',
+        row.closing_level_ml ?? '',
+        closePct !== null ? +(closePct.toFixed(1)) : '',
+        change ?? '',
+      ];
+    });
+
+    const totalFSC = rows.reduce((s, r) => s + r.full_supply_capacity_ml, 0);
+    const totalOpening = rows.reduce((s, r) => s + (r.opening_level_ml || 0), 0);
+    const totalClosing = rows.reduce((s, r) => s + (r.closing_level_ml || 0), 0);
+    const totalOpenPct = totalFSC > 0 && rows.some(r => r.opening_level_ml !== null) ? +((totalOpening / totalFSC * 100).toFixed(1)) : '';
+    const totalClosePct = totalFSC > 0 && rows.some(r => r.closing_level_ml !== null) ? +((totalClosing / totalFSC * 100).toFixed(1)) : '';
+    const damsWithBoth = rows.filter(r => r.opening_level_ml !== null && r.closing_level_ml !== null);
+    const totalChange = damsWithBoth.length > 0 ? damsWithBoth.reduce((s, r) => s + (r.closing_level_ml! - r.opening_level_ml!), 0) : '';
+
+    dataRows.push([
+      '',
+      `Totals (${rows.length} dams)`,
+      totalFSC,
+      rows.some(r => r.opening_level_ml !== null) ? totalOpening : '',
+      totalOpenPct,
+      rows.some(r => r.closing_level_ml !== null) ? totalClosing : '',
+      totalClosePct,
+      totalChange,
+    ]);
+
+    const xmlHeader = '<?xml version="1.0"?>\n<?mso-application progid="Excel.Sheet"?>\n';
+    const workbookOpen = '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n';
+    const styles = `<Styles>
+  <Style ss:ID="Default"><Font ss:FontName="Calibri" ss:Size="11"/></Style>
+  <Style ss:ID="Title"><Font ss:FontName="Calibri" ss:Size="14" ss:Bold="1"/></Style>
+  <Style ss:ID="Header"><Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/><Interior ss:Color="#D9E2F3" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
+  <Style ss:ID="NumberCell"><NumberFormat ss:Format="#,##0.00"/></Style>
+  <Style ss:ID="PctCell"><NumberFormat ss:Format="0.0&quot;%&quot;"/></Style>
+  <Style ss:ID="TotalRow"><Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/><Interior ss:Color="#E2EFDA" ss:Pattern="Solid"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
+  <Style ss:ID="TotalNumber"><Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/><Interior ss:Color="#E2EFDA" ss:Pattern="Solid"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><NumberFormat ss:Format="#,##0.00"/></Style>
+  <Style ss:ID="TotalPct"><Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/><Interior ss:Color="#E2EFDA" ss:Pattern="Solid"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><NumberFormat ss:Format="0.0&quot;%&quot;"/></Style>
+</Styles>\n`;
+
+    let worksheet = `<Worksheet ss:Name="Dam Levels">\n<Table>\n`;
+    worksheet += '<Column ss:Width="60"/><Column ss:Width="180"/><Column ss:Width="100"/><Column ss:Width="100"/><Column ss:Width="70"/><Column ss:Width="100"/><Column ss:Width="70"/><Column ss:Width="100"/>\n';
+
+    worksheet += `<Row><Cell ss:StyleID="Title"><Data ss:Type="String">Monthly Dam Levels - ${monthLabel}</Data></Cell></Row>\n<Row></Row>\n`;
+
+    worksheet += '<Row>';
+    headers.forEach(h => { worksheet += `<Cell ss:StyleID="Header"><Data ss:Type="String">${h}</Data></Cell>`; });
+    worksheet += '</Row>\n';
+
+    dataRows.forEach((row, rowIdx) => {
+      const isTotal = rowIdx === dataRows.length - 1;
+      worksheet += '<Row>';
+      row.forEach((cell, colIdx) => {
+        const isNumCol = colIdx >= 2;
+        const isPctCol = colIdx === 4 || colIdx === 6;
+        if (cell === '' || cell === null || cell === undefined) {
+          worksheet += `<Cell${isTotal ? ' ss:StyleID="TotalRow"' : ''}><Data ss:Type="String"></Data></Cell>`;
+        } else if (typeof cell === 'number') {
+          let style = isTotal ? (isPctCol ? 'TotalPct' : 'TotalNumber') : (isPctCol ? 'PctCell' : 'NumberCell');
+          worksheet += `<Cell ss:StyleID="${style}"><Data ss:Type="Number">${cell}</Data></Cell>`;
+        } else {
+          worksheet += `<Cell${isTotal ? ' ss:StyleID="TotalRow"' : ''}><Data ss:Type="String">${cell.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>`;
+        }
+      });
+      worksheet += '</Row>\n';
+    });
+
+    worksheet += '</Table>\n</Worksheet>\n';
+    const xml = xmlHeader + workbookOpen + styles + worksheet + '</Workbook>';
+
+    const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Dam_Levels_${MONTH_NAMES[selectedMonth]}_${selectedYear}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const navigateMonth = (direction: -1 | 1) => {
     let newMonth = selectedMonth + direction;
     let newYear = selectedYear;
@@ -276,13 +371,23 @@ export default function MonthlyDamLevels({ onClose }: Props) {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={handleSave}
-            disabled={saving || !hasChanges}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            onClick={handleExportExcel}
+            disabled={loading || rows.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
           >
-            <Save className="w-4 h-4" />
-            {saving ? 'Saving...' : 'Save'}
+            <Download className="w-4 h-4" />
+            Export Excel
           </button>
+          {!isViewer && (
+            <button
+              onClick={handleSave}
+              disabled={saving || !hasChanges}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          )}
           <button
             onClick={onClose}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
