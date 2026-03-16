@@ -213,8 +213,8 @@ export default function BreakdownsTracker() {
       let query = supabase
         .from('station_breakdowns')
         .select('*')
-        .gte('date_reported', dateRange.start)
         .lte('date_reported', dateRange.end)
+        .or(`is_resolved.eq.false,date_resolved.gte.${dateRange.start},and(date_reported.gte.${dateRange.start},date_reported.lte.${dateRange.end})`)
         .order('date_reported', { ascending: false });
       if (allowedSCIds.length <= 50) query = query.in('service_centre_id', allowedSCIds);
       const { data, error: err } = await query;
