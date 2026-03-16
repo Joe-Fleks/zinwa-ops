@@ -118,13 +118,13 @@ function computeHoursLost(
   periodEnd: string
 ): number {
   if (!dateReported || targetDailyHours <= 0) return 0;
+  const today = new Date().toISOString().split('T')[0];
   const start = new Date(Math.max(
     new Date(dateReported + 'T00:00:00').getTime(),
     new Date(periodStart + 'T00:00:00').getTime()
   ));
-  const endBound = dateResolved
-    ? new Date(dateResolved + 'T00:00:00')
-    : new Date(periodEnd + 'T00:00:00');
+  const resolvedOrToday = dateResolved || today;
+  const endBound = new Date(resolvedOrToday + 'T00:00:00');
   const end = new Date(Math.min(
     endBound.getTime(),
     new Date(periodEnd + 'T00:00:00').getTime()
