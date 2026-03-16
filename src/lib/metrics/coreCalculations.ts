@@ -138,6 +138,67 @@ export function computePumpRate(volume: number, hours: number): number | null {
   return roundTo(volume / hours, 2);
 }
 
+export interface BreakdownRecord {
+  station_id: string;
+  date_reported: string;
+  date_resolved: string | null;
+  is_resolved: boolean;
+  breakdown_impact: string;
+}
+
+export function computeBreakdownHoursLostForPeriod(
+  breakdowns: BreakdownRecord[],
+  logs: Array<{ station_id: string; date: string; cw_hours_run?: number }>,
+  stations: Array<{ id: string; target_daily_hours: number }>,
+  periodStart: string,
+  periodEnd: string
+): Map<string, number> {
+  const stoppedBreakdowns = breakdowns.filter(
+    b => b.breakdown_impact === 'Stopped pumping'
+  );
+  if (stoppedBreakdowns.length === 0) return new Map();
+
+  const targetMap = new Map(stations.map(s => [s.id, Number(s.target_daily_hours) || 0]));
+
+  const logHoursMap = new Map<string, number>();
+  for (const log of logs) {
+    const key = `${log.station_id}|${log.date}`;
+    logHoursMap.set(key, (logHoursMap.get(key) || 0) + (Number(log.cw_hours_run) || 0));
+  }
+
+  const result = new Map<string, number>();
+
+  for (const bd of stoppedBreakdowns) {
+    const sid = bd.station_id;
+    if (!sid) continue;
+    const targetHrs = targetMap.get(sid);
+    if (!targetHrs || targetHrs <= 0) continue;
+
+    const bdStart = bd.date_reported;
+    const bdEnd = bd.is_resolved && bd.date_resolved ? bd.date_resolved : periodEnd;
+
+    const effectiveStart = bdStart > periodStart ? bdStart : periodStart;
+    const effectiveEnd = bdEnd < periodEnd ? bdEnd : periodEnd;
+
+    if (effectiveStart > effectiveEnd) continue;
+
+    const cursor = new Date(effectiveStart + 'T12:00:00');
+    const endDate = new Date(effectiveEnd + 'T12:00:00');
+
+    while (cursor <= endDate) {
+      const dateStr = cursor.toISOString().split('T')[0];
+      const logKey = `${sid}|${dateStr}`;
+      const hoursRun = logHoursMap.get(logKey) || 0;
+      const lostThisDay = Math.max(0, targetHrs - hoursRun);
+
+      result.set(sid, (result.get(sid) || 0) + lostThisDay);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
+  return result;
+}
+
 export function computeCategoryDailyDemand(
   station: Partial<StationClientFields>
 ): number {

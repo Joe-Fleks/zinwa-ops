@@ -10,6 +10,7 @@ import {
   computeAvgUsagePerDay,
   computeDaysRemaining,
   isChemicalLowStock,
+  computeBreakdownHoursLostForPeriod,
 } from './coreCalculations';
 import type { WeekOnWeekChemicalUsage } from './chemicalMetrics';
 import { fetchWeekOnWeekChemicalUsage } from './chemicalMetrics';
@@ -228,8 +229,8 @@ export async function fetchWeeklyReportData(
       .from('station_breakdowns')
       .select('station_id, nature_of_breakdown, description, date_reported, is_resolved, date_resolved, breakdown_impact, hours_lost')
       .in('station_id', stationIds)
-      .gte('date_reported', dateRange.start)
-      .lte('date_reported', dateRange.end),
+      .lte('date_reported', dateRange.end)
+      .or(`is_resolved.eq.false,date_resolved.gte.${dateRange.start}`),
     supabase
       .from('chemical_stock_balances')
       .select('station_id, chemical_type, opening_balance, year, month')
@@ -295,13 +296,19 @@ export async function fetchWeeklyReportData(
     ytdFullAgg.set(sid, existing);
   }
 
-  const breakdownHoursLostByStation = new Map<string, number>();
-  for (const b of (breakdownsRes.data || [])) {
-    if (b.breakdown_impact === 'Stopped pumping') {
-      const sid = b.station_id;
-      breakdownHoursLostByStation.set(sid, (breakdownHoursLostByStation.get(sid) || 0) + (Number(b.hours_lost) || 0));
-    }
-  }
+  const breakdownHoursLostByStation = computeBreakdownHoursLostForPeriod(
+    (breakdownsRes.data || []).map((b: any) => ({
+      station_id: b.station_id,
+      date_reported: b.date_reported,
+      date_resolved: b.date_resolved || null,
+      is_resolved: !!b.is_resolved,
+      breakdown_impact: b.breakdown_impact || '',
+    })),
+    logs.map(l => ({ station_id: l.station_id, date: l.date, cw_hours_run: Number(l.cw_hours_run) || 0 })),
+    allStations.map(s => ({ id: s.id, target_daily_hours: Number(s.target_daily_hours) || 0 })),
+    dateRange.start,
+    dateRange.end
+  );
 
   const stationMetrics: WeeklyStationProduction[] = [];
   let totalCWVol = 0, totalRWVol = 0, totalCWHrs = 0, totalRWHrs = 0;
@@ -380,16 +387,41 @@ export async function fetchWeeklyReportData(
     stations: stationMetrics,
   };
 
-  const breakdowns: WeeklyBreakdown[] = (breakdownsRes.data || []).map((b: any) => ({
-    stationName: stationMap.get(b.station_id)?.station_name || 'Unknown',
-    component: b.nature_of_breakdown || '',
-    description: b.description || '',
-    dateReported: b.date_reported,
-    isResolved: !!b.is_resolved,
-    dateResolved: b.date_resolved || null,
-    impact: b.breakdown_impact || '',
-    hoursLost: Number(b.hours_lost) || 0,
-  }));
+  const breakdowns: WeeklyBreakdown[] = (breakdownsRes.data || []).map((b: any) => {
+    let hoursLost = Number(b.hours_lost) || 0;
+    if (b.breakdown_impact === 'Stopped pumping') {
+      const stationTarget = Number(stationMap.get(b.station_id)?.target_daily_hours) || 0;
+      if (stationTarget > 0) {
+        const bdStart = b.date_reported;
+        const bdEnd = b.is_resolved && b.date_resolved ? b.date_resolved : dateRange.end;
+        const effStart = bdStart > dateRange.start ? bdStart : dateRange.start;
+        const effEnd = bdEnd < dateRange.end ? bdEnd : dateRange.end;
+        if (effStart <= effEnd) {
+          let computed = 0;
+          const cursor = new Date(effStart + 'T12:00:00');
+          const endD = new Date(effEnd + 'T12:00:00');
+          while (cursor <= endD) {
+            const ds = cursor.toISOString().split('T')[0];
+            const logMatch = logs.find(l => l.station_id === b.station_id && l.date === ds);
+            const hrsRun = logMatch ? Number(logMatch.cw_hours_run) || 0 : 0;
+            computed += Math.max(0, stationTarget - hrsRun);
+            cursor.setDate(cursor.getDate() + 1);
+          }
+          hoursLost = computed;
+        }
+      }
+    }
+    return {
+      stationName: stationMap.get(b.station_id)?.station_name || 'Unknown',
+      component: b.nature_of_breakdown || '',
+      description: b.description || '',
+      dateReported: b.date_reported,
+      isResolved: !!b.is_resolved,
+      dateResolved: b.date_resolved || null,
+      impact: b.breakdown_impact || '',
+      hoursLost: roundTo(hoursLost, 1),
+    };
+  });
 
   const reportStartDate = new Date(dateRange.start + 'T12:00:00');
   const reportMonth = reportStartDate.getMonth();

@@ -12,6 +12,7 @@ import {
   computeDaysRemaining,
   isChemicalLowStock,
   computeNRWLosses,
+  computeBreakdownHoursLostForPeriod,
 } from './coreCalculations';
 import { fetchMonthlyEnergySummary, type MonthlyEnergySummary } from './energyMetrics';
 import { fetchRWMonthlyDamReport, fetchRWAgreementStats } from './rwAllocationMetrics';
@@ -198,7 +199,7 @@ export async function fetchMonthlyReportData(
 
   let stationsQuery = supabase
     .from('stations')
-    .select('id, station_name, station_type, service_centre_id, clients_domestic, clients_school, clients_business, clients_industry, clients_church, clients_parastatal, clients_government, clients_other');
+    .select('id, station_name, station_type, service_centre_id, target_daily_hours, clients_domestic, clients_school, clients_business, clients_industry, clients_church, clients_parastatal, clients_government, clients_other');
   stationsQuery = applyScopeToQuery(stationsQuery, scope);
 
   const { data: stationsData, error: stErr } = await stationsQuery;
@@ -220,7 +221,7 @@ export async function fetchMonthlyReportData(
   const [logsRes, ytdLogsRes, breakdownsRes, salesRes, targetsRes, balancesRes, receiptsRes, prevProdRes, ytdCWLogsRes, prodTargetsRes] = await Promise.all([
     supabase
       .from('production_logs')
-      .select('station_id, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, load_shedding_hours, other_downtime_hours, alum_kg, hth_kg, activated_carbon_kg, new_connections')
+      .select('station_id, date, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, load_shedding_hours, other_downtime_hours, alum_kg, hth_kg, activated_carbon_kg, new_connections')
       .in('station_id', stationIds)
       .gte('date', dateRange.start)
       .lt('date', dateRange.end),
@@ -234,8 +235,8 @@ export async function fetchMonthlyReportData(
       .from('station_breakdowns')
       .select('station_id, nature_of_breakdown, description, date_reported, is_resolved, date_resolved, breakdown_impact, hours_lost')
       .in('station_id', stationIds)
-      .gte('date_reported', dateRange.start)
-      .lt('date_reported', dateRange.end),
+      .lte('date_reported', dateRange.end)
+      .or(`is_resolved.eq.false,date_resolved.gte.${dateRange.start}`),
     supabase
       .from('sales_records')
       .select('station_id, returns_volume_m3, sage_sales_volume_m3')
@@ -597,25 +598,62 @@ export async function fetchMonthlyReportData(
   }
 
   const stationMap = new Map(allStations.map(s => [s.id, s]));
-  const breakdowns: MonthlyBreakdown[] = (breakdownsRes.data || []).map((b: any) => ({
-    stationName: stationMap.get(b.station_id)?.station_name || 'Unknown',
-    component: b.nature_of_breakdown || '',
-    description: b.description || '',
-    dateReported: b.date_reported,
-    isResolved: !!b.is_resolved,
-    dateResolved: b.date_resolved || null,
-    impact: b.breakdown_impact || '',
-    hoursLost: Number(b.hours_lost) || 0,
-  }));
 
-  const totalBreakdownHoursLost = roundTo(
-    breakdowns
-      .filter(b => b.impact === 'Stopped pumping')
-      .reduce((sum, b) => sum + b.hoursLost, 0),
-    1
+  const breakdownHoursLostByStation = computeBreakdownHoursLostForPeriod(
+    (breakdownsRes.data || []).map((b: any) => ({
+      station_id: b.station_id,
+      date_reported: b.date_reported,
+      date_resolved: b.date_resolved || null,
+      is_resolved: !!b.is_resolved,
+      breakdown_impact: b.breakdown_impact || '',
+    })),
+    logs.map((l: any) => ({ station_id: l.station_id, date: l.date, cw_hours_run: Number(l.cw_hours_run) || 0 })),
+    allStations.map(s => ({ id: s.id, target_daily_hours: Number(s.target_daily_hours) || 0 })),
+    dateRange.start,
+    dateRange.end
   );
 
-  production.totalBreakdownHoursLost = totalBreakdownHoursLost;
+  const breakdowns: MonthlyBreakdown[] = (breakdownsRes.data || []).map((b: any) => {
+    let hoursLost = Number(b.hours_lost) || 0;
+    if (b.breakdown_impact === 'Stopped pumping') {
+      const stationTarget = Number(stationMap.get(b.station_id)?.target_daily_hours) || 0;
+      if (stationTarget > 0) {
+        const bdStart = b.date_reported;
+        const bdEnd = b.is_resolved && b.date_resolved ? b.date_resolved : dateRange.end;
+        const effStart = bdStart > dateRange.start ? bdStart : dateRange.start;
+        const effEnd = bdEnd < dateRange.end ? bdEnd : dateRange.end;
+        if (effStart <= effEnd) {
+          let computed = 0;
+          const cursor = new Date(effStart + 'T12:00:00');
+          const endD = new Date(effEnd + 'T12:00:00');
+          while (cursor <= endD) {
+            const ds = cursor.toISOString().split('T')[0];
+            const logMatch = logs.find((l: any) => l.station_id === b.station_id && l.date === ds);
+            const hrsRun = logMatch ? Number(logMatch.cw_hours_run) || 0 : 0;
+            computed += Math.max(0, stationTarget - hrsRun);
+            cursor.setDate(cursor.getDate() + 1);
+          }
+          hoursLost = computed;
+        }
+      }
+    }
+    return {
+      stationName: stationMap.get(b.station_id)?.station_name || 'Unknown',
+      component: b.nature_of_breakdown || '',
+      description: b.description || '',
+      dateReported: b.date_reported,
+      isResolved: !!b.is_resolved,
+      dateResolved: b.date_resolved || null,
+      impact: b.breakdown_impact || '',
+      hoursLost: roundTo(hoursLost, 1),
+    };
+  });
+
+  let totalBreakdownHoursLost = 0;
+  for (const [, hrs] of breakdownHoursLostByStation) {
+    totalBreakdownHoursLost += hrs;
+  }
+  production.totalBreakdownHoursLost = roundTo(totalBreakdownHoursLost, 1);
 
   const ytdProductionVsTarget = buildYTDProductionVsTarget(
     allStations, ytdCWLogsRes.data || [], prodTargetsRes.data || [], month
