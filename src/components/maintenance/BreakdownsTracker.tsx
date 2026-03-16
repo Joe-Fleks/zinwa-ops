@@ -33,6 +33,7 @@ type ViewMode = 'date' | 'month';
 interface Station {
   id: string;
   station_name: string;
+  target_daily_hours: number;
 }
 
 interface ServiceCentre {
@@ -55,6 +56,8 @@ interface BreakdownRow {
   details_of_work: string;
   breakdown_impact: string;
   hours_lost: number;
+  computed_hours_lost: number;
+  target_daily_hours: number;
   time_to_repair_days: number;
   remarks: string;
   is_resolved: boolean;
@@ -97,12 +100,38 @@ function createEmptyRow(): BreakdownRow {
     details_of_work: '',
     breakdown_impact: 'Not Significant',
     hours_lost: 0,
+    computed_hours_lost: 0,
+    target_daily_hours: 0,
     time_to_repair_days: 0,
     remarks: '',
     is_resolved: false,
     _isNew: true,
     _isDirty: true,
   };
+}
+
+function computeHoursLost(
+  dateReported: string,
+  dateResolved: string,
+  targetDailyHours: number,
+  periodStart: string,
+  periodEnd: string
+): number {
+  if (!dateReported || targetDailyHours <= 0) return 0;
+  const start = new Date(Math.max(
+    new Date(dateReported + 'T00:00:00').getTime(),
+    new Date(periodStart + 'T00:00:00').getTime()
+  ));
+  const endBound = dateResolved
+    ? new Date(dateResolved + 'T00:00:00')
+    : new Date(periodEnd + 'T00:00:00');
+  const end = new Date(Math.min(
+    endBound.getTime(),
+    new Date(periodEnd + 'T00:00:00').getTime()
+  ));
+  if (end < start) return 0;
+  const diffDays = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+  return Math.round(diffDays * targetDailyHours * 100) / 100;
 }
 
 function formatDateGB(dateStr: string): string {
@@ -183,10 +212,14 @@ export default function BreakdownsTracker() {
   const loadStations = async () => {
     const allowedSCIds = accessContext?.allowedServiceCentreIds || [];
     if (allowedSCIds.length === 0) { setStations([]); return; }
-    let query = supabase.from('stations').select('id, station_name').order('station_name');
+    let query = supabase.from('stations').select('id, station_name, target_daily_hours').order('station_name');
     if (allowedSCIds.length <= 50) query = query.in('service_centre_id', allowedSCIds);
     const { data } = await query;
-    setStations(data || []);
+    setStations((data || []).map((s: any) => ({
+      id: s.id,
+      station_name: s.station_name,
+      target_daily_hours: s.target_daily_hours || 0,
+    })));
   };
 
   const loadServiceCentres = async () => {
@@ -209,6 +242,7 @@ export default function BreakdownsTracker() {
       const allowedSCIds = accessContext?.allowedServiceCentreIds || [];
       if (allowedSCIds.length === 0) { setRows([]); return; }
       const stationMap = new Map(stations.map(s => [s.id, s.station_name]));
+      const stationTargetMap = new Map(stations.map(s => [s.id, s.target_daily_hours]));
       const scMap = new Map(serviceCentres.map(sc => [sc.id, sc.short_name]));
       let query = supabase
         .from('station_breakdowns')
@@ -224,6 +258,14 @@ export default function BreakdownsTracker() {
         const displayName = isVehicleBreakdown
           ? scMap.get(b.service_centre_id) || 'Unknown SC'
           : stationMap.get(b.station_id) || 'Unknown';
+        const targetHrs = b.station_id ? (stationTargetMap.get(b.station_id) || 0) : 0;
+        const computed = computeHoursLost(
+          b.date_reported || '',
+          b.date_resolved || '',
+          targetHrs,
+          dateRange.start,
+          dateRange.end
+        );
         return {
           id: b.id,
           station_id: b.station_id || '',
@@ -238,6 +280,8 @@ export default function BreakdownsTracker() {
           details_of_work: b.details_of_work || '',
           breakdown_impact: b.breakdown_impact || 'Not Significant',
           hours_lost: b.hours_lost || 0,
+          computed_hours_lost: computed,
+          target_daily_hours: targetHrs,
           time_to_repair_days: b.time_to_repair_days || 0,
           remarks: b.remarks || '',
           is_resolved: b.is_resolved || false,
@@ -260,12 +304,22 @@ export default function BreakdownsTracker() {
       if (field === 'station_id') {
         const st = stations.find(s => s.id === value);
         row.station_name = st?.station_name || '';
+        row.target_daily_hours = st?.target_daily_hours || 0;
       }
       if (field === 'date_resolved' && value) row.is_resolved = true;
+      if (field === 'date_reported' || field === 'date_resolved' || field === 'station_id') {
+        row.computed_hours_lost = computeHoursLost(
+          row.date_reported,
+          row.date_resolved,
+          row.target_daily_hours,
+          dateRange.start,
+          dateRange.end
+        );
+      }
       updated[rowIdx] = row;
       return updated;
     });
-  }, [stations]);
+  }, [stations, dateRange]);
 
   const handleAddRow = useCallback(() => {
     setEditRows(prev => [createEmptyRow(), ...prev]);
@@ -496,12 +550,22 @@ export default function BreakdownsTracker() {
     },
     {
       headerName: 'Hrs Lost',
-      field: 'hours_lost',
-      width: 90,
+      field: 'computed_hours_lost',
+      width: 110,
       sortable: true,
       filter: true,
       type: 'numericColumn',
-      valueFormatter: (p: any) => p.value > 0 ? String(p.value) : '-',
+      valueFormatter: (p: any) => {
+        const val = p.value;
+        if (!val || val <= 0) return '-';
+        return val.toLocaleString('en', { maximumFractionDigits: 1 });
+      },
+      tooltipValueGetter: (p: any) => {
+        const d = p.data;
+        if (!d) return '';
+        if (d.target_daily_hours <= 0) return 'No target hours set for this station';
+        return `${d.target_daily_hours} hrs/day target`;
+      },
     },
     {
       headerName: 'Repair (Days)',
@@ -607,13 +671,15 @@ export default function BreakdownsTracker() {
       },
     },
     {
-      key: 'hours_lost', header: 'Hrs Lost', width: 80,
-      editRender: (r: BreakdownRow, i: number) => (
-        <input type="number" value={r.hours_lost ?? 0}
-          onChange={e => handleCellChange(i, 'hours_lost', parseFloat(e.target.value) || 0)}
-          onFocus={e => { if (e.target.value === '0') e.target.select(); }}
-          className={`${inputCls} text-right`} step="0.1" min="0" />
-      ),
+      key: 'computed_hours_lost', header: 'Hrs Lost', width: 100,
+      editRender: (r: BreakdownRow) => {
+        const val = r.computed_hours_lost;
+        return (
+          <span className="block text-right px-1.5 py-1 text-xs text-gray-600" title={r.target_daily_hours > 0 ? `${r.target_daily_hours} hrs/day target` : 'No target set'}>
+            {val > 0 ? val.toLocaleString('en', { maximumFractionDigits: 1 }) : '-'}
+          </span>
+        );
+      },
     },
     {
       key: 'time_to_repair_days', header: 'Repair (Days)', width: 95,
@@ -901,6 +967,7 @@ export default function BreakdownsTracker() {
             enableCellTextSelection={true}
             ensureDomOrder={true}
             animateRows={true}
+            tooltipShowDelay={300}
           />
         </div>
       )}
