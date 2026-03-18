@@ -625,7 +625,15 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   const loadYTDData = async () => {
     if (!accessContext) return;
     const now = new Date();
-    const throughMonth = selectedYear === now.getFullYear() ? now.getMonth() : 11;
+    const isCurrentYear = selectedYear === now.getFullYear();
+    const throughMonth = isCurrentYear ? now.getMonth() : 11;
+
+    let proRate: { day: number; daysInMonth: number } | undefined;
+    if (isCurrentYear) {
+      const day = now.getDate();
+      const daysInMonth = new Date(selectedYear, throughMonth + 1, 0).getDate();
+      proRate = { day, daysInMonth };
+    }
 
     const scope = {
       scopeType: accessContext.scopeType,
@@ -634,7 +642,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     };
 
     const stId = scopeMode === 'station' && selectedStation ? selectedStation.id : undefined;
-    const result = await fetchYTDProduction(scope, selectedYear, throughMonth, stId);
+    const result = await fetchYTDProduction(scope, selectedYear, throughMonth, stId, proRate);
     setYtdData(result);
 
     const bars: ChartBar[] = result.monthlyBreakdown.map(mb => ({

@@ -257,7 +257,8 @@ export async function fetchYTDProduction(
   scope: ScopeFilter,
   year: number,
   throughMonth: number,
-  stationId?: string
+  stationId?: string,
+  proRateCurrentMonth?: { day: number; daysInMonth: number }
 ): Promise<YTDProductionSummary> {
   const ytdStart = `${year}-01-01`;
   const endMonth = throughMonth + 2;
@@ -316,7 +317,10 @@ export async function fetchYTDProduction(
   for (const t of targets) {
     let ytdTarget = 0;
     for (let m = 0; m <= throughMonth; m++) {
-      const val = Number((t as any)[MONTH_KEYS[m]]) || 0;
+      let val = Number((t as any)[MONTH_KEYS[m]]) || 0;
+      if (m === throughMonth && proRateCurrentMonth) {
+        val = val * (proRateCurrentMonth.day / proRateCurrentMonth.daysInMonth);
+      }
       ytdTarget += val;
       monthlyTargetMap.set(m, (monthlyTargetMap.get(m) || 0) + val);
     }
