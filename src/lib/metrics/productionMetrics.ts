@@ -1,11 +1,11 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter, DateRange } from '../metricsConfig';
 import { roundTo } from '../metricsConfig';
-import { applyScopeToQuery, fetchStationIdsByScope } from './scopeFilter';
+import { applyScopeToQuery } from './scopeFilter';
 import {
-  computeDowntime,
   computeProductionEfficiency,
   computePumpRate,
+  computeDowntime,
 } from './coreCalculations';
 
 export interface ProductionSummaryMetrics {
@@ -225,5 +225,147 @@ export async function fetchLabourMetrics(
     totalOperators: totalOps,
     scM3PerOperator: totalOps > 0 && totalVol > 0 ? roundTo(totalVol / totalOps, 1) : null,
     stations: stationMetrics,
+  };
+}
+
+const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as const;
+
+export interface YTDProductionStation {
+  stationId: string;
+  stationName: string;
+  ytdProduction: number;
+  ytdTarget: number;
+  variance: number;
+  achievementPct: number | null;
+}
+
+export interface YTDProductionSummary {
+  stations: YTDProductionStation[];
+  totalYTDProduction: number;
+  totalYTDTarget: number;
+  totalVariance: number;
+  totalAchievementPct: number | null;
+  monthlyBreakdown: Array<{
+    monthIndex: number;
+    monthKey: string;
+    production: number;
+    target: number;
+  }>;
+}
+
+export async function fetchYTDProduction(
+  scope: ScopeFilter,
+  year: number,
+  throughMonth: number,
+  stationId?: string
+): Promise<YTDProductionSummary> {
+  const ytdStart = `${year}-01-01`;
+  const endMonth = throughMonth + 1;
+  const endYear = endMonth > 12 ? year + 1 : year;
+  const endMon = endMonth > 12 ? 1 : endMonth;
+  const ytdEnd = `${endYear}-${String(endMon).padStart(2, '0')}-01`;
+
+  let stationsQuery = supabase
+    .from('stations')
+    .select('id, station_name, service_centre_id')
+    .order('station_name');
+  if (stationId) {
+    stationsQuery = stationsQuery.eq('id', stationId);
+  } else {
+    stationsQuery = applyScopeToQuery(stationsQuery, scope);
+  }
+  const { data: stationsData, error: stErr } = await stationsQuery;
+  if (stErr) throw stErr;
+  const allStations = stationsData || [];
+  if (allStations.length === 0) {
+    return { stations: [], totalYTDProduction: 0, totalYTDTarget: 0, totalVariance: 0, totalAchievementPct: null, monthlyBreakdown: [] };
+  }
+
+  const stationIds = allStations.map(s => s.id);
+
+  const [prodRes, targetsRes] = await Promise.all([
+    supabase
+      .from('production_logs')
+      .select('station_id, date, cw_volume_m3')
+      .in('station_id', stationIds)
+      .gte('date', ytdStart)
+      .lt('date', ytdEnd),
+    supabase
+      .from('cw_production_targets')
+      .select('station_id, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
+      .in('station_id', stationIds)
+      .eq('year', year),
+  ]);
+
+  const prodLogs = prodRes.data || [];
+  const targets = targetsRes.data || [];
+
+  const ytdByStation = new Map<string, number>();
+  const monthlyProdMap = new Map<number, number>();
+
+  for (const log of prodLogs) {
+    const vol = Number(log.cw_volume_m3) || 0;
+    ytdByStation.set(log.station_id, (ytdByStation.get(log.station_id) || 0) + vol);
+    const mIdx = parseInt((log.date as string).split('-')[1]) - 1;
+    monthlyProdMap.set(mIdx, (monthlyProdMap.get(mIdx) || 0) + vol);
+  }
+
+  const targetsByStation = new Map<string, number>();
+  const monthlyTargetMap = new Map<number, number>();
+
+  for (const t of targets) {
+    let ytdTarget = 0;
+    for (let m = 0; m <= throughMonth; m++) {
+      const val = Number((t as any)[MONTH_KEYS[m]]) || 0;
+      ytdTarget += val;
+      monthlyTargetMap.set(m, (monthlyTargetMap.get(m) || 0) + val);
+    }
+    targetsByStation.set(
+      t.station_id,
+      (targetsByStation.get(t.station_id) || 0) + ytdTarget
+    );
+  }
+
+  const stations: YTDProductionStation[] = [];
+  let totalProd = 0, totalTarget = 0;
+
+  for (const station of allStations) {
+    const ytdProd = roundTo(ytdByStation.get(station.id) || 0, 0);
+    const ytdTgt = roundTo(targetsByStation.get(station.id) || 0, 0);
+    const variance = roundTo(ytdProd - ytdTgt, 0);
+    const achievement = ytdTgt > 0 ? roundTo((ytdProd / ytdTgt) * 100, 1) : null;
+
+    stations.push({
+      stationId: station.id,
+      stationName: station.station_name,
+      ytdProduction: ytdProd,
+      ytdTarget: ytdTgt,
+      variance,
+      achievementPct: achievement,
+    });
+
+    totalProd += ytdProd;
+    totalTarget += ytdTgt;
+  }
+
+  stations.sort((a, b) => (a.achievementPct ?? 999) - (b.achievementPct ?? 999));
+
+  const monthlyBreakdown: YTDProductionSummary['monthlyBreakdown'] = [];
+  for (let m = 0; m <= throughMonth; m++) {
+    monthlyBreakdown.push({
+      monthIndex: m,
+      monthKey: `${year}-${String(m + 1).padStart(2, '0')}`,
+      production: Math.round(monthlyProdMap.get(m) || 0),
+      target: Math.round(monthlyTargetMap.get(m) || 0),
+    });
+  }
+
+  return {
+    stations,
+    totalYTDProduction: roundTo(totalProd, 0),
+    totalYTDTarget: roundTo(totalTarget, 0),
+    totalVariance: roundTo(totalProd - totalTarget, 0),
+    totalAchievementPct: totalTarget > 0 ? roundTo((totalProd / totalTarget) * 100, 1) : null,
+    monthlyBreakdown,
   };
 }

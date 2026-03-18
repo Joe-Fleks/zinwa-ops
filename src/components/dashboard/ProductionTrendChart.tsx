@@ -8,9 +8,10 @@ import {
   shouldShowPreviousWeek,
   getMaxWeekNumberForYear,
 } from '../../lib/dateUtils';
-import { fetchNRWByMonth, aggregateNRWByQuarter } from '../../lib/metrics';
+import { fetchNRWByMonth, aggregateNRWByQuarter, fetchYTDProduction } from '../../lib/metrics';
+import type { YTDProductionSummary } from '../../lib/metrics';
 
-type ViewMode = 'week' | 'month' | 'quarter' | 'year';
+type ViewMode = 'week' | 'month' | 'quarter' | 'year' | 'ytd';
 type ScopeMode = 'sc' | 'station';
 type TrendType = 'production' | 'sales' | 'production-vs-sales';
 
@@ -61,6 +62,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(new Date().getMonth() / 3));
   const [chartData, setChartData] = useState<ChartBar[]>([]);
   const [dualData, setDualData] = useState<DualBar[]>([]);
+  const [ytdData, setYtdData] = useState<YTDProductionSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [nrwMap, setNrwMap] = useState<Map<string, number | null>>(new Map());
 
@@ -81,7 +83,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
 
   useEffect(() => {
     if (trendType === 'sales') {
-      if (viewMode === 'week' || viewMode === 'month') {
+      if (viewMode === 'week' || viewMode === 'month' || viewMode === 'ytd') {
         setViewMode(salesViewMode);
       }
       setNrwMap(new Map());
@@ -98,11 +100,11 @@ export default function ProductionTrendChart({ accessContext }: Props) {
 
   useEffect(() => {
     if (trendType === 'production') {
-      if (viewMode === 'quarter' || viewMode === 'year') {
+      if (viewMode === 'quarter' || viewMode === 'year' || viewMode === 'ytd') {
         setProductionViewMode(viewMode);
       }
     } else if (trendType === 'sales') {
-      if (viewMode !== 'week' && viewMode !== 'month') {
+      if (viewMode !== 'week' && viewMode !== 'month' && viewMode !== 'ytd') {
         setSalesViewMode(viewMode);
       }
     }
@@ -248,6 +250,13 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     try {
       if (trendType === 'production-vs-sales') {
         await loadProductionVsSalesData();
+        return;
+      }
+
+      setYtdData(null);
+
+      if (viewMode === 'ytd') {
+        await loadYTDData();
         return;
       }
 
@@ -613,6 +622,31 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     setChartData(bars);
   };
 
+  const loadYTDData = async () => {
+    if (!accessContext) return;
+    const now = new Date();
+    const throughMonth = selectedYear === now.getFullYear() ? now.getMonth() : 11;
+
+    const scope = {
+      scopeType: accessContext.scopeType,
+      scopeId: accessContext.scopeId,
+      allowedServiceCentreIds: accessContext.allowedServiceCentreIds || [],
+    };
+
+    const stId = scopeMode === 'station' && selectedStation ? selectedStation.id : undefined;
+    const result = await fetchYTDProduction(scope, selectedYear, throughMonth, stId);
+    setYtdData(result);
+
+    const bars: ChartBar[] = result.monthlyBreakdown.map(mb => ({
+      label: MONTH_SHORT[mb.monthIndex],
+      actual: mb.production,
+      target: mb.target,
+      monthKey: mb.monthKey,
+    }));
+    setChartData(bars);
+    setDualData([]);
+  };
+
   const handlePrev = () => {
     if (trendType === 'production-vs-sales') {
       if (viewMode === 'quarter') {
@@ -653,6 +687,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         }
         break;
       case 'year':
+      case 'ytd':
         setSelectedYear((p) => p - 1);
         break;
     }
@@ -677,6 +712,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       case 'quarter':
         return !(selectedYear === cy && selectedQuarter >= Math.floor(now.getMonth() / 3));
       case 'year':
+      case 'ytd':
         return selectedYear < cy;
     }
   };
@@ -724,6 +760,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         }
         break;
       case 'year':
+      case 'ytd':
         setSelectedYear((p) => p + 1);
         break;
     }
@@ -766,6 +803,8 @@ export default function ProductionTrendChart({ accessContext }: Props) {
         return `${trendLabel} - ${QUARTER_LABELS[selectedQuarter].split(' ')[0]} ${selectedYear}`;
       case 'year':
         return `${trendLabel} - ${selectedYear}`;
+      case 'ytd':
+        return `${trendLabel} - YTD ${selectedYear}`;
     }
   };
 
@@ -778,6 +817,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       case 'quarter':
         return `Q${selectedQuarter + 1}`;
       case 'year':
+      case 'ytd':
         return '';
     }
   };
@@ -863,6 +903,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       case 'month': return MONTH_SHORT[selectedMonth];
       case 'quarter': return `Q${selectedQuarter + 1}`;
       case 'year': return `${selectedYear}`;
+      case 'ytd': return `YTD ${selectedYear}`;
     }
   };
 
@@ -1013,8 +1054,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
             {(() => {
               const modes = isProdVsSales
                 ? (['quarter', 'year'] as ViewMode[])
-                : (['week', 'month', 'quarter', 'year'] as ViewMode[])
-                    .filter((mode) => trendType === 'sales' ? (mode === 'quarter' || mode === 'year') : true);
+                : trendType === 'sales'
+                  ? (['quarter', 'year'] as ViewMode[])
+                  : (['week', 'month', 'quarter', 'year', 'ytd'] as ViewMode[]);
               return (
                 <>
                   <div className="flex items-center rounded-lg border border-gray-300 overflow-hidden">
@@ -1028,7 +1070,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                             : 'bg-white text-gray-600 hover:bg-gray-50'
                         } ${idx > 0 ? 'border-l border-gray-300' : ''}`}
                       >
-                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                        {mode === 'ytd' ? 'YTD' : mode.charAt(0).toUpperCase() + mode.slice(1)}
                       </button>
                     ))}
                   </div>
@@ -1072,7 +1114,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
               )}
             </div>
 
-            {((!isProdVsSales && viewMode !== 'year') || (isProdVsSales && viewMode === 'quarter')) && (
+            {((!isProdVsSales && viewMode !== 'year' && viewMode !== 'ytd') || (isProdVsSales && viewMode === 'quarter')) && (
               <div className="relative chart-period-dd">
                 <button
                   onClick={() => {
