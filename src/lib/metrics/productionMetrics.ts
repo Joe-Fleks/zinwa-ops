@@ -260,9 +260,9 @@ export async function fetchYTDProduction(
   stationId?: string
 ): Promise<YTDProductionSummary> {
   const ytdStart = `${year}-01-01`;
-  const endMonth = throughMonth + 1;
+  const endMonth = throughMonth + 2;
   const endYear = endMonth > 12 ? year + 1 : year;
-  const endMon = endMonth > 12 ? 1 : endMonth;
+  const endMon = endMonth > 12 ? endMonth - 12 : endMonth;
   const ytdEnd = `${endYear}-${String(endMon).padStart(2, '0')}-01`;
 
   let stationsQuery = supabase
