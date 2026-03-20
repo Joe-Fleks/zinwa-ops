@@ -14,32 +14,36 @@ const FUEL_OPTIONS: { key: FuelType; label: string }[] = [
   { key: 'petrol', label: 'Petrol' },
 ];
 
+function getInitialChemical(params: URLSearchParams): ChemicalType {
+  const p = params.get('chemical');
+  if (p && CHEMICAL_OPTIONS.some(c => c.key === p)) return p as ChemicalType;
+  return 'aluminium_sulphate';
+}
+
+function getInitialFuel(params: URLSearchParams): FuelType {
+  const p = params.get('fuel');
+  if (p && FUEL_OPTIONS.some(f => f.key === p)) return p as FuelType;
+  return 'diesel';
+}
+
+function getInitialTab(params: URLSearchParams): TabKey {
+  const p = params.get('tab');
+  if (p && ['chemicals', 'fuel'].includes(p)) return p as TabKey;
+  return 'chemicals';
+}
+
 export default function StockControl() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<TabKey>('chemicals');
-  const [selectedFuel, setSelectedFuel] = useState<FuelType>('diesel');
-  const [selectedChemical, setSelectedChemical] = useState<ChemicalType>('aluminium_sulphate');
+  const [activeTab, setActiveTab] = useState<TabKey>(() => getInitialTab(searchParams));
+  const [selectedFuel, setSelectedFuel] = useState<FuelType>(() => getInitialFuel(searchParams));
+  const [selectedChemical, setSelectedChemical] = useState<ChemicalType>(() => getInitialChemical(searchParams));
   const [showFuelDropdown, setShowFuelDropdown] = useState(false);
   const [showChemicalDropdown, setShowChemicalDropdown] = useState(false);
 
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    const chemicalParam = searchParams.get('chemical');
-    const fuelParam = searchParams.get('fuel');
-
-    if (tabParam && ['chemicals', 'fuel'].includes(tabParam)) {
-      setActiveTab(tabParam as TabKey);
-    } else if (!tabParam) {
-      setActiveTab('chemicals');
-    }
-
-    if (chemicalParam && CHEMICAL_OPTIONS.some(c => c.key === chemicalParam)) {
-      setSelectedChemical(chemicalParam as ChemicalType);
-    }
-
-    if (fuelParam && FUEL_OPTIONS.some(f => f.key === fuelParam)) {
-      setSelectedFuel(fuelParam as FuelType);
-    }
+    setActiveTab(getInitialTab(searchParams));
+    setSelectedChemical(getInitialChemical(searchParams));
+    setSelectedFuel(getInitialFuel(searchParams));
   }, [searchParams]);
 
   return (

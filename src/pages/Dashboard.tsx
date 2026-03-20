@@ -4,9 +4,10 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { getYesterdayString, getWeekDateRangeForWeekNumber, getCurrentWeekNumber, shouldShowPreviousWeek, getMaxWeekNumberForYear, formatDateTime } from '../lib/dateUtils';
-import { THRESHOLDS, CHEMICAL_PROD_FIELDS, CHEMICAL_TYPES } from '../lib/metricsConfig';
-import { computeReceiptTotal, computeChemicalBalance, computeAvgUsagePerDay, computeDaysRemaining, isChemicalLowStock, isChemicalCriticalStock, computeTotalClients, computeDowntime, isStationNonFunctional } from '../lib/metrics';
+import { THRESHOLDS } from '../lib/metricsConfig';
+import { isChemicalCriticalStock, computeTotalClients, computeDowntime, isStationNonFunctional } from '../lib/metrics';
 import { fetchDailyDemandByStationId } from '../lib/metrics/demandMetrics';
+import { fetchChemicalAlerts, type ChemicalAlertMap } from '../lib/chemicalStockService';
 import ProductionTrendChart from '../components/dashboard/ProductionTrendChart';
 import RWTrendChart from '../components/dashboard/RWTrendChart';
 import ChemicalDosageKPI from '../components/dashboard/ChemicalDosageKPI';
@@ -49,17 +50,6 @@ interface FuelBalance {
   petrol: number | null;
 }
 
-interface ChemicalStationAlert {
-  station_name: string;
-  days_remaining: number;
-}
-
-interface ChemicalAlerts {
-  aluminium_sulphate: ChemicalStationAlert[];
-  hth: ChemicalStationAlert[];
-  activated_carbon: ChemicalStationAlert[];
-}
-
 interface PendingSummarySheets {
   pendingCount: number;
   totalCount: number;
@@ -82,7 +72,7 @@ export default function Dashboard() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [nonFunctionalStats, setNonFunctionalStats] = useState<NonFunctionalStats | null>(null);
   const [fuelBalances, setFuelBalances] = useState<FuelBalance | null>(null);
-  const [chemicalAlerts, setChemicalAlerts] = useState<ChemicalAlerts | null>(null);
+  const [chemicalAlerts, setChemicalAlerts] = useState<ChemicalAlertMap | null>(null);
   const [pendingSummarySheets, setPendingSummarySheets] = useState<PendingSummarySheets | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -488,11 +478,6 @@ export default function Dashboard() {
         .select('id, station_name, station_type, service_centre_id')
         .eq('station_type', 'Clear Water');
 
-      let ftStationsQuery = supabase
-        .from('stations')
-        .select('id, station_name, service_centre_id')
-        .eq('station_type', 'Full Treatment');
-
       let dieselQuery = supabase
         .from('fuel_control_cards')
         .select('balance, entry_date, sort_order')
@@ -516,15 +501,13 @@ export default function Dashboard() {
       if (accessContext.isSCScoped && accessContext.scopeId) {
         prevWeekQuery = prevWeekQuery.eq('stations.service_centre_id', accessContext.scopeId);
         stationsQuery = stationsQuery.eq('service_centre_id', accessContext.scopeId);
-        ftStationsQuery = ftStationsQuery.eq('service_centre_id', accessContext.scopeId);
         dieselQuery = dieselQuery.eq('service_centre_id', accessContext.scopeId);
         petrolQuery = petrolQuery.eq('service_centre_id', accessContext.scopeId);
       }
 
-      const [prevWeekResult, stationsResult, ftStationsResult, dieselResult, petrolResult] = await Promise.all([
+      const [prevWeekResult, stationsResult, dieselResult, petrolResult] = await Promise.all([
         prevWeekQuery,
         stationsQuery,
-        ftStationsQuery,
         dieselQuery,
         petrolQuery,
       ]);
@@ -580,100 +563,12 @@ export default function Dashboard() {
         setFuelBalances({ diesel: dieselBalance, petrol: petrolBalance });
       }
 
-      const ftStations = ftStationsResult.data || [];
-      if (ftStations.length > 0) {
-        const ftStationIds = ftStations.map(s => s.id);
-        const stationNameMap = new Map(ftStations.map(s => [s.id, s.station_name]));
-
-        const [balancesResult, receiptsResult, prodLogsResult] = await Promise.all([
-          supabase
-            .from('chemical_stock_balances')
-            .select('station_id, chemical_type, opening_balance, year, month')
-            .in('station_id', ftStationIds)
-            .in('chemical_type', ['aluminium_sulphate', 'hth', 'activated_carbon'])
-            .order('year', { ascending: false })
-            .order('month', { ascending: false }),
-          supabase
-            .from('chemical_stock_receipts')
-            .select('station_id, chemical_type, quantity, receipt_type, year, month')
-            .in('station_id', ftStationIds)
-            .in('chemical_type', ['aluminium_sulphate', 'hth', 'activated_carbon'])
-            .order('year', { ascending: false })
-            .order('month', { ascending: false }),
-          supabase
-            .from('production_logs')
-            .select('station_id, alum_kg, hth_kg, activated_carbon_kg, date')
-            .in('station_id', ftStationIds)
-            .order('date', { ascending: false })
-            .limit(1000),
-        ]);
-
-        const newChemicalAlerts: ChemicalAlerts = {
-          aluminium_sulphate: [],
-          hth: [],
-          activated_carbon: [],
-        };
-
-        for (const chemType of CHEMICAL_TYPES) {
-          const prodField = CHEMICAL_PROD_FIELDS[chemType];
-
-          for (const stationId of ftStationIds) {
-            const stationName = stationNameMap.get(stationId) || 'Unknown';
-
-            const balanceRow = (balancesResult.data || []).find(
-              r => r.station_id === stationId && r.chemical_type === chemType
-            );
-
-            if (!balanceRow) continue;
-
-            const balanceYear = balanceRow.year;
-            const balanceMonth = balanceRow.month;
-            const openingBalance = Number(balanceRow.opening_balance) || 0;
-
-            const stationReceipts = (receiptsResult.data || [])
-              .filter(r =>
-                r.station_id === stationId &&
-                r.chemical_type === chemType &&
-                (r.year > balanceYear || (r.year === balanceYear && r.month >= balanceMonth))
-              );
-            const received = computeReceiptTotal(stationReceipts);
-
-            const balanceStartDate = `${balanceYear}-${String(balanceMonth).padStart(2, '0')}-01`;
-            let usedTotal = 0;
-            let productionDays = 0;
-            (prodLogsResult.data || [])
-              .filter(r => r.station_id === stationId && r.date >= balanceStartDate)
-              .forEach((r: any) => {
-                const val = Number(r[prodField]) || 0;
-                usedTotal += val;
-                if (val > 0) productionDays++;
-              });
-
-            const currentBalance = computeChemicalBalance(openingBalance, received, usedTotal);
-            if (currentBalance <= 0) continue;
-
-            const avgUsage = computeAvgUsagePerDay(usedTotal, productionDays);
-            const daysRemaining = computeDaysRemaining(currentBalance, avgUsage);
-
-            if (isChemicalLowStock(daysRemaining)) {
-              newChemicalAlerts[chemType].push({
-                station_name: stationName,
-                days_remaining: Math.round(daysRemaining!),
-              });
-            }
-          }
-
-          newChemicalAlerts[chemType].sort((a, b) => a.days_remaining - b.days_remaining);
-        }
-
-        const hasAnyLow =
-          newChemicalAlerts.aluminium_sulphate.length > 0 ||
-          newChemicalAlerts.hth.length > 0 ||
-          newChemicalAlerts.activated_carbon.length > 0;
-
-        if (hasAnyLow) {
-          setChemicalAlerts(newChemicalAlerts);
-        }
+      const chemAlerts = await fetchChemicalAlerts(
+        accessContext.allowedServiceCentreIds || [],
+        THRESHOLDS.CHEMICAL_LOW_STOCK_DAYS
+      );
+      if (chemAlerts) {
+        setChemicalAlerts(chemAlerts);
       }
 
       let allStationsQuery = supabase

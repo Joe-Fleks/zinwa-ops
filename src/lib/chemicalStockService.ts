@@ -268,3 +268,69 @@ export function getAvgUsageColumnHeader(year: number, month: number): string {
 export function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
+
+export interface ChemicalAlertItem {
+  station_name: string;
+  days_remaining: number;
+}
+
+export type ChemicalAlertMap = Record<ChemicalType, ChemicalAlertItem[]>;
+
+export async function fetchChemicalAlerts(
+  allowedServiceCentreIds: string[],
+  lowStockThreshold: number
+): Promise<ChemicalAlertMap | null> {
+  const stations = await fetchFullTreatmentStations(allowedServiceCentreIds);
+  if (stations.length === 0) return null;
+
+  const stationIds = stations.map(s => s.id);
+  const stationNameMap = new Map(stations.map(s => [s.id, s.station_name]));
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
+  const chemTypes: ChemicalType[] = ['aluminium_sulphate', 'hth', 'activated_carbon'];
+  const alerts: ChemicalAlertMap = {
+    aluminium_sulphate: [],
+    hth: [],
+    activated_carbon: [],
+  };
+
+  for (const chemType of chemTypes) {
+    const [balances, prevClosing, received, used, dayCounts] = await Promise.all([
+      fetchOpeningBalances(stationIds, chemType, year, month),
+      fetchPreviousMonthClosingBalances(stationIds, chemType, year, month),
+      fetchReceivedTotals(stationIds, chemType, year, month),
+      fetchUsedTotals(stationIds, chemType, year, month),
+      fetchProductionDayCount(stationIds, chemType, year, month),
+    ]);
+
+    for (const sid of stationIds) {
+      const existing = balances.get(sid);
+      const prevClose = prevClosing.get(sid) ?? 0;
+      const openBal = existing ? existing.opening_balance : prevClose;
+      const rec = received.get(sid) ?? 0;
+      const usedKg = used.get(sid) ?? 0;
+      const currentBal = openBal + rec - usedKg;
+      const days = dayCounts.get(sid) ?? 0;
+      const avgUsage = days > 0 ? usedKg / days : 0;
+      const daysRemaining = avgUsage > 0 ? currentBal / avgUsage : null;
+
+      if (daysRemaining !== null && daysRemaining > 0 && daysRemaining <= lowStockThreshold) {
+        alerts[chemType].push({
+          station_name: stationNameMap.get(sid) || 'Unknown',
+          days_remaining: Math.round(daysRemaining),
+        });
+      }
+    }
+
+    alerts[chemType].sort((a, b) => a.days_remaining - b.days_remaining);
+  }
+
+  const hasAny = alerts.aluminium_sulphate.length > 0 ||
+    alerts.hth.length > 0 ||
+    alerts.activated_carbon.length > 0;
+
+  return hasAny ? alerts : null;
+}
