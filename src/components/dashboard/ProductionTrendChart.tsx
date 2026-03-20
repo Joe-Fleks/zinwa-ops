@@ -1310,9 +1310,11 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                           : 'text-rose-600'
                       }`}>
                         {totalDualSales.toLocaleString()} m³
-                        <span className="text-[10px] font-semibold ml-1 opacity-80">
-                          ({totalDualProduction > 0 ? ((totalDualSales / totalDualProduction) * 100).toFixed(1) : '0.0'}%)
-                        </span>
+                        {totalDualProduction > 0 && (
+                          <span className="text-[10px] font-medium ml-1 opacity-75">
+                            (NRW = {(((totalDualProduction - totalDualSales) / totalDualProduction) * 100).toFixed(1)}%)
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>
