@@ -1,4 +1,4 @@
-import { AlertTriangle, ExternalLink, Fuel, FlaskConical, ClipboardList, Plus, Pencil, Check, X, FileText, Download, Bell, Calendar, Flag, Search, Droplets, TestTube, Cog, Bot, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Fuel, FlaskConical, ClipboardList, Plus, Pencil, Check, X, FileText, Download, Bell, Calendar, Flag, Search, Droplets, TestTube, Cog, Bot, RefreshCw, ChevronDown } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -106,6 +106,9 @@ export default function Dashboard() {
   const [kpiSearch, setKpiSearch] = useState('');
   const [kpiFilter, setKpiFilter] = useState<'all' | 'cw' | 'rw' | 'maintenance' | 'finance'>('all');
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 1024);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+  const [tabDropdownOpen, setTabDropdownOpen] = useState(false);
+  const tabDropdownRef = useRef<HTMLDivElement>(null);
   const narrowRef = useRef(isNarrow);
 
   const serviceCentreId = accessContext?.scopeId ?? null;
@@ -116,14 +119,26 @@ export default function Dashboard() {
 
   useEffect(() => {
     const onResize = () => {
-      const narrow = window.innerWidth < 1024;
+      const w = window.innerWidth;
+      const narrow = w < 1024;
       if (narrow !== narrowRef.current) {
         narrowRef.current = narrow;
         setIsNarrow(narrow);
       }
+      setIsMobile(w < 640);
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (tabDropdownRef.current && !tabDropdownRef.current.contains(e.target as Node)) {
+        setTabDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
   useEffect(() => {
@@ -1712,7 +1727,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="h-full flex flex-col pt-8 px-6 pb-6 gap-6 overflow-hidden">
+    <div className="h-full flex flex-col pt-4 sm:pt-8 px-3 sm:px-6 pb-3 sm:pb-6 gap-3 sm:gap-6 overflow-hidden">
       <style dangerouslySetInnerHTML={{__html: `
         .thin-scrollbar::-webkit-scrollbar {
           width: 4px;
@@ -1736,43 +1751,106 @@ export default function Dashboard() {
         /* ── NARROW / MERGED LAYOUT ── */
         <div className="flex flex-col flex-1 min-h-0">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden flex-1 min-h-0">
-            <div className="flex flex-shrink-0 border-b border-gray-200 overflow-x-auto">
-              {(['cw', 'rw', 'kpis', 'reports', 'ai', 'alerts', 'followups'] as const).map((tab) => {
-                const alertCount = weeklyReports.length + monthlyReports.length + alerts.length + (missingLogsInfo ? 1 : 0) + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0);
-                const readyReportCount = allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length;
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => setMergedTab(tab)}
-                    className={`flex-shrink-0 flex items-center justify-center gap-1.5 px-4 py-3 text-xs font-semibold transition-colors whitespace-nowrap ${
-                      mergedTab === tab
-                        ? 'text-blue-700 border-b-2 border-blue-500 bg-blue-50'
-                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {tab === 'ai' && <Bot className="w-3.5 h-3.5" />}
-                    {tab === 'alerts' && <Bell className="w-3.5 h-3.5" />}
-                    {tab === 'followups' && <ClipboardList className="w-3.5 h-3.5" />}
-                    {tab === 'cw' && 'CW Trends'}
-                    {tab === 'rw' && 'RW Trends'}
-                    {tab === 'kpis' && 'KPIs'}
-                    {tab === 'reports' && 'Reports'}
-                    {tab === 'ai' && 'AI Assistant'}
-                    {tab === 'alerts' && 'Alerts'}
-                    {tab === 'followups' && 'Follow-ups'}
-                    {tab === 'reports' && readyReportCount > 0 && (
-                      <span className="ml-0.5 bg-sky-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>{readyReportCount}</span>
-                    )}
-                    {tab === 'alerts' && alertCount > 0 && (
-                      <span className="ml-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>{alertCount}</span>
-                    )}
-                    {tab === 'followups' && customAlerts.length > 0 && (
-                      <span className="ml-0.5 bg-blue-400 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>{customAlerts.length}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            {isMobile ? (
+              <div className="relative flex-shrink-0 border-b border-gray-200" ref={tabDropdownRef}>
+                <button
+                  onClick={() => setTabDropdownOpen(prev => !prev)}
+                  className="flex items-center justify-between w-full px-4 py-3 text-sm font-semibold text-blue-700 bg-blue-50"
+                >
+                  <span className="flex items-center gap-2">
+                    {mergedTab === 'ai' && <Bot className="w-3.5 h-3.5" />}
+                    {mergedTab === 'alerts' && <Bell className="w-3.5 h-3.5" />}
+                    {mergedTab === 'followups' && <ClipboardList className="w-3.5 h-3.5" />}
+                    {mergedTab === 'cw' && 'CW Trends'}
+                    {mergedTab === 'rw' && 'RW Trends'}
+                    {mergedTab === 'kpis' && 'KPIs'}
+                    {mergedTab === 'reports' && 'Reports'}
+                    {mergedTab === 'ai' && 'AI Assistant'}
+                    {mergedTab === 'alerts' && 'Alerts'}
+                    {mergedTab === 'followups' && 'Follow-ups'}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${tabDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {tabDropdownOpen && (
+                  <div className="absolute left-0 right-0 top-full bg-white border border-gray-200 shadow-lg rounded-b-lg z-40">
+                    {(['cw', 'rw', 'kpis', 'reports', 'ai', 'alerts', 'followups'] as const).map((tab) => {
+                      const alertCount = weeklyReports.length + monthlyReports.length + alerts.length + (missingLogsInfo ? 1 : 0) + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0);
+                      const readyReportCount = allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length;
+                      const isActive = mergedTab === tab;
+                      return (
+                        <button
+                          key={tab}
+                          onClick={() => { setMergedTab(tab); setTabDropdownOpen(false); }}
+                          className={`flex items-center gap-2 w-full px-4 py-3 text-sm font-medium transition-colors ${
+                            isActive ? 'text-blue-700 bg-blue-50' : 'text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {tab === 'ai' && <Bot className="w-3.5 h-3.5" />}
+                          {tab === 'alerts' && <Bell className="w-3.5 h-3.5" />}
+                          {tab === 'followups' && <ClipboardList className="w-3.5 h-3.5" />}
+                          <span>
+                            {tab === 'cw' && 'CW Trends'}
+                            {tab === 'rw' && 'RW Trends'}
+                            {tab === 'kpis' && 'KPIs'}
+                            {tab === 'reports' && 'Reports'}
+                            {tab === 'ai' && 'AI Assistant'}
+                            {tab === 'alerts' && 'Alerts'}
+                            {tab === 'followups' && 'Follow-ups'}
+                          </span>
+                          {tab === 'reports' && readyReportCount > 0 && (
+                            <span className="ml-auto bg-sky-500 text-white rounded-full w-5 h-5 flex items-center justify-center" style={{ fontSize: '10px' }}>{readyReportCount}</span>
+                          )}
+                          {tab === 'alerts' && alertCount > 0 && (
+                            <span className="ml-auto bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center" style={{ fontSize: '10px' }}>{alertCount}</span>
+                          )}
+                          {tab === 'followups' && customAlerts.length > 0 && (
+                            <span className="ml-auto bg-blue-400 text-white rounded-full w-5 h-5 flex items-center justify-center" style={{ fontSize: '10px' }}>{customAlerts.length}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-shrink-0 border-b border-gray-200 overflow-x-auto">
+                {(['cw', 'rw', 'kpis', 'reports', 'ai', 'alerts', 'followups'] as const).map((tab) => {
+                  const alertCount = weeklyReports.length + monthlyReports.length + alerts.length + (missingLogsInfo ? 1 : 0) + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0);
+                  const readyReportCount = allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setMergedTab(tab)}
+                      className={`flex-shrink-0 flex items-center justify-center gap-1.5 px-4 py-3 text-xs font-semibold transition-colors whitespace-nowrap ${
+                        mergedTab === tab
+                          ? 'text-blue-700 border-b-2 border-blue-500 bg-blue-50'
+                          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {tab === 'ai' && <Bot className="w-3.5 h-3.5" />}
+                      {tab === 'alerts' && <Bell className="w-3.5 h-3.5" />}
+                      {tab === 'followups' && <ClipboardList className="w-3.5 h-3.5" />}
+                      {tab === 'cw' && 'CW Trends'}
+                      {tab === 'rw' && 'RW Trends'}
+                      {tab === 'kpis' && 'KPIs'}
+                      {tab === 'reports' && 'Reports'}
+                      {tab === 'ai' && 'AI Assistant'}
+                      {tab === 'alerts' && 'Alerts'}
+                      {tab === 'followups' && 'Follow-ups'}
+                      {tab === 'reports' && readyReportCount > 0 && (
+                        <span className="ml-0.5 bg-sky-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>{readyReportCount}</span>
+                      )}
+                      {tab === 'alerts' && alertCount > 0 && (
+                        <span className="ml-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>{alertCount}</span>
+                      )}
+                      {tab === 'followups' && customAlerts.length > 0 && (
+                        <span className="ml-0.5 bg-blue-400 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>{customAlerts.length}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="overflow-y-auto thin-scrollbar flex-1">
               {mergedTab === 'cw' && <ProductionTrendChart accessContext={accessContext} />}
               {mergedTab === 'rw' && (
