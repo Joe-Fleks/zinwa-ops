@@ -75,6 +75,52 @@ export async function fetchOpeningBalances(
   return map;
 }
 
+async function resolveOpeningBalances(
+  stationIds: string[],
+  chemicalType: ChemicalType,
+  year: number,
+  month: number,
+  maxDepth: number = 24
+): Promise<Map<string, number>> {
+  const saved = await fetchOpeningBalances(stationIds, chemicalType, year, month);
+
+  const resolved = new Map<string, number>();
+  const unresolved: string[] = [];
+
+  for (const sid of stationIds) {
+    const rec = saved.get(sid);
+    if (rec) {
+      resolved.set(sid, rec.opening_balance);
+    } else {
+      unresolved.push(sid);
+    }
+  }
+
+  if (unresolved.length === 0 || maxDepth <= 0) {
+    for (const sid of unresolved) {
+      resolved.set(sid, 0);
+    }
+    return resolved;
+  }
+
+  let prevMonth = month - 1;
+  let prevYear = year;
+  if (prevMonth < 1) { prevMonth = 12; prevYear -= 1; }
+
+  const prevOpening = await resolveOpeningBalances(unresolved, chemicalType, prevYear, prevMonth, maxDepth - 1);
+  const prevReceipts = await fetchReceivedTotals(unresolved, chemicalType, prevYear, prevMonth);
+  const prevUsed = await fetchUsedTotals(unresolved, chemicalType, prevYear, prevMonth);
+
+  for (const sid of unresolved) {
+    const opening = prevOpening.get(sid) ?? 0;
+    const received = prevReceipts.get(sid) ?? 0;
+    const used = prevUsed.get(sid) ?? 0;
+    resolved.set(sid, opening + received - used);
+  }
+
+  return resolved;
+}
+
 export async function fetchPreviousMonthClosingBalances(
   stationIds: string[],
   chemicalType: ChemicalType,
@@ -85,13 +131,13 @@ export async function fetchPreviousMonthClosingBalances(
   let prevYear = year;
   if (prevMonth < 1) { prevMonth = 12; prevYear -= 1; }
 
-  const prevBalances = await fetchOpeningBalances(stationIds, chemicalType, prevYear, prevMonth);
+  const prevOpening = await resolveOpeningBalances(stationIds, chemicalType, prevYear, prevMonth);
   const prevReceipts = await fetchReceivedTotals(stationIds, chemicalType, prevYear, prevMonth);
   const prevUsed = await fetchUsedTotals(stationIds, chemicalType, prevYear, prevMonth);
 
   const map = new Map<string, number>();
   stationIds.forEach(sid => {
-    const opening = prevBalances.get(sid)?.opening_balance ?? 0;
+    const opening = prevOpening.get(sid) ?? 0;
     const received = prevReceipts.get(sid) ?? 0;
     const used = prevUsed.get(sid) ?? 0;
     map.set(sid, opening + received - used);
