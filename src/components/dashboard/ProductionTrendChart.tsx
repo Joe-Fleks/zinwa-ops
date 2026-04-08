@@ -12,7 +12,7 @@ import { fetchNRWByMonth, aggregateNRWByQuarter, fetchYTDProduction } from '../.
 import type { YTDProductionSummary } from '../../lib/metrics';
 
 type ViewMode = 'week' | 'month' | 'quarter' | 'year' | 'ytd';
-type ScopeMode = 'sc' | 'station';
+type ScopeMode = 'sc' | 'all-stations' | 'station';
 type TrendType = 'production' | 'sales' | 'production-vs-sales';
 
 interface ChartBar {
@@ -86,9 +86,11 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       if (viewMode === 'week' || viewMode === 'month' || viewMode === 'ytd') {
         setViewMode(salesViewMode);
       }
+      if (scopeMode === 'all-stations') setScopeMode('sc');
       setNrwMap(new Map());
     } else if (trendType === 'production-vs-sales') {
       setViewMode('quarter');
+      if (scopeMode === 'all-stations') setScopeMode('sc');
       setNrwMap(new Map());
     } else {
       if (viewMode === 'week' || viewMode === 'month') {
@@ -107,6 +109,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       if (viewMode !== 'week' && viewMode !== 'month' && viewMode !== 'ytd') {
         setSalesViewMode(viewMode);
       }
+    }
+    if (viewMode !== 'ytd' && scopeMode === 'all-stations') {
+      setScopeMode('sc');
     }
   }, [viewMode]);
 
@@ -780,9 +785,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     'Production/Sales Trend';
 
   const getScopeLabel = (): string => {
-    return scopeMode === 'station' && selectedStation
-      ? selectedStation.station_name
-      : (accessContext?.serviceCentre?.name ?? 'SC');
+    if (scopeMode === 'station' && selectedStation) return selectedStation.station_name;
+    if (scopeMode === 'all-stations') return `${accessContext?.serviceCentre?.name ?? 'SC'} - All Stations`;
+    return accessContext?.serviceCentre?.name ?? 'SC';
   };
 
   const getSubtitle = (): string => {
@@ -996,13 +1001,20 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                     if (scopeMode === 'station') {
                       setShowStationDropdown(!showStationDropdown);
                       setStationSearchQuery('');
+                    } else if (scopeMode === 'all-stations') {
+                      setScopeMode('station');
+                      setShowStationDropdown(true);
+                      setStationSearchQuery('');
+                    } else if (viewMode === 'ytd') {
+                      setScopeMode('all-stations');
+                      setShowStationDropdown(false);
                     } else {
                       setScopeMode('station');
                       setShowStationDropdown(false);
                     }
                   }}
                   className={`px-3 py-1.5 text-xs font-semibold transition-all flex items-center gap-1 rounded-r-lg ${
-                    scopeMode === 'station'
+                    scopeMode === 'station' || scopeMode === 'all-stations'
                       ? 'bg-blue-50 text-blue-700'
                       : 'bg-white text-gray-600 hover:bg-gray-50'
                   }`}
@@ -1010,9 +1022,11 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                   <span className="truncate max-w-[120px]">
                     {scopeMode === 'station' && selectedStation
                       ? selectedStation.station_name
+                      : scopeMode === 'all-stations'
+                      ? 'All Stations'
                       : 'Station'}
                   </span>
-                  <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${showStationDropdown ? 'rotate-180' : ''} ${scopeMode === 'station' ? 'text-white' : 'text-gray-500'}`} />
+                  <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${showStationDropdown ? 'rotate-180' : ''} ${scopeMode === 'station' || scopeMode === 'all-stations' ? 'text-white' : 'text-gray-500'}`} />
                 </button>
                 {showStationDropdown && (
                   <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-20 w-64">
@@ -1342,6 +1356,117 @@ export default function ProductionTrendChart({ accessContext }: Props) {
 
           {loading ? (
             <div className="text-center py-12 text-gray-500">Loading data...</div>
+          ) : scopeMode === 'all-stations' && viewMode === 'ytd' && ytdData && ytdData.stations.length > 0 ? (
+            <>
+              <div className="space-y-0">
+                {ytdData.stations.map((st, i) => {
+                  const rowMax = Math.max(st.ytdProduction, st.ytdTarget, 1);
+                  const actualPct = (st.ytdProduction / rowMax) * 100;
+                  const targetPct = (st.ytdTarget / rowMax) * 100;
+
+                  return (
+                    <div
+                      key={st.stationId}
+                      className="py-3"
+                      style={i > 0 ? { borderTop: '1px solid #e5e7eb' } : undefined}
+                    >
+                      <div className="flex items-start gap-2 w-full">
+                        <div className="w-28 flex-shrink-0">
+                          <div className="text-xs font-bold text-gray-800 leading-tight truncate" title={st.stationName}>{st.stationName}</div>
+                        </div>
+                        <div className="flex-1 flex flex-col gap-1 min-w-0">
+                          <div className="flex items-center gap-2 leading-none">
+                            <div className="flex-1 bg-gray-100 rounded-full h-[5px] lg:h-[6px] overflow-hidden">
+                              <div
+                                className="h-full bg-gray-400 rounded-full transition-all duration-500"
+                                style={{ width: `${Math.max(targetPct, st.ytdTarget > 0 ? 2 : 0)}%` }}
+                              />
+                            </div>
+                            <div className="w-36 flex-shrink-0">
+                              <span className="text-[11px] font-bold text-gray-600 tabular-nums leading-none whitespace-nowrap">
+                                {st.ytdTarget.toLocaleString()} m{'\u00B3'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 leading-none">
+                            <div className="flex-1 bg-gray-100 rounded-full h-[5px] lg:h-[6px] overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  st.ytdProduction >= st.ytdTarget ? actualMetColor : actualNotMetColor
+                                }`}
+                                style={{ width: `${Math.max(actualPct, st.ytdProduction > 0 ? 2 : 0)}%` }}
+                              />
+                            </div>
+                            <div className="w-36 flex-shrink-0">
+                              <span className={`text-[11px] font-bold tabular-nums leading-none whitespace-nowrap ${
+                                st.ytdProduction >= st.ytdTarget ? actualMetTextColor : actualNotMetTextColor
+                              }`}>
+                                {st.ytdProduction.toLocaleString()} m{'\u00B3'}
+                                {st.achievementPct !== null && (
+                                  <span className="text-[10px] font-medium ml-1 opacity-75">
+                                    ({st.achievementPct.toFixed(0)}%)
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-2 pt-2 border-t-2 border-gray-400">
+                <div className="flex flex-col gap-1 w-full py-1.5">
+                  <div className="flex items-center gap-2 w-full leading-none">
+                    <div className="w-28 flex-shrink-0">
+                      <span className="text-[10px] font-bold text-gray-700 leading-none whitespace-nowrap uppercase tracking-wide">Target</span>
+                      <div className="text-[9px] text-gray-400 leading-tight">{getSummaryLabel()}</div>
+                    </div>
+                    <div className="flex-1 bg-gray-200 rounded-full h-[7px] lg:h-[9px] overflow-hidden">
+                      <div
+                        className="h-full bg-gray-500 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.max((ytdData.totalYTDTarget / Math.max(ytdData.totalYTDTarget, ytdData.totalYTDProduction, 1)) * 100, ytdData.totalYTDTarget > 0 ? 2 : 0)}%` }}
+                      />
+                    </div>
+                    <div className="w-36 flex-shrink-0">
+                      <span className="text-[12px] font-extrabold text-gray-600 tabular-nums leading-none whitespace-nowrap">
+                        {ytdData.totalYTDTarget.toLocaleString()} m{'\u00B3'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 w-full leading-none">
+                    <div className="w-28 flex-shrink-0">
+                      <span className="text-[10px] font-bold leading-none uppercase tracking-wide block" style={{ color: ytdData.totalYTDProduction >= ytdData.totalYTDTarget ? '#059669' : '#e11d48' }}>
+                        Actual Production
+                      </span>
+                      <div className="text-[9px] text-gray-400 leading-tight">{getSummaryLabel()}</div>
+                    </div>
+                    <div className="flex-1 bg-gray-200 rounded-full h-[7px] lg:h-[9px] overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          ytdData.totalYTDProduction >= ytdData.totalYTDTarget ? 'bg-emerald-500' : 'bg-rose-500'
+                        }`}
+                        style={{ width: `${Math.max((ytdData.totalYTDProduction / Math.max(ytdData.totalYTDTarget, ytdData.totalYTDProduction, 1)) * 100, ytdData.totalYTDProduction > 0 ? 2 : 0)}%` }}
+                      />
+                    </div>
+                    <div className="w-36 flex-shrink-0">
+                      <span className={`text-[12px] font-extrabold tabular-nums leading-none whitespace-nowrap ${
+                        ytdData.totalYTDProduction >= ytdData.totalYTDTarget ? 'text-emerald-700' : 'text-rose-600'
+                      }`}>
+                        {ytdData.totalYTDProduction.toLocaleString()} m{'\u00B3'}
+                        {ytdData.totalAchievementPct !== null && (
+                          <span className={`text-[10px] font-semibold ml-1 opacity-80 ${ytdData.totalAchievementPct >= 100 ? 'text-emerald-600' : ytdData.totalAchievementPct >= 75 ? 'text-blue-600' : 'text-rose-500'}`}>
+                            ({ytdData.totalAchievementPct.toFixed(1)}%)
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
           ) : chartData.length === 0 ? (
             <div className="text-center py-12 text-gray-500">No {trendType} data available</div>
           ) : (
