@@ -1044,17 +1044,34 @@ export default function ProductionTrendChart({ accessContext }: Props) {
                       </div>
                     </div>
                     <div className="max-h-56 overflow-y-auto">
+                      {viewMode === 'ytd' && !stationSearchQuery && (
+                        <button
+                          onClick={() => {
+                            setScopeMode('all-stations');
+                            setShowStationDropdown(false);
+                            setStationSearchQuery('');
+                          }}
+                          className={`w-full px-4 py-2 text-left transition-colors text-sm border-b border-gray-100 font-medium ${
+                            scopeMode === 'all-stations'
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          All Stations
+                        </button>
+                      )}
                       {filteredStations.length > 0 ? (
                         filteredStations.map((st) => (
                           <button
                             key={st.id}
                             onClick={() => {
+                              setScopeMode('station');
                               setSelectedStation(st);
                               setShowStationDropdown(false);
                               setStationSearchQuery('');
                             }}
                             className={`w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors text-sm ${
-                              selectedStation?.id === st.id
+                              scopeMode === 'station' && selectedStation?.id === st.id
                                 ? 'bg-blue-50 text-blue-700 font-medium'
                                 : 'text-gray-700'
                             }`}
