@@ -3,9 +3,9 @@ import { useEffect, useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { getYesterdayString, getWeekDateRangeForWeekNumber, getCurrentWeekNumber, shouldShowPreviousWeek, getMaxWeekNumberForYear, formatDateTime } from '../lib/dateUtils';
+import { getYesterdayString, formatDateTime } from '../lib/dateUtils';
 import { THRESHOLDS } from '../lib/metricsConfig';
-import { isChemicalCriticalStock, computeTotalClients, computeDowntime, isStationNonFunctional } from '../lib/metrics';
+import { isChemicalCriticalStock, computeTotalClients, isStationNonFunctional } from '../lib/metrics';
 import { fetchDailyDemandByStationId } from '../lib/metrics/demandMetrics';
 import { fetchChemicalAlerts, type ChemicalAlertMap } from '../lib/chemicalStockService';
 import ProductionTrendChart from '../components/dashboard/ProductionTrendChart';
@@ -468,11 +468,6 @@ export default function Dashboard() {
 
       const yesterday = getYesterdayString();
 
-      const currentWeek = getCurrentWeekNumber();
-      const prevWeekNum = currentWeek > 1 ? currentWeek - 1 : getMaxWeekNumberForYear(new Date().getFullYear() - 1);
-      const prevWeekYear = currentWeek > 1 ? new Date().getFullYear() : new Date().getFullYear() - 1;
-      const prevWeekDates = getWeekDateRangeForWeekNumber(prevWeekNum, prevWeekYear);
-
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth() + 1;
@@ -481,12 +476,6 @@ export default function Dashboard() {
       const endMonth = currentMonth === 12 ? 1 : currentMonth + 1;
       const endYear = currentMonth === 12 ? currentYear + 1 : currentYear;
       const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
-
-      let prevWeekQuery = supabase
-        .from('production_logs')
-        .select('station_id, load_shedding_hours, other_downtime_hours, stations(station_name, service_centre_id)')
-        .gte('date', prevWeekDates.start)
-        .lte('date', prevWeekDates.end);
 
       let stationsQuery = supabase
         .from('stations')
@@ -514,46 +503,18 @@ export default function Dashboard() {
         .limit(1);
 
       if (accessContext.isSCScoped && accessContext.scopeId) {
-        prevWeekQuery = prevWeekQuery.eq('stations.service_centre_id', accessContext.scopeId);
         stationsQuery = stationsQuery.eq('service_centre_id', accessContext.scopeId);
         dieselQuery = dieselQuery.eq('service_centre_id', accessContext.scopeId);
         petrolQuery = petrolQuery.eq('service_centre_id', accessContext.scopeId);
       }
 
-      const [prevWeekResult, stationsResult, dieselResult, petrolResult] = await Promise.all([
-        prevWeekQuery,
+      const [stationsResult, dieselResult, petrolResult] = await Promise.all([
         stationsQuery,
         dieselQuery,
         petrolQuery,
       ]);
 
       const generatedAlerts: Alert[] = [];
-
-      const isFriday = today.getDay() === 5;
-      if (isFriday || shouldShowPreviousWeek()) {
-        const stationDowntimeMap = new Map<string, { total: number; name: string }>();
-        (prevWeekResult.data || []).forEach((log) => {
-          const stationName = log.stations?.station_name || 'Unknown Station';
-          const downtime = computeDowntime(log.load_shedding_hours, log.other_downtime_hours);
-          const current = stationDowntimeMap.get(log.station_id) || { total: 0, name: stationName };
-          stationDowntimeMap.set(log.station_id, { total: current.total + downtime, name: stationName });
-        });
-
-        const highDowntimeStations = Array.from(stationDowntimeMap.entries())
-          .filter(([_, data]) => data.total > THRESHOLDS.HIGH_DOWNTIME_WEEKLY_HOURS)
-          .sort((a, b) => b[1].total - a[1].total);
-
-        if (highDowntimeStations.length > 0) {
-          const topStation = highDowntimeStations[0];
-          generatedAlerts.push({
-            id: 'high-downtime-alert',
-            title: 'High Downtime Alert',
-            message: `${topStation[1].name} recorded ${topStation[1].total.toFixed(1)} hours downtime last week. Review required.`,
-            severity: topStation[1].total > THRESHOLDS.CRITICAL_DOWNTIME_WEEKLY_HOURS ? 'critical' : 'warning',
-            created_at: new Date().toISOString(),
-          });
-        }
-      }
 
       const cwStations = stationsResult.data || [];
       if (cwStations.length > 0) {
