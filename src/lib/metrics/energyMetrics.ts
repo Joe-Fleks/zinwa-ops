@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter } from '../metricsConfig';
 import { roundTo, buildMonthDateRange } from '../metricsConfig';
-import { applyScopeToQuery } from './scopeFilter';
+import { applyScopeToQuery, fetchAllRows } from './scopeFilter';
 
 export interface EnergyMeterSummary {
   meterId: string;
@@ -54,21 +54,18 @@ export async function fetchMonthlyEnergySummary(
 
   const allowedSCIds = [...new Set(allStations.map(s => s.service_centre_id))];
 
-  const [metersRes, motorsRes, logsRes] = await Promise.all([
-    supabase.from('energy_meters').select('*').in('service_centre_id', allowedSCIds),
-    supabase.from('equipment_motors').select('id, station_id, motor_use, kw_rating').in('service_centre_id', allowedSCIds),
-    (() => {
-      const dateRange = buildMonthDateRange(year, month);
-      return supabase.from('production_logs')
+  const dateRange = buildMonthDateRange(year, month);
+  const [meters, motorsList, logsData] = await Promise.all([
+    fetchAllRows(supabase.from('energy_meters').select('*').in('service_centre_id', allowedSCIds)),
+    fetchAllRows(supabase.from('equipment_motors').select('id, station_id, motor_use, kw_rating').in('service_centre_id', allowedSCIds)),
+    fetchAllRows(
+      supabase.from('production_logs')
         .select('station_id, cw_hours_run, rw_hours_run')
         .in('station_id', stationIds)
         .gte('date', dateRange.start)
-        .lt('date', dateRange.end);
-    })(),
+        .lt('date', dateRange.end)
+    ),
   ]);
-
-  const meters = metersRes.data || [];
-  const motorsList = motorsRes.data || [];
   const motorMap = new Map(motorsList.map(m => [m.id, m]));
 
   const meterIds = meters.map(m => m.id);
@@ -85,7 +82,7 @@ export async function fetchMonthlyEnergySummary(
   }
 
   const hoursAgg = new Map<string, { cw: number; rw: number }>();
-  for (const log of (logsRes.data || [])) {
+  for (const log of logsData) {
     const ex = hoursAgg.get(log.station_id) || { cw: 0, rw: 0 };
     ex.cw += Number(log.cw_hours_run) || 0;
     ex.rw += Number(log.rw_hours_run) || 0;

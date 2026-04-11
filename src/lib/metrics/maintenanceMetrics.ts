@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter } from '../metricsConfig';
 import { roundTo, THRESHOLDS } from '../metricsConfig';
-import { applyScopeToQuery } from './scopeFilter';
+import { applyScopeToQuery, fetchAllRows } from './scopeFilter';
 import {
   isStationNonFunctional,
   computeDowntime,
@@ -125,11 +125,10 @@ export async function fetchDowntimeByStation(
     .lte('date', dateEnd);
 
   query = applyScopeToQuery(query, scope, 'stations.service_centre_id');
-  const { data, error } = await query;
-  if (error) throw error;
+  const data = await fetchAllRows(query);
 
   const stationMap = new Map<string, { name: string; ls: number; other: number }>();
-  for (const log of (data || [])) {
+  for (const log of data) {
     const sid = log.station_id;
     const existing = stationMap.get(sid) || { name: (log.stations as any)?.station_name || '', ls: 0, other: 0 };
     existing.ls += Number(log.load_shedding_hours) || 0;
@@ -172,17 +171,17 @@ export async function fetchCapacityVarianceMetrics(
   if (!stations || stations.length === 0) return [];
 
   const ids = stations.map(s => s.id);
-  const { data: logs, error: logErr } = await supabase
-    .from('production_logs')
-    .select('station_id, rw_volume_m3, rw_hours_run, cw_volume_m3, cw_hours_run')
-    .in('station_id', ids)
-    .gte('date', dateStart)
-    .lte('date', dateEnd);
-
-  if (logErr) throw logErr;
+  const logs = await fetchAllRows(
+    supabase
+      .from('production_logs')
+      .select('station_id, rw_volume_m3, rw_hours_run, cw_volume_m3, cw_hours_run')
+      .in('station_id', ids)
+      .gte('date', dateStart)
+      .lte('date', dateEnd)
+  );
 
   const aggMap = new Map<string, { rwVol: number; rwHrs: number; cwVol: number; cwHrs: number }>();
-  for (const log of (logs || [])) {
+  for (const log of logs) {
     const existing = aggMap.get(log.station_id) || { rwVol: 0, rwHrs: 0, cwVol: 0, cwHrs: 0 };
     existing.rwVol += Number(log.rw_volume_m3) || 0;
     existing.rwHrs += Number(log.rw_hours_run) || 0;

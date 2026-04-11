@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter } from '../metricsConfig';
 import { roundTo, getPreviousMonthPeriod, CATEGORY_DAILY_DEMAND_M3, CLIENT_CATEGORIES } from '../metricsConfig';
-import { applyScopeToQuery } from './scopeFilter';
+import { applyScopeToQuery, fetchAllRows } from './scopeFilter';
 import {
   computeNRWLosses,
   computeTotalClients,
@@ -69,37 +69,41 @@ export async function fetchNRWMetrics(
   for (const p of prodMonthPairs) {
     const startDate = `${p.year}-${String(p.month).padStart(2, '0')}-01`;
     const endDate = new Date(p.year, p.month, 0).toISOString().split('T')[0];
-    const { data, error } = await supabase
-      .from('production_logs')
-      .select('station_id, rw_volume_m3, cw_volume_m3')
-      .in('station_id', stationIds)
-      .gte('date', startDate)
-      .lte('date', endDate);
-    if (error) throw error;
-    allProdLogs = allProdLogs.concat(data || []);
+    const data = await fetchAllRows(
+      supabase
+        .from('production_logs')
+        .select('station_id, rw_volume_m3, cw_volume_m3')
+        .in('station_id', stationIds)
+        .gte('date', startDate)
+        .lte('date', endDate)
+    );
+    allProdLogs = allProdLogs.concat(data);
   }
 
   let allSalesRecords: any[] = [];
   for (const m of months) {
-    const { data, error } = await supabase
-      .from('sales_records')
-      .select('station_id, returns_volume_m3, sage_sales_volume_m3')
-      .in('station_id', stationIds)
-      .eq('year', year)
-      .eq('month', m);
-    if (error) throw error;
-    allSalesRecords = allSalesRecords.concat(data || []);
+    const data = await fetchAllRows(
+      supabase
+        .from('sales_records')
+        .select('station_id, returns_volume_m3, sage_sales_volume_m3')
+        .in('station_id', stationIds)
+        .eq('year', year)
+        .eq('month', m)
+    );
+    allSalesRecords = allSalesRecords.concat(data);
   }
 
-  const { data: cwClientsData } = await supabase
-    .from('cw_clients_monthly')
-    .select('station_id, clients_domestic, clients_school, clients_business, clients_industry, clients_church, clients_parastatal, clients_government, clients_other')
-    .in('station_id', stationIds)
-    .eq('year', year)
-    .in('month', months);
+  const cwClientsData = await fetchAllRows(
+    supabase
+      .from('cw_clients_monthly')
+      .select('station_id, clients_domestic, clients_school, clients_business, clients_industry, clients_church, clients_parastatal, clients_government, clients_other')
+      .in('station_id', stationIds)
+      .eq('year', year)
+      .in('month', months)
+  );
 
   const cwClientsMap = new Map<string, StationClientFields>();
-  for (const c of (cwClientsData || [])) {
+  for (const c of cwClientsData) {
     const existing = cwClientsMap.get(c.station_id);
     if (!existing) {
       cwClientsMap.set(c.station_id, {
@@ -326,41 +330,45 @@ export async function fetchNRWByMonth(
     const prodStart = `${prevPeriod.year}-${String(prevPeriod.month).padStart(2, '0')}-01`;
     const prodEnd = new Date(prevPeriod.year, prevPeriod.month, 0).toISOString().split('T')[0];
 
-    const queries: Promise<any>[] = [
-      supabase.from('sales_records')
-        .select('station_id, sage_sales_volume_m3, returns_volume_m3')
-        .in('station_id', stationIds)
-        .eq('year', year)
-        .eq('month', salesMonthNum),
+    const [salesData, rwProdData, cwProdData] = await Promise.all([
+      fetchAllRows(
+        supabase.from('sales_records')
+          .select('station_id, sage_sales_volume_m3, returns_volume_m3')
+          .in('station_id', stationIds)
+          .eq('year', year)
+          .eq('month', salesMonthNum)
+      ),
       surfaceIds.length > 0
-        ? supabase.from('production_logs')
-            .select('station_id, rw_volume_m3')
-            .in('station_id', surfaceIds)
-            .gte('date', prodStart)
-            .lte('date', prodEnd)
-        : Promise.resolve({ data: [] }),
+        ? fetchAllRows(
+            supabase.from('production_logs')
+              .select('station_id, rw_volume_m3')
+              .in('station_id', surfaceIds)
+              .gte('date', prodStart)
+              .lte('date', prodEnd)
+          )
+        : Promise.resolve([]),
       boreholeIds.length > 0
-        ? supabase.from('production_logs')
-            .select('station_id, cw_volume_m3')
-            .in('station_id', boreholeIds)
-            .gte('date', prodStart)
-            .lte('date', prodEnd)
-        : Promise.resolve({ data: [] }),
-    ];
-
-    const [{ data: salesData }, { data: rwProdData }, { data: cwProdData }] = await Promise.all(queries);
+        ? fetchAllRows(
+            supabase.from('production_logs')
+              .select('station_id, cw_volume_m3')
+              .in('station_id', boreholeIds)
+              .gte('date', prodStart)
+              .lte('date', prodEnd)
+          )
+        : Promise.resolve([]),
+    ]);
 
     const rwByStation = new Map<string, number>();
-    for (const r of (rwProdData || [])) {
+    for (const r of rwProdData) {
       rwByStation.set(r.station_id, (rwByStation.get(r.station_id) || 0) + (Number(r.rw_volume_m3) || 0));
     }
     const cwByStation = new Map<string, number>();
-    for (const r of (cwProdData || [])) {
+    for (const r of cwProdData) {
       cwByStation.set(r.station_id, (cwByStation.get(r.station_id) || 0) + (Number(r.cw_volume_m3) || 0));
     }
 
     const salesByStation = new Map<string, number>();
-    for (const r of (salesData || [])) {
+    for (const r of salesData) {
       const sage = Number(r.sage_sales_volume_m3) || 0;
       const ret = Number(r.returns_volume_m3) || 0;
       salesByStation.set(r.station_id, (salesByStation.get(r.station_id) || 0) + (sage > 0 ? sage : ret));

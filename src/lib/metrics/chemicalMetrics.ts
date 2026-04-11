@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter } from '../metricsConfig';
 import { buildMonthDateRange, CHEMICAL_PROD_FIELDS, THRESHOLDS, roundTo } from '../metricsConfig';
-import { applyScopeToQuery, fetchStationIdsByScope } from './scopeFilter';
+import { applyScopeToQuery, fetchStationIdsByScope, fetchAllRows } from './scopeFilter';
 import {
   computeChemicalBalance,
   computeReceiptTotal,
@@ -52,46 +52,47 @@ export async function fetchChemicalStationMetrics(
     .select('id, station_name')
     .in('id', stationIds);
 
-  const [stationsRes, balancesRes, receiptsRes, prodRes] = await Promise.all([
-    stationQuery,
-    supabase
-      .from('chemical_stock_balances')
-      .select('station_id, opening_balance')
-      .in('station_id', stationIds)
-      .eq('chemical_type', chemicalType)
-      .eq('year', year)
-      .eq('month', month),
-    supabase
-      .from('chemical_stock_receipts')
-      .select('station_id, quantity, receipt_type')
-      .in('station_id', stationIds)
-      .eq('chemical_type', chemicalType)
-      .eq('year', year)
-      .eq('month', month),
-    supabase
-      .from('production_logs')
-      .select(`station_id, ${prodField}`)
-      .in('station_id', stationIds)
-      .gte('date', dateRange.start)
-      .lt('date', dateRange.end),
+  const [stationsData, balancesData, receiptsData, prodData] = await Promise.all([
+    fetchAllRows(stationQuery),
+    fetchAllRows(
+      supabase
+        .from('chemical_stock_balances')
+        .select('station_id, opening_balance')
+        .in('station_id', stationIds)
+        .eq('chemical_type', chemicalType)
+        .eq('year', year)
+        .eq('month', month)
+    ),
+    fetchAllRows(
+      supabase
+        .from('chemical_stock_receipts')
+        .select('station_id, quantity, receipt_type')
+        .in('station_id', stationIds)
+        .eq('chemical_type', chemicalType)
+        .eq('year', year)
+        .eq('month', month)
+    ),
+    fetchAllRows(
+      supabase
+        .from('production_logs')
+        .select(`station_id, ${prodField}`)
+        .in('station_id', stationIds)
+        .gte('date', dateRange.start)
+        .lt('date', dateRange.end)
+    ),
   ]);
 
-  if (stationsRes.error) throw stationsRes.error;
-  if (balancesRes.error) throw balancesRes.error;
-  if (receiptsRes.error) throw receiptsRes.error;
-  if (prodRes.error) throw prodRes.error;
-
   const stationNameMap = new Map(
-    (stationsRes.data || []).map((s: any) => [s.id, s.station_name])
+    stationsData.map((s: any) => [s.id, s.station_name])
   );
 
   const openingMap = new Map<string, number>();
-  for (const r of (balancesRes.data || [])) {
+  for (const r of balancesData) {
     openingMap.set(r.station_id, Number(r.opening_balance) || 0);
   }
 
   const receiptsByStation = new Map<string, Array<{ quantity: number; receipt_type: string }>>();
-  for (const r of (receiptsRes.data || [])) {
+  for (const r of receiptsData) {
     const existing = receiptsByStation.get(r.station_id) || [];
     existing.push({ quantity: Number(r.quantity), receipt_type: r.receipt_type });
     receiptsByStation.set(r.station_id, existing);
@@ -99,7 +100,7 @@ export async function fetchChemicalStationMetrics(
 
   const usedMap = new Map<string, number>();
   const prodDaysMap = new Map<string, number>();
-  for (const r of (prodRes.data || []) as any[]) {
+  for (const r of prodData as any[]) {
     const val = Number(r[prodField]) || 0;
     usedMap.set(r.station_id, (usedMap.get(r.station_id) || 0) + val);
     if (val > 0) {
@@ -179,16 +180,16 @@ export async function fetchChemicalDosageRates(
     const maxEnd = ends.reduce((a, b) => a > b ? a : b);
     prodQuery = prodQuery.gte('date', minStart).lt('date', maxEnd);
     const validMonths = monthsOrNull;
-    const { data: rawLogs } = await prodQuery;
-    const filteredLogs = (rawLogs || []).filter((r: any) => {
+    const rawLogs = await fetchAllRows(prodQuery);
+    const filteredLogs = rawLogs.filter((r: any) => {
       const m = parseInt(r.date.split('-')[1], 10);
       return validMonths.includes(m);
     });
     return buildDosageSummary(filteredLogs, stationIds, stationNameMap);
   }
 
-  const { data: rawLogs } = await prodQuery;
-  return buildDosageSummary(rawLogs || [], stationIds, stationNameMap);
+  const rawLogs = await fetchAllRows(prodQuery);
+  return buildDosageSummary(rawLogs, stationIds, stationNameMap);
 }
 
 function buildDosageSummary(
@@ -319,19 +320,19 @@ export async function fetchWeekOnWeekChemicalUsage(
   const queryStart = weekRanges[0].start;
   const queryEnd = weekRanges[weekRanges.length - 1].end;
 
-  const { data: logs, error } = await supabase
-    .from('production_logs')
-    .select('date, alum_kg, hth_kg, activated_carbon_kg')
-    .in('station_id', stationIds)
-    .gte('date', queryStart)
-    .lte('date', queryEnd)
-    .order('date', { ascending: true });
-
-  if (error) throw error;
+  const logs = await fetchAllRows(
+    supabase
+      .from('production_logs')
+      .select('date, alum_kg, hth_kg, activated_carbon_kg')
+      .in('station_id', stationIds)
+      .gte('date', queryStart)
+      .lte('date', queryEnd)
+      .order('date', { ascending: true })
+  );
 
   const weeklyData = new Map<number, { alum: number; hth: number; ac: number }>();
 
-  for (const log of (logs || [])) {
+  for (const log of logs) {
     const logDate = log.date;
     for (const wr of weekRanges) {
       if (logDate >= wr.start && logDate <= wr.end) {

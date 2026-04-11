@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter, DateRange } from '../metricsConfig';
 import { roundTo } from '../metricsConfig';
-import { applyScopeToQuery } from './scopeFilter';
+import { applyScopeToQuery, fetchAllRows } from './scopeFilter';
 import {
   computeProductionEfficiency,
   computePumpRate,
@@ -49,10 +49,7 @@ export async function fetchProductionSummary(
 
   query = applyScopeToQuery(query, scope, 'stations.service_centre_id');
 
-  const { data, error } = await query;
-  if (error) throw error;
-
-  const logs = data || [];
+  const logs = await fetchAllRows(query);
   if (logs.length === 0) {
     return {
       totalCWVolume: 0, totalRWVolume: 0, totalCWHours: 0, totalRWHours: 0,
@@ -105,15 +102,14 @@ export async function fetchStationProductionMetrics(
 
   query = applyScopeToQuery(query, scope, 'stations.service_centre_id');
 
-  const { data, error } = await query;
-  if (error) throw error;
+  const data = await fetchAllRows(query);
 
   const stationMap = new Map<string, {
     name: string; cwVol: number; rwVol: number; cwHrs: number; rwHrs: number;
     downtime: number; count: number;
   }>();
 
-  for (const l of (data || [])) {
+  for (const l of data) {
     const sid = l.station_id;
     const existing = stationMap.get(sid) || {
       name: (l.stations as any)?.station_name || '',
@@ -182,14 +178,15 @@ export async function fetchLabourMetrics(
   for (const m of months) {
     const startDate = `${year}-${String(m).padStart(2, '0')}-01`;
     const endDate = new Date(year, m, 0).toISOString().split('T')[0];
-    const { data, error } = await supabase
-      .from('production_logs')
-      .select('station_id, cw_volume_m3, rw_volume_m3')
-      .in('station_id', stationIds)
-      .gte('date', startDate)
-      .lte('date', endDate);
-    if (error) throw error;
-    for (const log of data || []) {
+    const data = await fetchAllRows(
+      supabase
+        .from('production_logs')
+        .select('station_id, cw_volume_m3, rw_volume_m3')
+        .in('station_id', stationIds)
+        .gte('date', startDate)
+        .lte('date', endDate)
+    );
+    for (const log of data) {
       const existing = volByStation.get(log.station_id) || { cw: 0, rw: 0 };
       existing.cw += Number(log.cw_volume_m3) || 0;
       existing.rw += Number(log.rw_volume_m3) || 0;
@@ -284,22 +281,23 @@ export async function fetchYTDProduction(
 
   const stationIds = allStations.map(s => s.id);
 
-  const [prodRes, targetsRes] = await Promise.all([
-    supabase
-      .from('production_logs')
-      .select('station_id, date, cw_volume_m3')
-      .in('station_id', stationIds)
-      .gte('date', ytdStart)
-      .lt('date', ytdEnd),
-    supabase
-      .from('cw_production_targets')
-      .select('station_id, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
-      .in('station_id', stationIds)
-      .eq('year', year),
+  const [prodLogs, targets] = await Promise.all([
+    fetchAllRows(
+      supabase
+        .from('production_logs')
+        .select('station_id, date, cw_volume_m3')
+        .in('station_id', stationIds)
+        .gte('date', ytdStart)
+        .lt('date', ytdEnd)
+    ),
+    fetchAllRows(
+      supabase
+        .from('cw_production_targets')
+        .select('station_id, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
+        .in('station_id', stationIds)
+        .eq('year', year)
+    ),
   ]);
-
-  const prodLogs = prodRes.data || [];
-  const targets = targetsRes.data || [];
 
   const ytdByStation = new Map<string, number>();
   const monthlyProdMap = new Map<number, number>();

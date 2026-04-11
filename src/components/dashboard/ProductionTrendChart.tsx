@@ -9,6 +9,7 @@ import {
   getMaxWeekNumberForYear,
 } from '../../lib/dateUtils';
 import { fetchNRWByMonth, aggregateNRWByQuarter, fetchYTDProduction } from '../../lib/metrics';
+import { fetchAllRows } from '../../lib/metrics/scopeFilter';
 import type { YTDProductionSummary } from '../../lib/metrics';
 
 type ViewMode = 'week' | 'month' | 'quarter' | 'year' | 'ytd';
@@ -167,20 +168,22 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     }
   };
 
-  const buildProductionQuery = (startDate: string, endDate: string) => {
+  const fetchProductionData = async (startDate: string, endDate: string) => {
     if (scopeMode === 'station' && selectedStation) {
-      return supabase
-        .from('production_logs')
-        .select('date, cw_volume_m3, station_id')
-        .eq('station_id', selectedStation.id)
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: true });
+      return fetchAllRows(
+        supabase
+          .from('production_logs')
+          .select('date, cw_volume_m3, station_id')
+          .eq('station_id', selectedStation.id)
+          .gte('date', startDate)
+          .lte('date', endDate)
+          .order('date', { ascending: true })
+      );
     }
 
     let q = supabase
       .from('production_logs')
-      .select('date, cw_volume_m3, station_id, stations(service_centre_id)')
+      .select('date, cw_volume_m3, station_id, stations!inner(service_centre_id)')
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: true });
@@ -188,23 +191,25 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     if (accessContext?.isSCScoped && accessContext.scopeId) {
       q = q.eq('stations.service_centre_id', accessContext.scopeId);
     }
-    return q;
+    return fetchAllRows(q);
   };
 
-  const buildSalesQuery = (year: number, monthStart: number, monthEnd: number) => {
+  const fetchSalesData = async (year: number, monthStart: number, monthEnd: number) => {
     if (scopeMode === 'station' && selectedStation) {
-      return supabase
-        .from('sales_records')
-        .select('year, month, sage_sales_volume_m3, returns_volume_m3, station_id')
-        .eq('station_id', selectedStation.id)
-        .eq('year', year)
-        .gte('month', monthStart + 1)
-        .lte('month', monthEnd + 1);
+      return fetchAllRows(
+        supabase
+          .from('sales_records')
+          .select('year, month, sage_sales_volume_m3, returns_volume_m3, station_id')
+          .eq('station_id', selectedStation.id)
+          .eq('year', year)
+          .gte('month', monthStart + 1)
+          .lte('month', monthEnd + 1)
+      );
     }
 
     let q = supabase
       .from('sales_records')
-      .select('year, month, sage_sales_volume_m3, returns_volume_m3, station_id, stations(service_centre_id)')
+      .select('year, month, sage_sales_volume_m3, returns_volume_m3, station_id, stations!inner(service_centre_id)')
       .eq('year', year)
       .gte('month', monthStart + 1)
       .lte('month', monthEnd + 1);
@@ -212,7 +217,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     if (accessContext?.isSCScoped && accessContext.scopeId) {
       q = q.eq('stations.service_centre_id', accessContext.scopeId);
     }
-    return q;
+    return fetchAllRows(q);
   };
 
   const buildTargetsQuery = (type: 'production' | 'sales') => {
@@ -313,10 +318,10 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     const prodEndDay = new Date(prodEndYear, prodEndMon, 0).getDate();
     const prodStartDate = `${prodStartYear}-${String(prodStartMon).padStart(2, '0')}-01`;
     const prodEndDate = `${prodEndYear}-${String(prodEndMon).padStart(2, '0')}-${String(prodEndDay).padStart(2, '0')}`;
-    const { data: prodData } = await buildProductionQuery(prodStartDate, prodEndDate);
+    const prodData = await fetchProductionData(prodStartDate, prodEndDate);
 
     const prodMonthMap = new Map<string, number>();
-    (prodData || []).forEach((log: Record<string, unknown>) => {
+    prodData.forEach((log: Record<string, unknown>) => {
       const date = log.date as string;
       const parts = date.split('-');
       const key = `${parts[0]}-${parts[1]}`;
@@ -326,9 +331,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
 
     const salesQueryStart = viewMode === 'quarter' ? selectedQuarter * 3 : 0;
     const salesQueryEnd = viewMode === 'quarter' ? selectedQuarter * 3 + 2 : 11;
-    const { data: salesDataCurr } = await buildSalesQuery(salesYear, salesQueryStart, salesQueryEnd);
+    const salesDataCurr = await fetchSalesData(salesYear, salesQueryStart, salesQueryEnd);
     const salesMonthMap = new Map<number, number>();
-    (salesDataCurr || []).forEach((r: Record<string, unknown>) => {
+    salesDataCurr.forEach((r: Record<string, unknown>) => {
       const mIdx = (r.month as number) - 1;
       const sage = Number(r.sage_sales_volume_m3) || 0;
       const ret = Number(r.returns_volume_m3) || 0;
@@ -385,8 +390,8 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   };
 
   const getSalesVolumeForMonth = async (year: number, monthIdx: number): Promise<number> => {
-    const { data } = await buildSalesQuery(year, monthIdx, monthIdx);
-    return (data || []).reduce((sum: number, r: Record<string, unknown>) => {
+    const data = await fetchSalesData(year, monthIdx, monthIdx);
+    return data.reduce((sum: number, r: Record<string, unknown>) => {
       const sage = Number(r.sage_sales_volume_m3) || 0;
       const ret = Number(r.returns_volume_m3) || 0;
       return sum + (sage > 0 ? sage : ret);
@@ -433,9 +438,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       return;
     }
 
-    const { data } = await buildProductionQuery(weekDates.start, weekDates.end);
+    const data = await fetchProductionData(weekDates.start, weekDates.end);
     const dailyMap = new Map<string, number>();
-    (data || []).forEach((log: Record<string, unknown>) => {
+    data.forEach((log: Record<string, unknown>) => {
       const date = log.date as string;
       const cur = dailyMap.get(date) || 0;
       dailyMap.set(date, cur + Number(log.cw_volume_m3 || 0));
@@ -490,7 +495,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
 
     const startDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`;
     const endDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
-    const { data } = await buildProductionQuery(startDate, endDate);
+    const data = await fetchProductionData(startDate, endDate);
 
     const weekGroups = new Map<number, { days: Set<string>; volume: number }>();
     for (let day = 1; day <= daysInMonth; day++) {
@@ -502,7 +507,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
       weekGroups.get(weekNum)!.days.add(ds);
     }
 
-    (data || []).forEach((log: Record<string, unknown>) => {
+    data.forEach((log: Record<string, unknown>) => {
       const date = log.date as string;
       const dayNum = parseInt(date.split('-')[2]);
       const weekNum = Math.ceil(dayNum / 7);
@@ -534,9 +539,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     const endMonth = startMonth + 2;
 
     if (trendType === 'sales') {
-      const { data } = await buildSalesQuery(selectedYear, startMonth, endMonth);
+      const data = await fetchSalesData(selectedYear, startMonth, endMonth);
       const monthVolumes = new Map<number, number>();
-      (data || []).forEach((r: Record<string, unknown>) => {
+      data.forEach((r: Record<string, unknown>) => {
         const mIdx = (r.month as number) - 1;
         const sage = Number(r.sage_sales_volume_m3) || 0;
         const ret = Number(r.returns_volume_m3) || 0;
@@ -558,10 +563,10 @@ export default function ProductionTrendChart({ accessContext }: Props) {
     const startDate = `${selectedYear}-${String(startMonth + 1).padStart(2, '0')}-01`;
     const daysInEndMonth = new Date(selectedYear, endMonth + 1, 0).getDate();
     const endDate = `${selectedYear}-${String(endMonth + 1).padStart(2, '0')}-${String(daysInEndMonth).padStart(2, '0')}`;
-    const { data } = await buildProductionQuery(startDate, endDate);
+    const data = await fetchProductionData(startDate, endDate);
 
     const monthVolumes = new Map<number, number>();
-    (data || []).forEach((log: Record<string, unknown>) => {
+    data.forEach((log: Record<string, unknown>) => {
       const date = log.date as string;
       const monthIdx = parseInt(date.split('-')[1]) - 1;
       const cur = monthVolumes.get(monthIdx) || 0;
@@ -582,9 +587,9 @@ export default function ProductionTrendChart({ accessContext }: Props) {
 
   const loadYearData = async (getMonthTarget: (m: number, y: number) => number) => {
     if (trendType === 'sales') {
-      const { data } = await buildSalesQuery(selectedYear, 0, 11);
+      const data = await fetchSalesData(selectedYear, 0, 11);
       const monthVolumes = new Map<number, number>();
-      (data || []).forEach((r: Record<string, unknown>) => {
+      data.forEach((r: Record<string, unknown>) => {
         const mIdx = (r.month as number) - 1;
         const sage = Number(r.sage_sales_volume_m3) || 0;
         const ret = Number(r.returns_volume_m3) || 0;
@@ -605,10 +610,10 @@ export default function ProductionTrendChart({ accessContext }: Props) {
 
     const startDate = `${selectedYear}-01-01`;
     const endDate = `${selectedYear}-12-31`;
-    const { data } = await buildProductionQuery(startDate, endDate);
+    const data = await fetchProductionData(startDate, endDate);
 
     const monthVolumes = new Map<number, number>();
-    (data || []).forEach((log: Record<string, unknown>) => {
+    data.forEach((log: Record<string, unknown>) => {
       const date = log.date as string;
       const monthIdx = parseInt(date.split('-')[1]) - 1;
       const cur = monthVolumes.get(monthIdx) || 0;

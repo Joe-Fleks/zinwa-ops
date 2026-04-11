@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter, DateRange } from '../metricsConfig';
 import { roundTo, CHEMICAL_PROD_FIELDS, CHEMICAL_TYPES } from '../metricsConfig';
-import { applyScopeToQuery } from './scopeFilter';
+import { applyScopeToQuery, fetchAllRows } from './scopeFilter';
 import {
   computeProductionEfficiency,
   computePumpRate,
@@ -217,14 +217,16 @@ export async function fetchWeeklyReportData(
 
   const ytdStart = `${year}-01-01`;
 
-  const [logsRes, breakdownsRes, balancesRes, receiptsRes, targetsRes, ytdLogsRes] = await Promise.all([
-    supabase
-      .from('production_logs')
-      .select('station_id, date, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, load_shedding_hours, other_downtime_hours, alum_kg, hth_kg, activated_carbon_kg, new_connections')
-      .in('station_id', stationIds)
-      .gte('date', dateRange.start)
-      .lte('date', dateRange.end)
-      .order('date', { ascending: true }),
+  const [logs, breakdownsRes, balancesRes, receiptsRes, targetsRes, ytdPriorLogs] = await Promise.all([
+    fetchAllRows(
+      supabase
+        .from('production_logs')
+        .select('station_id, date, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, load_shedding_hours, other_downtime_hours, alum_kg, hth_kg, activated_carbon_kg, new_connections')
+        .in('station_id', stationIds)
+        .gte('date', dateRange.start)
+        .lte('date', dateRange.end)
+        .order('date', { ascending: true })
+    ),
     supabase
       .from('station_breakdowns')
       .select('station_id, nature_of_breakdown, description, date_reported, is_resolved, date_resolved, breakdown_impact, hours_lost')
@@ -246,16 +248,15 @@ export async function fetchWeeklyReportData(
       .select('station_id, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
       .in('station_id', stationIds)
       .eq('year', year),
-    supabase
-      .from('production_logs')
-      .select('station_id, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, new_connections')
-      .in('station_id', stationIds)
-      .gte('date', ytdStart)
-      .lte('date', dateRange.end),
+    fetchAllRows(
+      supabase
+        .from('production_logs')
+        .select('station_id, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, new_connections')
+        .in('station_id', stationIds)
+        .gte('date', ytdStart)
+        .lte('date', dateRange.end)
+    ),
   ]);
-
-  const logs = logsRes.data || [];
-  const ytdPriorLogs = ytdLogsRes.data || [];
 
   const stationAgg = new Map<string, {
     cwVol: number; rwVol: number; cwHrs: number; rwHrs: number;

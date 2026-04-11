@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter } from '../metricsConfig';
+import { fetchAllRows } from './scopeFilter';
 
 export type FuelType = 'diesel' | 'petrol';
 
@@ -136,8 +137,8 @@ export async function fetchFuelQuarterlyAnalysis(
         .order('sort_order', { ascending: true });
 
       if (serviceCentreId) q = q.eq('service_centre_id', serviceCentreId);
-      const { data } = await q;
-      return { ft, data: data || [] };
+      const data = await fetchAllRows(q);
+      return { ft, data };
     })
   );
 

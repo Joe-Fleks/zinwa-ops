@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
 import { CATEGORY_DAILY_DEMAND_M3, CLIENT_CATEGORIES } from '../metricsConfig';
 import { computeCategoryDailyDemand } from './coreCalculations';
+import { fetchAllRows } from './scopeFilter';
 
 export interface StationDemandRow {
   stationId: string;
@@ -70,16 +71,18 @@ export async function fetchDemandByStation(
   const endYear = month + 1 > 12 ? year + 1 : year;
   const endDateStr = `${endYear}-${String(month + 1 > 12 ? 1 : month + 1).padStart(2, '0')}-01`;
 
-  const { data: logsData } = await supabase
-    .from('production_logs')
-    .select('station_id, new_connections, new_connection_category')
-    .in('station_id', stationIds)
-    .gte('date', startDate)
-    .lt('date', endDateStr)
-    .gt('new_connections', 0);
+  const logsData = await fetchAllRows(
+    supabase
+      .from('production_logs')
+      .select('station_id, new_connections, new_connection_category')
+      .in('station_id', stationIds)
+      .gte('date', startDate)
+      .lt('date', endDateStr)
+      .gt('new_connections', 0)
+  );
 
   const newConnectionsByStation = new Map<string, Record<string, number>>();
-  for (const log of logsData || []) {
+  for (const log of logsData) {
     const field = mapCategoryToField(log.new_connection_category);
     if (!field) continue;
     const existing = newConnectionsByStation.get(log.station_id) || {};
@@ -152,16 +155,18 @@ export async function fetchDailyDemandByStationId(
   const endYear = month + 1 > 12 ? year + 1 : year;
   const endDateStr = `${endYear}-${String(month + 1 > 12 ? 1 : month + 1).padStart(2, '0')}-01`;
 
-  const { data: logsData } = await supabase
-    .from('production_logs')
-    .select('station_id, new_connections, new_connection_category')
-    .in('station_id', stationIds)
-    .gte('date', startDate)
-    .lt('date', endDateStr)
-    .gt('new_connections', 0);
+  const logsData = await fetchAllRows(
+    supabase
+      .from('production_logs')
+      .select('station_id, new_connections, new_connection_category')
+      .in('station_id', stationIds)
+      .gte('date', startDate)
+      .lt('date', endDateStr)
+      .gt('new_connections', 0)
+  );
 
   const newConnectionsByStation = new Map<string, Record<string, number>>();
-  for (const log of logsData || []) {
+  for (const log of logsData) {
     const field = mapCategoryToField(log.new_connection_category);
     if (!field) continue;
     const existing = newConnectionsByStation.get(log.station_id) || {};

@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter } from '../metricsConfig';
 import { roundTo, CHEMICAL_PROD_FIELDS, CHEMICAL_TYPES, buildMonthDateRange, getPreviousMonthPeriod } from '../metricsConfig';
-import { applyScopeToQuery } from './scopeFilter';
+import { applyScopeToQuery, fetchAllRows } from './scopeFilter';
 import {
   computeDowntime,
   computeProductionEfficiency,
@@ -219,19 +219,23 @@ export async function fetchMonthlyReportData(
   const prevPeriod = getPreviousMonthPeriod(year, month);
   const prevDateRange = buildMonthDateRange(prevPeriod.year, prevPeriod.month);
 
-  const [logsRes, ytdLogsRes, breakdownsRes, salesRes, targetsRes, balancesRes, receiptsRes, prevProdRes] = await Promise.all([
-    supabase
-      .from('production_logs')
-      .select('station_id, date, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, load_shedding_hours, other_downtime_hours, alum_kg, hth_kg, activated_carbon_kg, new_connections')
-      .in('station_id', stationIds)
-      .gte('date', dateRange.start)
-      .lt('date', dateRange.end),
-    supabase
-      .from('production_logs')
-      .select('station_id, new_connections')
-      .in('station_id', stationIds)
-      .gte('date', ytdStartDate)
-      .lt('date', ytdEndDate),
+  const [logs, ytdLogs, breakdownsRes, salesRes, targetsRes, balancesRes, receiptsRes, prevProdLogs] = await Promise.all([
+    fetchAllRows(
+      supabase
+        .from('production_logs')
+        .select('station_id, date, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, load_shedding_hours, other_downtime_hours, alum_kg, hth_kg, activated_carbon_kg, new_connections')
+        .in('station_id', stationIds)
+        .gte('date', dateRange.start)
+        .lt('date', dateRange.end)
+    ),
+    fetchAllRows(
+      supabase
+        .from('production_logs')
+        .select('station_id, new_connections')
+        .in('station_id', stationIds)
+        .gte('date', ytdStartDate)
+        .lt('date', ytdEndDate)
+    ),
     supabase
       .from('station_breakdowns')
       .select('station_id, nature_of_breakdown, description, date_reported, is_resolved, date_resolved, breakdown_impact, hours_lost')
@@ -264,17 +268,15 @@ export async function fetchMonthlyReportData(
       .in('chemical_type', ['aluminium_sulphate', 'hth', 'activated_carbon'])
       .eq('year', year)
       .eq('month', month),
-    supabase
-      .from('production_logs')
-      .select('station_id, cw_volume_m3, rw_volume_m3')
-      .in('station_id', stationIds)
-      .gte('date', prevDateRange.start)
-      .lt('date', prevDateRange.end),
+    fetchAllRows(
+      supabase
+        .from('production_logs')
+        .select('station_id, cw_volume_m3, rw_volume_m3')
+        .in('station_id', stationIds)
+        .gte('date', prevDateRange.start)
+        .lt('date', prevDateRange.end)
+    ),
   ]);
-
-  const logs = logsRes.data || [];
-  const ytdLogs = ytdLogsRes.data || [];
-  const prevProdLogs = prevProdRes.data || [];
 
   const stationAgg = new Map<string, {
     cwVol: number; rwVol: number; cwHrs: number; rwHrs: number;

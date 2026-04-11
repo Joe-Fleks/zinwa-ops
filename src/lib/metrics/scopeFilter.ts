@@ -44,3 +44,23 @@ export async function fetchStationIdsByScope(
   if (error) throw error;
   return (data || []).map((s: any) => s.id);
 }
+
+const PAGE_SIZE = 1000;
+
+export async function fetchAllRows<T = any>(
+  queryBuilder: any
+): Promise<T[]> {
+  const rows: T[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await queryBuilder.range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const chunk = (data || []) as T[];
+    rows.push(...chunk);
+    if (chunk.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return rows;
+}
