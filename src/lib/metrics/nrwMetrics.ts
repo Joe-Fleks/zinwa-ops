@@ -8,6 +8,7 @@ import {
   type StationClientFields,
 } from './coreCalculations';
 import { calcRevenueForVolume, buildCategoryTariffMap, type TariffBand } from '../nrwCalculations';
+import { queryProductionLogsByDateLte, querySalesRecords } from '../dataAccessLayer';
 
 
 export interface NRWStationMetrics {
@@ -331,30 +332,27 @@ export async function fetchNRWByMonth(
     const prodEnd = new Date(prevPeriod.year, prevPeriod.month, 0).toISOString().split('T')[0];
 
     const [salesData, rwProdData, cwProdData] = await Promise.all([
-      fetchAllRows(
-        supabase.from('sales_records')
-          .select('station_id, sage_sales_volume_m3, returns_volume_m3')
-          .in('station_id', stationIds)
-          .eq('year', year)
-          .eq('month', salesMonthNum)
-      ),
+      querySalesRecords({
+        stationIds,
+        year,
+        months: [salesMonthNum],
+        fields: ['station_id', 'sage_sales_volume_m3', 'returns_volume_m3'],
+      }),
       surfaceIds.length > 0
-        ? fetchAllRows(
-            supabase.from('production_logs')
-              .select('station_id, rw_volume_m3')
-              .in('station_id', surfaceIds)
-              .gte('date', prodStart)
-              .lte('date', prodEnd)
-          )
+        ? queryProductionLogsByDateLte({
+            stationIds: surfaceIds,
+            dateStart: prodStart,
+            dateEnd: prodEnd,
+            fields: ['station_id', 'rw_volume_m3'],
+          })
         : Promise.resolve([]),
       boreholeIds.length > 0
-        ? fetchAllRows(
-            supabase.from('production_logs')
-              .select('station_id, cw_volume_m3')
-              .in('station_id', boreholeIds)
-              .gte('date', prodStart)
-              .lte('date', prodEnd)
-          )
+        ? queryProductionLogsByDateLte({
+            stationIds: boreholeIds,
+            dateStart: prodStart,
+            dateEnd: prodEnd,
+            fields: ['station_id', 'cw_volume_m3'],
+          })
         : Promise.resolve([]),
     ]);
 

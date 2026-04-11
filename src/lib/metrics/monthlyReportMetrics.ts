@@ -3,6 +3,15 @@ import type { ScopeFilter } from '../metricsConfig';
 import { roundTo, CHEMICAL_PROD_FIELDS, CHEMICAL_TYPES, buildMonthDateRange, getPreviousMonthPeriod } from '../metricsConfig';
 import { applyScopeToQuery, fetchAllRows } from './scopeFilter';
 import {
+  queryStationsByScope,
+  queryProductionLogs,
+  queryBreakdowns,
+  querySalesRecords,
+  queryProductionTargets,
+  queryChemicalBalances,
+  queryChemicalReceipts,
+} from '../dataAccessLayer';
+import {
   computeDowntime,
   computeProductionEfficiency,
   computePumpRate,
@@ -198,16 +207,12 @@ export async function fetchMonthlyReportData(
 ): Promise<MonthlyReportData> {
   const dateRange = buildMonthDateRange(year, month);
 
-  let stationsQuery = supabase
-    .from('stations')
-    .select('id, station_name, station_type, service_centre_id, target_daily_hours, clients_domestic, clients_school, clients_business, clients_industry, clients_church, clients_parastatal, clients_government, clients_other');
-  stationsQuery = applyScopeToQuery(stationsQuery, scope);
+  const allStations = await queryStationsByScope({
+    scope,
+    fields: 'id, station_name, station_type, service_centre_id, target_daily_hours, clients_domestic, clients_school, clients_business, clients_industry, clients_church, clients_parastatal, clients_government, clients_other',
+  });
 
-  const { data: stationsData, error: stErr } = await stationsQuery;
-  if (stErr) throw stErr;
-
-  const allStations = stationsData || [];
-  const stationIds = allStations.map(s => s.id);
+  const stationIds = allStations.map((s: any) => s.id);
 
   if (stationIds.length === 0) {
     return buildEmptyMonthlyReport(scope.scopeId || '', serviceCentreName, year, month);
@@ -219,63 +224,56 @@ export async function fetchMonthlyReportData(
   const prevPeriod = getPreviousMonthPeriod(year, month);
   const prevDateRange = buildMonthDateRange(prevPeriod.year, prevPeriod.month);
 
-  const [logs, ytdLogs, breakdownsRes, salesRes, targetsRes, balancesRes, receiptsRes, prevProdLogs] = await Promise.all([
+  const [logs, ytdLogs, breakdownsData, salesData, targetsData, balancesData, receiptsData, prevProdLogs] = await Promise.all([
+    queryProductionLogs({
+      stationIds,
+      dateRange,
+      fields: ['station_id', 'date', 'cw_volume_m3', 'rw_volume_m3', 'cw_hours_run', 'rw_hours_run', 'load_shedding_hours', 'other_downtime_hours', 'alum_kg', 'hth_kg', 'activated_carbon_kg', 'new_connections'],
+    }),
+    queryProductionLogs({
+      stationIds,
+      dateRange: { start: ytdStartDate, end: ytdEndDate },
+      fields: ['station_id', 'new_connections'],
+    }),
     fetchAllRows(
       supabase
-        .from('production_logs')
-        .select('station_id, date, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, load_shedding_hours, other_downtime_hours, alum_kg, hth_kg, activated_carbon_kg, new_connections')
+        .from('station_breakdowns')
+        .select('station_id, nature_of_breakdown, description, date_reported, is_resolved, date_resolved, breakdown_impact, hours_lost')
         .in('station_id', stationIds)
-        .gte('date', dateRange.start)
-        .lt('date', dateRange.end)
+        .lte('date_reported', dateRange.end)
+        .or(`is_resolved.eq.false,date_resolved.gte.${dateRange.start}`)
     ),
+    querySalesRecords({
+      stationIds,
+      year,
+      months: [month],
+      fields: ['station_id', 'returns_volume_m3', 'sage_sales_volume_m3'],
+    }),
     fetchAllRows(
       supabase
-        .from('production_logs')
-        .select('station_id, new_connections')
+        .from('cw_sales_targets')
+        .select('station_id, target_volume_m3')
         .in('station_id', stationIds)
-        .gte('date', ytdStartDate)
-        .lt('date', ytdEndDate)
+        .eq('year', year)
+        .eq('month', month)
     ),
-    supabase
-      .from('station_breakdowns')
-      .select('station_id, nature_of_breakdown, description, date_reported, is_resolved, date_resolved, breakdown_impact, hours_lost')
-      .in('station_id', stationIds)
-      .lte('date_reported', dateRange.end)
-      .or(`is_resolved.eq.false,date_resolved.gte.${dateRange.start}`),
-    supabase
-      .from('sales_records')
-      .select('station_id, returns_volume_m3, sage_sales_volume_m3')
-      .in('station_id', stationIds)
-      .eq('year', year)
-      .eq('month', month),
-    supabase
-      .from('cw_sales_targets')
-      .select('station_id, target_volume_m3')
-      .in('station_id', stationIds)
-      .eq('year', year)
-      .eq('month', month),
-    supabase
-      .from('chemical_stock_balances')
-      .select('station_id, chemical_type, opening_balance')
-      .in('station_id', stationIds)
-      .in('chemical_type', ['aluminium_sulphate', 'hth', 'activated_carbon'])
-      .eq('year', year)
-      .eq('month', month),
-    supabase
-      .from('chemical_stock_receipts')
-      .select('station_id, chemical_type, quantity, receipt_type')
-      .in('station_id', stationIds)
-      .in('chemical_type', ['aluminium_sulphate', 'hth', 'activated_carbon'])
-      .eq('year', year)
-      .eq('month', month),
-    fetchAllRows(
-      supabase
-        .from('production_logs')
-        .select('station_id, cw_volume_m3, rw_volume_m3')
-        .in('station_id', stationIds)
-        .gte('date', prevDateRange.start)
-        .lt('date', prevDateRange.end)
-    ),
+    queryChemicalBalances({
+      stationIds,
+      chemicalTypes: ['aluminium_sulphate', 'hth', 'activated_carbon'],
+      year,
+      month,
+    }),
+    queryChemicalReceipts({
+      stationIds,
+      chemicalTypes: ['aluminium_sulphate', 'hth', 'activated_carbon'],
+      year,
+      month,
+    }),
+    queryProductionLogs({
+      stationIds,
+      dateRange: prevDateRange,
+      fields: ['station_id', 'cw_volume_m3', 'rw_volume_m3'],
+    }),
   ]);
 
   const stationAgg = new Map<string, {
@@ -377,7 +375,7 @@ export async function fetchMonthlyReportData(
   };
 
   const salesMap = new Map<string, { returns: number; sage: number }>();
-  for (const r of (salesRes.data || [])) {
+  for (const r of salesData) {
     salesMap.set(r.station_id, {
       returns: Number(r.returns_volume_m3) || 0,
       sage: Number(r.sage_sales_volume_m3) || 0,
@@ -385,7 +383,7 @@ export async function fetchMonthlyReportData(
   }
 
   const targetsMap = new Map<string, number>();
-  for (const r of (targetsRes.data || [])) {
+  for (const r of targetsData) {
     targetsMap.set(r.station_id, Number(r.target_volume_m3) || 0);
   }
 
@@ -519,12 +517,12 @@ export async function fetchMonthlyReportData(
       if (station.station_type !== 'Full Treatment') continue;
       const sid = station.id;
 
-      const balRow = (balancesRes.data || []).find(
+      const balRow = balancesData.find(
         (r: any) => r.station_id === sid && r.chemical_type === chemType
       );
       const opening = balRow ? Number(balRow.opening_balance) : 0;
 
-      const stRcpts = (receiptsRes.data || []).filter(
+      const stRcpts = receiptsData.filter(
         (r: any) => r.station_id === sid && r.chemical_type === chemType
       );
       const received = computeReceiptTotal(stRcpts);
@@ -592,7 +590,7 @@ export async function fetchMonthlyReportData(
   const stationMap = new Map(allStations.map(s => [s.id, s]));
 
   const breakdownHoursLostByStation = computeBreakdownHoursLostForPeriod(
-    (breakdownsRes.data || []).map((b: any) => ({
+    breakdownsData.map((b: any) => ({
       station_id: b.station_id,
       date_reported: b.date_reported,
       date_resolved: b.date_resolved || null,
@@ -605,7 +603,7 @@ export async function fetchMonthlyReportData(
     dateRange.end
   );
 
-  const breakdowns: MonthlyBreakdown[] = (breakdownsRes.data || []).map((b: any) => {
+  const breakdowns: MonthlyBreakdown[] = breakdownsData.map((b: any) => {
     let hoursLost = Number(b.hours_lost) || 0;
     if (b.breakdown_impact === 'Stopped pumping') {
       const stationTarget = Number(stationMap.get(b.station_id)?.target_daily_hours) || 0;

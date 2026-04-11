@@ -1,7 +1,8 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter } from '../metricsConfig';
 import { roundTo, buildMonthDateRange } from '../metricsConfig';
-import { applyScopeToQuery, fetchAllRows } from './scopeFilter';
+import { fetchAllRows } from './scopeFilter';
+import { queryStationsByScope, queryProductionLogs } from '../dataAccessLayer';
 
 export interface EnergyMeterSummary {
   meterId: string;
@@ -41,12 +42,7 @@ export async function fetchMonthlyEnergySummary(
   year: number,
   month: number
 ): Promise<MonthlyEnergySummary> {
-  let stationsQuery = supabase
-    .from('stations')
-    .select('id, station_name, service_centre_id');
-  stationsQuery = applyScopeToQuery(stationsQuery, scope);
-  const { data: stationsData } = await stationsQuery;
-  const allStations = stationsData || [];
+  const allStations = await queryStationsByScope({ scope });
   const stationIds = allStations.map(s => s.id);
   const stationMap = new Map(allStations.map(s => [s.id, s]));
 
@@ -58,13 +54,11 @@ export async function fetchMonthlyEnergySummary(
   const [meters, motorsList, logsData] = await Promise.all([
     fetchAllRows(supabase.from('energy_meters').select('*').in('service_centre_id', allowedSCIds)),
     fetchAllRows(supabase.from('equipment_motors').select('id, station_id, motor_use, kw_rating').in('service_centre_id', allowedSCIds)),
-    fetchAllRows(
-      supabase.from('production_logs')
-        .select('station_id, cw_hours_run, rw_hours_run')
-        .in('station_id', stationIds)
-        .gte('date', dateRange.start)
-        .lt('date', dateRange.end)
-    ),
+    queryProductionLogs({
+      stationIds,
+      dateRange,
+      fields: ['station_id', 'cw_hours_run', 'rw_hours_run'],
+    }),
   ]);
   const motorMap = new Map(motorsList.map(m => [m.id, m]));
 

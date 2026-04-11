@@ -1,6 +1,5 @@
-import { supabase } from '../supabase';
 import type { ScopeFilter } from '../metricsConfig';
-import { fetchAllRows } from './scopeFilter';
+import { queryFuelControlCards } from '../dataAccessLayer';
 
 export type FuelType = 'diesel' | 'petrol';
 
@@ -66,22 +65,19 @@ export async function fetchFuelWeeklyAnalysis(
   dateEnd: string,
   weekLabel: string,
 ): Promise<FuelAnalysisTable> {
-  let serviceCentreId: string | null = scope.isSCScoped ? scope.scopeId : null;
+  const serviceCentreId: string | null = scope.isSCScoped ? scope.scopeId : null;
 
   const results = await Promise.all(
     (['diesel', 'petrol'] as FuelType[]).map(async (ft) => {
-      let q = supabase
-        .from('fuel_control_cards')
-        .select('entry_date, is_opening_balance, receipts, issues, balance, sort_order')
-        .eq('fuel_type', ft)
-        .gte('entry_date', dateStart)
-        .lte('entry_date', dateEnd)
-        .order('entry_date', { ascending: true })
-        .order('sort_order', { ascending: true });
-
-      if (serviceCentreId) q = q.eq('service_centre_id', serviceCentreId);
-      const { data } = await q;
-      return { ft, data: data || [] };
+      const data = await queryFuelControlCards({
+        fuelType: ft,
+        year: 0,
+        dateStart,
+        dateEnd,
+        serviceCentreId,
+        fields: 'entry_date, is_opening_balance, receipts, issues, balance, sort_order',
+      });
+      return { ft, data };
     })
   );
 
@@ -100,18 +96,14 @@ export async function fetchFuelMonthlyAnalysis(
 
   const results = await Promise.all(
     (['diesel', 'petrol'] as FuelType[]).map(async (ft) => {
-      let q = supabase
-        .from('fuel_control_cards')
-        .select('entry_date, is_opening_balance, receipts, issues, balance, sort_order')
-        .eq('fuel_type', ft)
-        .eq('year', year)
-        .eq('month', month)
-        .order('entry_date', { ascending: true })
-        .order('sort_order', { ascending: true });
-
-      if (serviceCentreId) q = q.eq('service_centre_id', serviceCentreId);
-      const { data } = await q;
-      return { ft, data: data || [] };
+      const data = await queryFuelControlCards({
+        fuelType: ft,
+        year,
+        month,
+        serviceCentreId,
+        fields: 'entry_date, is_opening_balance, receipts, issues, balance, sort_order',
+      });
+      return { ft, data };
     })
   );
 
@@ -128,16 +120,12 @@ export async function fetchFuelQuarterlyAnalysis(
 
   const results = await Promise.all(
     (['diesel', 'petrol'] as FuelType[]).map(async (ft) => {
-      let q = supabase
-        .from('fuel_control_cards')
-        .select('entry_date, is_opening_balance, receipts, issues, balance, sort_order, month')
-        .eq('fuel_type', ft)
-        .eq('year', year)
-        .order('entry_date', { ascending: true })
-        .order('sort_order', { ascending: true });
-
-      if (serviceCentreId) q = q.eq('service_centre_id', serviceCentreId);
-      const data = await fetchAllRows(q);
+      const data = await queryFuelControlCards({
+        fuelType: ft,
+        year,
+        serviceCentreId,
+        fields: 'entry_date, is_opening_balance, receipts, issues, balance, sort_order, month',
+      });
       return { ft, data };
     })
   );

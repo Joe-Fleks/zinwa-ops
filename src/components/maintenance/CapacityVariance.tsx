@@ -4,6 +4,7 @@ import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import type { ColDef, GridApi } from 'ag-grid-community';
 import { Loader2, AlertTriangle, Calendar, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { queryProductionLogsByDateLte } from '../../lib/dataAccessLayer';
 import { useAuth } from '../../contexts/AuthContext';
 import { getYesterdayString } from '../../lib/dateUtils';
 import UndoRedoButtons from '../../components/UndoRedoButtons';
@@ -225,20 +226,19 @@ export default function CapacityVariance() {
       const janStart = buildDate(selectedYear, 1, 1);
       const queryStart = prevMonthStart < janStart ? prevMonthStart : janStart;
 
-      const [logsResult, commentsResult] = await Promise.all([
-        supabase.from('production_logs')
-          .select('station_id, date, rw_volume_m3, rw_hours_run, cw_volume_m3, cw_hours_run')
-          .in('station_id', ids)
-          .gte('date', queryStart)
-          .lte('date', dateRange.end),
+      const [logsData, commentsResult] = await Promise.all([
+        queryProductionLogsByDateLte({
+          stationIds: ids,
+          dateStart: queryStart,
+          dateEnd: dateRange.end,
+          fields: ['station_id', 'date', 'rw_volume_m3', 'rw_hours_run', 'cw_volume_m3', 'cw_hours_run'],
+        }),
         supabase.from('capacity_variance_comments')
           .select('station_id, comment')
           .in('station_id', ids)
           .eq('period_year', selectedYear)
           .eq('period_month', selectedMonth),
       ]);
-
-      if (logsResult.error) throw logsResult.error;
 
       const commentMap = new Map<string, string>(
         (commentsResult.data || []).map((c: any) => [c.station_id, c.comment])
@@ -247,7 +247,7 @@ export default function CapacityVariance() {
       const monthly = new Map<string, Map<string, FlowAgg>>();
       const period = new Map<string, FlowAgg>();
 
-      for (const log of (logsResult.data || [])) {
+      for (const log of logsData) {
         const monthKey = log.date.substring(0, 7);
 
         if (!monthly.has(log.station_id)) monthly.set(log.station_id, new Map());

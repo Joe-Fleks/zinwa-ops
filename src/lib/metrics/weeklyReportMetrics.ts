@@ -1,7 +1,14 @@
 import { supabase } from '../supabase';
 import type { ScopeFilter, DateRange } from '../metricsConfig';
 import { roundTo, CHEMICAL_PROD_FIELDS, CHEMICAL_TYPES } from '../metricsConfig';
-import { applyScopeToQuery, fetchAllRows } from './scopeFilter';
+import { fetchAllRows } from './scopeFilter';
+import {
+  queryStationsByScope,
+  queryProductionLogs,
+  queryProductionTargets,
+  queryChemicalBalances,
+  queryChemicalReceipts,
+} from '../dataAccessLayer';
 import {
   computeProductionEfficiency,
   computePumpRate,
@@ -199,17 +206,13 @@ export async function fetchWeeklyReportData(
   reportType: 'friday' | 'tuesday',
   serviceCentreName: string
 ): Promise<WeeklyReportData> {
-  let stationsQuery = supabase
-    .from('stations')
-    .select('id, station_name, station_type, service_centre_id, design_capacity_m3_hr, target_daily_hours, clients_domestic, clients_school, clients_business, clients_industry, clients_church, clients_parastatal, clients_government, clients_other');
-  stationsQuery = applyScopeToQuery(stationsQuery, scope);
+  const allStations = await queryStationsByScope({
+    scope,
+    fields: 'id, station_name, station_type, service_centre_id, design_capacity_m3_hr, target_daily_hours, clients_domestic, clients_school, clients_business, clients_industry, clients_church, clients_parastatal, clients_government, clients_other',
+  });
 
-  const { data: stations, error: stErr } = await stationsQuery;
-  if (stErr) throw stErr;
-
-  const allStations = stations || [];
-  const stationIds = allStations.map(s => s.id);
-  const stationMap = new Map(allStations.map(s => [s.id, s]));
+  const stationIds = allStations.map((s: any) => s.id);
+  const stationMap = new Map(allStations.map((s: any) => [s.id, s]));
 
   if (stationIds.length === 0) {
     return buildEmptyReport(scope.scopeId || '', serviceCentreName, weekNumber, year, reportType, dateRange);
@@ -217,45 +220,41 @@ export async function fetchWeeklyReportData(
 
   const ytdStart = `${year}-01-01`;
 
-  const [logs, breakdownsRes, balancesRes, receiptsRes, targetsRes, ytdPriorLogs] = await Promise.all([
+  const [logs, breakdownsData, balancesData, receiptsData, targetsData, ytdPriorLogs] = await Promise.all([
+    queryProductionLogs({
+      stationIds,
+      dateRange,
+      fields: ['station_id', 'date', 'cw_volume_m3', 'rw_volume_m3', 'cw_hours_run', 'rw_hours_run', 'load_shedding_hours', 'other_downtime_hours', 'alum_kg', 'hth_kg', 'activated_carbon_kg', 'new_connections'],
+      dateEndInclusive: true,
+      orderBy: 'date',
+    }),
     fetchAllRows(
       supabase
-        .from('production_logs')
-        .select('station_id, date, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, load_shedding_hours, other_downtime_hours, alum_kg, hth_kg, activated_carbon_kg, new_connections')
+        .from('station_breakdowns')
+        .select('station_id, nature_of_breakdown, description, date_reported, is_resolved, date_resolved, breakdown_impact, hours_lost')
         .in('station_id', stationIds)
-        .gte('date', dateRange.start)
-        .lte('date', dateRange.end)
-        .order('date', { ascending: true })
+        .lte('date_reported', dateRange.end)
+        .or(`is_resolved.eq.false,date_resolved.gte.${dateRange.start}`)
     ),
-    supabase
-      .from('station_breakdowns')
-      .select('station_id, nature_of_breakdown, description, date_reported, is_resolved, date_resolved, breakdown_impact, hours_lost')
-      .in('station_id', stationIds)
-      .lte('date_reported', dateRange.end)
-      .or(`is_resolved.eq.false,date_resolved.gte.${dateRange.start}`),
-    supabase
-      .from('chemical_stock_balances')
-      .select('station_id, chemical_type, opening_balance, year, month')
-      .in('station_id', stationIds)
-      .in('chemical_type', ['aluminium_sulphate', 'hth', 'activated_carbon']),
-    supabase
-      .from('chemical_stock_receipts')
-      .select('station_id, chemical_type, quantity, receipt_type, year, month')
-      .in('station_id', stationIds)
-      .in('chemical_type', ['aluminium_sulphate', 'hth', 'activated_carbon']),
-    supabase
-      .from('cw_production_targets')
-      .select('station_id, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
-      .in('station_id', stationIds)
-      .eq('year', year),
-    fetchAllRows(
-      supabase
-        .from('production_logs')
-        .select('station_id, cw_volume_m3, rw_volume_m3, cw_hours_run, rw_hours_run, new_connections')
-        .in('station_id', stationIds)
-        .gte('date', ytdStart)
-        .lte('date', dateRange.end)
-    ),
+    queryChemicalBalances({
+      stationIds,
+      chemicalTypes: ['aluminium_sulphate', 'hth', 'activated_carbon'],
+    }),
+    queryChemicalReceipts({
+      stationIds,
+      chemicalTypes: ['aluminium_sulphate', 'hth', 'activated_carbon'],
+    }),
+    queryProductionTargets({
+      stationIds,
+      year,
+      targetType: 'production',
+    }),
+    queryProductionLogs({
+      stationIds,
+      dateRange: { start: ytdStart, end: dateRange.end },
+      fields: ['station_id', 'cw_volume_m3', 'rw_volume_m3', 'cw_hours_run', 'rw_hours_run', 'new_connections'],
+      dateEndInclusive: true,
+    }),
   ]);
 
   const stationAgg = new Map<string, {
@@ -298,7 +297,7 @@ export async function fetchWeeklyReportData(
   }
 
   const breakdownHoursLostByStation = computeBreakdownHoursLostForPeriod(
-    (breakdownsRes.data || []).map((b: any) => ({
+    breakdownsData.map((b: any) => ({
       station_id: b.station_id,
       date_reported: b.date_reported,
       date_resolved: b.date_resolved || null,
@@ -359,7 +358,7 @@ export async function fetchWeeklyReportData(
     (new Date(dateRange.end).getTime() - new Date(dateRange.start).getTime()) / 86400000
   ) + 1;
 
-  const cwWeeklyTarget = computeCWWeeklyTarget(targetsRes.data || [], dateRange, periodDays);
+  const cwWeeklyTarget = computeCWWeeklyTarget(targetsData, dateRange, periodDays);
   const cwPerformancePct = cwWeeklyTarget > 0 ? roundTo((totalCWVol / cwWeeklyTarget) * 100, 1) : null;
 
   let totalCWVolYTD = 0;
@@ -388,7 +387,7 @@ export async function fetchWeeklyReportData(
     stations: stationMetrics,
   };
 
-  const breakdowns: WeeklyBreakdown[] = (breakdownsRes.data || []).map((b: any) => {
+  const breakdowns: WeeklyBreakdown[] = breakdownsData.map((b: any) => {
     let hoursLost = Number(b.hours_lost) || 0;
     if (b.breakdown_impact === 'Stopped pumping') {
       const stationTarget = Number(stationMap.get(b.station_id)?.target_daily_hours) || 0;
@@ -448,13 +447,13 @@ export async function fetchWeeklyReportData(
       if (station.station_type !== 'Full Treatment') continue;
       const sid = station.id;
 
-      const balRow = (balancesRes.data || []).find(
+      const balRow = balancesData.find(
         (r: any) => r.station_id === sid && r.chemical_type === chemType &&
           r.year === currentYear && r.month === (currentMonth + 1)
       );
       const opening = balRow ? Number(balRow.opening_balance) : 0;
 
-      const stationReceipts = (receiptsRes.data || []).filter(
+      const stationReceipts = receiptsData.filter(
         (r: any) => r.station_id === sid && r.chemical_type === chemType &&
           r.year === currentYear && r.month === (currentMonth + 1)
       );
@@ -519,7 +518,7 @@ export async function fetchWeeklyReportData(
   const capacityUtilization = buildCapacityUtilization(allStations, stationAgg, ytdFullAgg);
   const powerSupply = buildPowerSupply(allStations, stationAgg, periodDays);
   const connections = buildConnections(allStations, stationAgg, ytdFullAgg);
-  const ytdProductionVsTarget = buildYTDProductionVsTarget(allStations, ytdFullAgg, targetsRes.data || [], dateRange.end);
+  const ytdProductionVsTarget = buildYTDProductionVsTarget(allStations, ytdFullAgg, targetsData, dateRange.end);
 
   const totalExpectedLogs = allStations.length * periodDays;
   const completionPct = totalExpectedLogs > 0
