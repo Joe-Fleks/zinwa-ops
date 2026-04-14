@@ -1,4 +1,4 @@
-import type { MonthlyReportData } from './metrics/monthlyReportMetrics';
+import type { QuarterlyReportData } from './metrics/quarterlyReportMetrics';
 
 function esc(s: string): string {
   return s
@@ -101,23 +101,23 @@ function tblStart(width = 9000): string {
 
 function rowAlt(i: number): string { return i % 2 === 0 ? 'EBF5FB' : 'FFFFFF'; }
 
-function buildContent(d: MonthlyReportData): string {
+function buildContent(d: QuarterlyReportData): string {
   const parts: string[] = [];
 
   parts.push(`
     <w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="120"/></w:pPr>
       <w:r><w:rPr><w:b/><w:sz w:val="34"/><w:szCs w:val="34"/><w:color w:val="1A3A5C"/></w:rPr>
-        <w:t>MONTHLY OPERATIONS REPORT</w:t>
+        <w:t>QUARTERLY OPERATIONS REPORT</w:t>
       </w:r>
     </w:p>
     <w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="80"/></w:pPr>
       <w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/><w:color w:val="2E6FA3"/></w:rPr>
-        <w:t>${esc(d.monthName + ' ' + d.year + '  |  ' + d.serviceCentreName)}</w:t>
+        <w:t>${esc('Q' + d.quarter + ' ' + d.year + '  |  ' + d.serviceCentreName)}</w:t>
       </w:r>
     </w:p>
     <w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="200"/></w:pPr>
       <w:r><w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/><w:color w:val="888888"/></w:rPr>
-        <w:t>${esc('Generated: ' + new Date(d.generatedAt).toLocaleString('en-GB'))}</w:t>
+        <w:t>${esc(d.monthNames.join(', ') + '  |  Generated: ' + new Date(d.generatedAt).toLocaleString('en-GB'))}</w:t>
       </w:r>
     </w:p>`);
 
@@ -125,324 +125,21 @@ function buildContent(d: MonthlyReportData): string {
 
   parts.push(heading1('1. EXECUTIVE SUMMARY'));
   parts.push(kv('Service Centre', d.serviceCentreName));
-  parts.push(kv('Reporting Month', d.monthName + ' ' + d.year));
+  parts.push(kv('Quarter', 'Q' + d.quarter + ' ' + d.year));
+  parts.push(kv('Months', d.monthNames.join(', ')));
   parts.push(kv('Active Stations', String(d.production.stationCount)));
   parts.push(kv('Data Completeness', `${d.totalActualLogs} of ${d.totalExpectedLogs} station-day logs (${d.completionPct}%)`));
-  parts.push(kv('Total CW Volume Produced', fmt(d.production.totalCWVolume) + ' m³'));
-  parts.push(kv('Total Sales Volume', fmt(d.sales.totalEffectiveSalesVolume) + ' m³'));
+  parts.push(kv('Total CW Volume Produced', fmt(d.production.totalCWVolume) + ' m\u00B3'));
+  parts.push(kv('Total Sales Volume', fmt(d.sales.totalEffectiveSalesVolume) + ' m\u00B3'));
   parts.push(kv('Sales Achievement', pct(d.sales.overallAchievementPct)));
-  parts.push(kv('Total NRW Losses', fmt(d.nrw.totalLossVol) + ' m³  (' + pct(d.nrw.totalLossPct) + ')'));
+  parts.push(kv('Total NRW Losses', fmt(d.nrw.totalLossVol) + ' m\u00B3  (' + pct(d.nrw.totalLossPct) + ')'));
   parts.push(kv('Total Breakdowns', String(d.breakdowns.length)));
   parts.push(kv('New Connections', String(d.production.totalNewConnections)));
-  parts.push(kv('Pumping Hours Lost (Breakdowns)', d.production.totalBreakdownHoursLost > 0 ? fmt(d.production.totalBreakdownHoursLost, 1) + ' hrs' : 'None'));
 
   parts.push(hline());
 
-  parts.push(heading1('2. PRODUCTION'));
-  parts.push(tblStart());
-  parts.push(trow([{ text: 'Metric', shade: '1A3A5C' }, { text: 'Value', shade: '1A3A5C', align: 'right' }], true));
-  const prodRows: [string, string][] = [
-    ['Total CW Volume', fmt(d.production.totalCWVolume) + ' m³'],
-    ['Total RW Volume Abstracted', fmt(d.production.totalRWVolume) + ' m³'],
-    ['Total CW Hours Run', fmt(d.production.totalCWHours, 1) + ' hrs'],
-    ['Total RW Hours Run', fmt(d.production.totalRWHours, 1) + ' hrs'],
-    ['Avg CW Pump Rate', d.production.avgCWPumpRate !== null ? fmt(d.production.avgCWPumpRate, 1) + ' m³/hr' : 'N/A'],
-    ['Load Shedding Hours', fmt(d.production.totalLoadShedding, 1) + ' hrs'],
-    ['Other Downtime Hours', fmt(d.production.totalOtherDowntime, 1) + ' hrs'],
-    ['Total Downtime', fmt(d.production.totalDowntime, 1) + ' hrs'],
-    ['Average Efficiency', pct(d.production.avgEfficiency)],
-    ['New Connections', String(d.production.totalNewConnections)],
-    ['Pumping Hours Lost (Breakdowns)', d.production.totalBreakdownHoursLost > 0 ? fmt(d.production.totalBreakdownHoursLost, 1) + ' hrs' : 'None'],
-  ];
-  prodRows.forEach(([label, value], i) => {
-    parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: rowAlt(i) }]));
-  });
-  parts.push('</w:tbl>');
-
-  if (d.production.stations.length > 0) {
-    parts.push(heading2('2.1 Station Production Detail'));
-    parts.push(tblStart());
-    parts.push(trow([
-      { text: 'Station', shade: '2E6FA3' },
-      { text: 'Type', shade: '2E6FA3' },
-      { text: 'CW Vol (m³)', shade: '2E6FA3', align: 'right' },
-      { text: 'CW Hrs', shade: '2E6FA3', align: 'right' },
-      { text: 'Efficiency', shade: '2E6FA3', align: 'right' },
-      { text: 'Downtime (hrs)', shade: '2E6FA3', align: 'right' },
-      { text: 'New Conn.', shade: '2E6FA3', align: 'right' },
-    ], true));
-    d.production.stations.forEach((st, i) => {
-      parts.push(trow([
-        { text: st.stationName, shade: rowAlt(i) },
-        { text: st.stationType, shade: rowAlt(i) },
-        { text: fmt(st.cwVolume), align: 'right', shade: rowAlt(i) },
-        { text: fmt(st.cwHours, 1), align: 'right', shade: rowAlt(i) },
-        { text: pct(st.efficiency), align: 'right', shade: rowAlt(i) },
-        { text: fmt(st.totalDowntime, 1), align: 'right', shade: rowAlt(i) },
-        { text: String(st.newConnections), align: 'right', shade: rowAlt(i) },
-      ]));
-    });
-    parts.push('</w:tbl>');
-  }
-
-  if (d.productionVsTarget && d.productionVsTarget.stations.length > 0) {
-    const pvt = d.productionVsTarget;
-    parts.push(heading2('2.2 Monthly CW Production Performance vs Target'));
-    parts.push(`${tblStart()}
-      ${trow([
-        { text: 'Station', shade: '2E6FA3' },
-        { text: 'Actual (m\u00B3)', shade: '2E6FA3', align: 'right' },
-        { text: 'Target (m\u00B3)', shade: '2E6FA3', align: 'right' },
-        { text: 'Variance (m\u00B3)', shade: '2E6FA3', align: 'right' },
-        { text: 'Achievement (%)', shade: '2E6FA3', align: 'right' },
-      ], true)}
-      ${pvt.stations.map((st, i) => {
-        const achShade = st.achievementPct === null ? rowAlt(i)
-          : st.achievementPct >= 100 ? 'E8F5E9'
-          : st.achievementPct >= 80 ? 'FFF3CD' : 'FFE5E5';
-        return trow([
-          { text: st.stationName, shade: rowAlt(i) },
-          { text: fmt(st.actualProduction), align: 'right', shade: rowAlt(i) },
-          { text: fmt(st.targetProduction), align: 'right', shade: rowAlt(i) },
-          { text: (st.variance >= 0 ? '+' : '') + fmt(st.variance), align: 'right', shade: rowAlt(i) },
-          { text: st.achievementPct !== null ? fmt(st.achievementPct, 1) + '%' : 'N/A', align: 'right', shade: achShade },
-        ]);
-      }).join('')}
-      ${trow([
-        { text: 'TOTAL', shade: 'D6EAF8', bold: true },
-        { text: fmt(pvt.totalActualProduction), align: 'right', shade: 'D6EAF8', bold: true },
-        { text: fmt(pvt.totalTargetProduction), align: 'right', shade: 'D6EAF8', bold: true },
-        { text: (pvt.totalVariance >= 0 ? '+' : '') + fmt(pvt.totalVariance), align: 'right', shade: 'D6EAF8', bold: true },
-        { text: pvt.totalAchievementPct !== null ? fmt(pvt.totalAchievementPct, 1) + '%' : 'N/A', align: 'right', shade: 'D6EAF8', bold: true },
-      ])}
-    </w:tbl>`);
-  }
-
-  parts.push(hline());
-
-  parts.push(heading1('3. SALES PERFORMANCE'));
-
-  const salesNote = d.sales.stationsWithReturnsOnly > 0
-    ? `Note: ${d.sales.stationsWithReturnsOnly} station(s) using Returns data (Sage not available). ${d.sales.stationsWithSage} station(s) using confirmed Sage sales.`
-    : `All ${d.sales.stationsWithSage} station(s) using confirmed Sage sales data.`;
-  parts.push(para(salesNote));
-
-  parts.push(tblStart());
-  parts.push(trow([{ text: 'Metric', shade: '1A3A5C' }, { text: 'Value', shade: '1A3A5C', align: 'right' }], true));
-  const salesRows: [string, string][] = [
-    ['Total Sales Volume', fmt(d.sales.totalEffectiveSalesVolume) + ' m³'],
-    ['Total Sales Target', fmt(d.sales.totalTargetVolume) + ' m³'],
-    ['Variance vs Target', (d.sales.overallVarianceM3 >= 0 ? '+' : '') + fmt(d.sales.overallVarianceM3) + ' m³'],
-    ['Achievement', pct(d.sales.overallAchievementPct)],
-  ];
-  salesRows.forEach(([label, value], i) => {
-    parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: rowAlt(i) }]));
-  });
-  parts.push('</w:tbl>');
-
-  if (d.sales.stations.length > 0) {
-    parts.push(heading2('3.1 Sales by Station'));
-    parts.push(tblStart());
-    parts.push(trow([
-      { text: 'Station', shade: '2E6FA3' },
-      { text: 'Effective Vol (m³)', shade: '2E6FA3', align: 'right' },
-      { text: 'Target (m³)', shade: '2E6FA3', align: 'right' },
-      { text: 'Variance (m³)', shade: '2E6FA3', align: 'right' },
-      { text: 'Achievement', shade: '2E6FA3', align: 'right' },
-      { text: 'Source', shade: '2E6FA3', align: 'center' },
-    ], true));
-    d.sales.stations.forEach((st, i) => {
-      const achShade = st.achievementPct === null ? rowAlt(i)
-        : st.achievementPct >= 100 ? 'E8F5E9'
-        : st.achievementPct >= 80 ? 'FFF3CD' : 'FFE5E5';
-      parts.push(trow([
-        { text: st.stationName, shade: rowAlt(i) },
-        { text: fmt(st.effectiveSalesVolume), align: 'right', shade: rowAlt(i) },
-        { text: fmt(st.targetVolume), align: 'right', shade: rowAlt(i) },
-        { text: (st.varianceM3 >= 0 ? '+' : '') + fmt(st.varianceM3), align: 'right', shade: rowAlt(i) },
-        { text: pct(st.achievementPct), align: 'right', shade: achShade },
-        { text: st.usingSageData ? 'Sage' : 'Returns', align: 'center', shade: rowAlt(i) },
-      ]));
-    });
-    parts.push('</w:tbl>');
-  }
-
-  parts.push(hline());
-
-  parts.push(heading1('4. NON-REVENUE WATER (NRW)'));
-  parts.push(tblStart());
-  parts.push(trow([{ text: 'Metric', shade: '1A3A5C' }, { text: 'Value', shade: '1A3A5C', align: 'right' }], true));
-  const nrwRows: [string, string][] = [
-    ['Total RW Abstracted', fmt(d.nrw.totalRWVolume) + ' m³'],
-    ['Total CW Produced', fmt(d.nrw.totalCWVolume) + ' m³'],
-    ['Total Sales Volume', fmt(d.nrw.totalSalesVolume) + ' m³'],
-    ['Station Loss (Treatment)', fmt(d.nrw.stationLossVol) + ' m³  (' + pct(d.nrw.stationLossPct) + ')'],
-    ['Distribution Loss', fmt(d.nrw.distributionLossVol) + ' m³  (' + pct(d.nrw.distributionLossPct) + ')'],
-    ['Total NRW Loss', fmt(d.nrw.totalLossVol) + ' m³  (' + pct(d.nrw.totalLossPct) + ')'],
-  ];
-  nrwRows.forEach(([label, value], i) => {
-    const isLoss = label.includes('Loss');
-    const lossShade = isLoss && d.nrw.totalLossPct > 20 ? 'FFE5E5' : isLoss && d.nrw.totalLossPct > 10 ? 'FFF3CD' : rowAlt(i);
-    parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: isLoss ? lossShade : rowAlt(i) }]));
-  });
-  parts.push('</w:tbl>');
-
-  parts.push(hline());
-
-  parts.push(heading1('5. CHEMICAL STOCK'));
-
-  for (let ci = 0; ci < d.chemicals.length; ci++) {
-    const chem = d.chemicals[ci];
-    if (chem.stations.length === 0) continue;
-
-    parts.push(heading2(`5.${ci + 1} ${chem.label}`));
-    parts.push(tblStart());
-    parts.push(trow([
-      { text: 'Metric', shade: '2E6FA3' },
-      { text: 'Value (kg)', shade: '2E6FA3', align: 'right' },
-    ], true));
-    const chemRows: [string, string][] = [
-      ['Opening Balance', fmt(chem.totalOpening, 1)],
-      ['Total Received', fmt(chem.totalReceived, 1)],
-      ['Total Used', fmt(chem.totalUsed, 1)],
-      ['Used per m\u00b3 Produced', chem.usedPerM3 !== null && chem.usedPerM3 !== undefined ? fmt(chem.usedPerM3, 2) + ' g/m\u00b3' : 'N/A'],
-      ['Closing Balance', fmt(chem.totalClosingBalance, 1)],
-    ];
-    chemRows.forEach(([label, value], i) => {
-      parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: rowAlt(i) }]));
-    });
-    parts.push('</w:tbl>');
-
-    if (chem.stations.length > 0) {
-      parts.push(tblStart());
-      parts.push(trow([
-        { text: 'Station', shade: '2E6FA3' },
-        { text: 'Opening (kg)', shade: '2E6FA3', align: 'right' },
-        { text: 'Received (kg)', shade: '2E6FA3', align: 'right' },
-        { text: 'Used (kg)', shade: '2E6FA3', align: 'right' },
-        { text: 'g/m\u00b3', shade: '2E6FA3', align: 'right' },
-        { text: 'Closing (kg)', shade: '2E6FA3', align: 'right' },
-        { text: 'Days Rem.', shade: '2E6FA3', align: 'right' },
-      ], true));
-      chem.stations.forEach((st, i) => {
-        const drShade = st.daysRemaining !== null && st.daysRemaining <= 5 ? 'FFE5E5'
-          : st.daysRemaining !== null && st.daysRemaining <= 10 ? 'FFF3CD' : rowAlt(i);
-        parts.push(trow([
-          { text: st.stationName, shade: rowAlt(i) },
-          { text: fmt(st.opening, 1), align: 'right', shade: rowAlt(i) },
-          { text: fmt(st.received, 1), align: 'right', shade: rowAlt(i) },
-          { text: fmt(st.used, 1), align: 'right', shade: rowAlt(i) },
-          { text: (st as any).usedPerM3 !== null && (st as any).usedPerM3 !== undefined ? fmt((st as any).usedPerM3, 2) : 'N/A', align: 'right', shade: rowAlt(i) },
-          { text: fmt(st.closing, 1), align: 'right', shade: rowAlt(i) },
-          { text: st.daysRemaining !== null ? String(Math.round(st.daysRemaining)) : 'N/A', align: 'right', shade: drShade },
-        ]));
-      });
-      parts.push('</w:tbl>');
-    }
-
-    if (chem.lowStockCount > 0) {
-      parts.push(para(`Low Stock Alert: ${chem.lowStockStations.map(s => `${s.stationName} (${s.daysRemaining}d)`).join(', ')}`, true));
-    }
-  }
-
-  parts.push(hline());
-
-  parts.push(heading1('6. BREAKDOWNS & MAINTENANCE'));
-
-  if (d.breakdowns.length > 0) {
-    parts.push(tblStart());
-    parts.push(trow([
-      { text: 'Station', shade: '1A3A5C' },
-      { text: 'Component', shade: '1A3A5C' },
-      { text: 'Impact', shade: '1A3A5C' },
-      { text: 'Date', shade: '1A3A5C' },
-      { text: 'Hrs Lost', shade: '1A3A5C', align: 'right' },
-      { text: 'Status', shade: '1A3A5C', align: 'center' },
-    ], true));
-    d.breakdowns.forEach((b, i) => {
-      parts.push(trow([
-        { text: b.stationName, shade: rowAlt(i) },
-        { text: b.component, shade: rowAlt(i) },
-        { text: b.impact, shade: rowAlt(i) },
-        { text: formatDate(b.dateReported), shade: rowAlt(i) },
-        { text: b.hoursLost > 0 ? fmt(b.hoursLost, 1) : '\u2014', align: 'right', shade: b.hoursLost > 0 && b.impact === 'Stopped pumping' ? 'FFE5E5' : rowAlt(i) },
-        { text: b.isResolved ? 'RESOLVED' : 'OPEN', align: 'center', shade: b.isResolved ? 'E8F5E9' : 'FFE5E5' },
-      ]));
-    });
-    if (d.production.totalBreakdownHoursLost > 0) {
-      parts.push(trow([
-        { text: 'TOTAL PUMPING HRS LOST', shade: 'FFF3CD', bold: true },
-        { text: '', shade: 'FFF3CD' },
-        { text: 'Stopped pumping', shade: 'FFF3CD' },
-        { text: '', shade: 'FFF3CD' },
-        { text: fmt(d.production.totalBreakdownHoursLost, 1), align: 'right', shade: 'FFE5E5', bold: true },
-        { text: '', shade: 'FFF3CD' },
-      ]));
-    }
-    parts.push('</w:tbl>');
-  } else {
-    parts.push(para('No breakdowns recorded during this month.'));
-  }
-
-  const energy = (d as any).energy;
-  if (energy && (energy.stations || []).length > 0) {
-    parts.push(hline());
-    parts.push(heading1('7. ENERGY CONSUMPTION & COST ANALYSIS'));
-
-    parts.push(tblStart());
-    parts.push(trow([
-      { text: 'Metric', shade: '1A3A5C' },
-      { text: 'Value', shade: '1A3A5C', align: 'right' },
-    ], true));
-    const energySummary: [string, string][] = [
-      ['Estimated Consumption', fmt(energy.totalEstimatedKWh) + ' kWh'],
-      ['Estimated Cost', '$' + fmt(energy.totalEstimatedCost, 2)],
-      ['Actual ZESA Bill', energy.totalActualBill > 0 ? '$' + fmt(energy.totalActualBill, 2) : '---'],
-      ['Variance', energy.overallVariancePct != null ? (energy.overallVariancePct >= 0 ? '+' : '') + fmt(energy.overallVariancePct, 1) + '%' : '---'],
-    ];
-    energySummary.forEach(([label, value], i) => {
-      parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: rowAlt(i) }]));
-    });
-    parts.push('</w:tbl>');
-
-    parts.push(heading2('7.1 Station Energy Detail'));
-    parts.push(tblStart());
-    parts.push(trow([
-      { text: 'Station', shade: '2E6FA3' },
-      { text: 'Est. kWh', shade: '2E6FA3', align: 'right' },
-      { text: 'Est. Cost ($)', shade: '2E6FA3', align: 'right' },
-      { text: 'Actual Bill ($)', shade: '2E6FA3', align: 'right' },
-      { text: 'Actual kWh', shade: '2E6FA3', align: 'right' },
-      { text: 'Variance (%)', shade: '2E6FA3', align: 'right' },
-    ], true));
-    (energy.stations || []).forEach((st: any, i: number) => {
-      const vPct = st.totalEstCost > 0 ? ((st.totalActBill - st.totalEstCost) / st.totalEstCost) * 100 : null;
-      const varShade = vPct == null ? rowAlt(i)
-        : Math.abs(vPct) <= 10 ? 'E8F5E9' : Math.abs(vPct) <= 25 ? 'FFF3CD' : 'FFE5E5';
-      parts.push(trow([
-        { text: st.stationName, shade: rowAlt(i) },
-        { text: fmt(st.totalEstKWh), align: 'right', shade: rowAlt(i) },
-        { text: fmt(st.totalEstCost, 2), align: 'right', shade: rowAlt(i) },
-        { text: st.totalActBill > 0 ? fmt(st.totalActBill, 2) : '---', align: 'right', shade: rowAlt(i) },
-        { text: st.totalActKWh > 0 ? fmt(st.totalActKWh) : '---', align: 'right', shade: rowAlt(i) },
-        { text: vPct != null ? (vPct >= 0 ? '+' : '') + fmt(vPct, 1) + '%' : '---', align: 'right', shade: varShade },
-      ]));
-    });
-    parts.push(trow([
-      { text: 'TOTAL', shade: 'D6EAF8', bold: true },
-      { text: fmt(energy.totalEstimatedKWh), align: 'right', shade: 'D6EAF8', bold: true },
-      { text: fmt(energy.totalEstimatedCost, 2), align: 'right', shade: 'D6EAF8', bold: true },
-      { text: energy.totalActualBill > 0 ? fmt(energy.totalActualBill, 2) : '---', align: 'right', shade: 'D6EAF8', bold: true },
-      { text: energy.totalActualKWh > 0 ? fmt(energy.totalActualKWh) : '---', align: 'right', shade: 'D6EAF8', bold: true },
-      { text: energy.overallVariancePct != null ? (energy.overallVariancePct >= 0 ? '+' : '') + fmt(energy.overallVariancePct, 1) + '%' : '---', align: 'right', shade: 'D6EAF8', bold: true },
-    ]));
-    parts.push('</w:tbl>');
-  }
-
-  parts.push(hline());
-
-  parts.push(heading1(energy && (energy.stations || []).length > 0 ? '8. KPI SUMMARY ANALYSIS' : '7. KPI SUMMARY ANALYSIS'));
-  parts.push(para('The table below identifies the worst-performing station under each key performance indicator for the reporting month.'));
+  parts.push(heading2('1.1 KPI SUMMARY ANALYSIS'));
+  parts.push(para('The table below identifies the worst-performing station under each key performance indicator for the quarter.'));
 
   const kpi = d.kpiAnalysis;
   const kpiItems: Array<{ label: string; station: string; value: string; context: string }> = [];
@@ -489,7 +186,7 @@ function buildContent(d: MonthlyReportData): string {
   }
   if (kpi.mostBreakdowns) {
     kpiItems.push({
-      label: 'Most Breakdowns Recorded',
+      label: 'Most Breakdowns',
       station: kpi.mostBreakdowns.stationName,
       value: `${kpi.mostBreakdowns.value} ${kpi.mostBreakdowns.unit}`,
       context: kpi.mostBreakdowns.context || '',
@@ -502,7 +199,7 @@ function buildContent(d: MonthlyReportData): string {
       { text: 'KPI', shade: '1A3A5C' },
       { text: 'Worst Station', shade: '1A3A5C' },
       { text: 'Value', shade: '1A3A5C', align: 'right' },
-      { text: 'Context / Detail', shade: '1A3A5C' },
+      { text: 'Context', shade: '1A3A5C' },
     ], true));
     kpiItems.forEach((item, i) => {
       parts.push(trow([
@@ -514,21 +211,348 @@ function buildContent(d: MonthlyReportData): string {
     });
     parts.push('</w:tbl>');
   } else {
-    parts.push(para('Insufficient data to perform KPI analysis for this month.'));
+    parts.push(para('Insufficient data to perform KPI analysis for this quarter.'));
   }
 
   parts.push(hline());
 
-  const hasEnergy = energy && (energy.stations || []).length > 0;
-  const rwSectionNum = hasEnergy ? 9 : 8;
+  parts.push(heading1('2. CW PERFORMANCE SUMMARY'));
+  parts.push(tblStart());
+  parts.push(trow([{ text: 'Metric', shade: '1A3A5C' }, { text: 'Value', shade: '1A3A5C', align: 'right' }], true));
+  const prodRows: [string, string][] = [
+    ['Total CW Volume', fmt(d.production.totalCWVolume) + ' m\u00B3'],
+    ['Total RW Volume', fmt(d.production.totalRWVolume) + ' m\u00B3'],
+    ['CW Hours', fmt(d.production.totalCWHours, 1) + ' hrs'],
+    ['RW Hours', fmt(d.production.totalRWHours, 1) + ' hrs'],
+    ['Avg CW Pump Rate', d.production.avgCWPumpRate !== null ? fmt(d.production.avgCWPumpRate, 1) + ' m\u00B3/hr' : 'N/A'],
+    ['Load Shedding', fmt(d.production.totalLoadShedding, 1) + ' hrs'],
+    ['Other Downtime', fmt(d.production.totalOtherDowntime, 1) + ' hrs'],
+    ['Total Downtime', fmt(d.production.totalDowntime, 1) + ' hrs'],
+    ['Avg Efficiency', pct(d.production.avgEfficiency)],
+    ['New Connections', String(d.production.totalNewConnections)],
+    ['Breakdown Hours Lost', d.production.totalBreakdownHoursLost > 0 ? fmt(d.production.totalBreakdownHoursLost, 1) + ' hrs' : 'None'],
+  ];
+  prodRows.forEach(([label, value], i) => {
+    parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: rowAlt(i) }]));
+  });
+  parts.push('</w:tbl>');
 
-  parts.push(heading1(`${rwSectionNum}. RAW WATER`));
+  if (d.production.stations.length > 0) {
+    parts.push(heading2('2.1 Station Detail'));
+    parts.push(tblStart());
+    parts.push(trow([
+      { text: 'Station', shade: '2E6FA3' },
+      { text: 'Type', shade: '2E6FA3' },
+      { text: 'CW Vol (m\u00B3)', shade: '2E6FA3', align: 'right' },
+      { text: 'CW Hrs', shade: '2E6FA3', align: 'right' },
+      { text: 'Efficiency', shade: '2E6FA3', align: 'right' },
+      { text: 'Downtime (hrs)', shade: '2E6FA3', align: 'right' },
+      { text: 'New Conn.', shade: '2E6FA3', align: 'right' },
+    ], true));
+    d.production.stations.forEach((st, i) => {
+      parts.push(trow([
+        { text: st.stationName, shade: rowAlt(i) },
+        { text: st.stationType, shade: rowAlt(i) },
+        { text: fmt(st.cwVolume), align: 'right', shade: rowAlt(i) },
+        { text: fmt(st.cwHours, 1), align: 'right', shade: rowAlt(i) },
+        { text: pct(st.efficiency), align: 'right', shade: rowAlt(i) },
+        { text: fmt(st.totalDowntime, 1), align: 'right', shade: rowAlt(i) },
+        { text: String(st.newConnections), align: 'right', shade: rowAlt(i) },
+      ]));
+    });
+    parts.push('</w:tbl>');
+  }
+
+  parts.push(hline());
+
+  parts.push(heading1('3. PRODUCTION vs TARGET'));
+  if (d.productionVsTarget && d.productionVsTarget.stations.length > 0) {
+    const pvt = d.productionVsTarget;
+    parts.push(`${tblStart()}
+      ${trow([
+        { text: 'Station', shade: '2E6FA3' },
+        { text: 'Actual (m\u00B3)', shade: '2E6FA3', align: 'right' },
+        { text: 'Target (m\u00B3)', shade: '2E6FA3', align: 'right' },
+        { text: 'Variance (m\u00B3)', shade: '2E6FA3', align: 'right' },
+        { text: 'Achievement (%)', shade: '2E6FA3', align: 'right' },
+      ], true)}
+      ${pvt.stations.map((st, i) => {
+        const achShade = st.achievementPct === null ? rowAlt(i)
+          : st.achievementPct >= 100 ? 'E8F5E9'
+          : st.achievementPct >= 80 ? 'FFF3CD' : 'FFE5E5';
+        return trow([
+          { text: st.stationName, shade: rowAlt(i) },
+          { text: fmt(st.actualProduction), align: 'right', shade: rowAlt(i) },
+          { text: fmt(st.targetProduction), align: 'right', shade: rowAlt(i) },
+          { text: (st.variance >= 0 ? '+' : '') + fmt(st.variance), align: 'right', shade: rowAlt(i) },
+          { text: st.achievementPct !== null ? fmt(st.achievementPct, 1) + '%' : 'N/A', align: 'right', shade: achShade },
+        ]);
+      }).join('')}
+      ${trow([
+        { text: 'TOTAL', shade: 'D6EAF8', bold: true },
+        { text: fmt(pvt.totalActualProduction), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: fmt(pvt.totalTargetProduction), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: (pvt.totalVariance >= 0 ? '+' : '') + fmt(pvt.totalVariance), align: 'right', shade: 'D6EAF8', bold: true },
+        { text: pvt.totalAchievementPct !== null ? fmt(pvt.totalAchievementPct, 1) + '%' : 'N/A', align: 'right', shade: 'D6EAF8', bold: true },
+      ])}
+    </w:tbl>`);
+  } else {
+    parts.push(para('No production target data available for this quarter.'));
+  }
+
+  parts.push(hline());
+
+  parts.push(heading1('4. SALES PERFORMANCE'));
+
+  const salesNote = d.sales.stationsWithReturnsOnly > 0
+    ? `Note: ${d.sales.stationsWithReturnsOnly} station(s) using Returns data (Sage not available). ${d.sales.stationsWithSage} station(s) using confirmed Sage sales.`
+    : `All ${d.sales.stationsWithSage} station(s) using confirmed Sage sales data.`;
+  parts.push(para(salesNote));
+
+  parts.push(tblStart());
+  parts.push(trow([{ text: 'Metric', shade: '1A3A5C' }, { text: 'Value', shade: '1A3A5C', align: 'right' }], true));
+  const salesRows: [string, string][] = [
+    ['Total Sales Volume', fmt(d.sales.totalEffectiveSalesVolume) + ' m\u00B3'],
+    ['Total Sales Target', fmt(d.sales.totalTargetVolume) + ' m\u00B3'],
+    ['Variance vs Target', (d.sales.overallVarianceM3 >= 0 ? '+' : '') + fmt(d.sales.overallVarianceM3) + ' m\u00B3'],
+    ['Achievement', pct(d.sales.overallAchievementPct)],
+  ];
+  salesRows.forEach(([label, value], i) => {
+    parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: rowAlt(i) }]));
+  });
+  parts.push('</w:tbl>');
+
+  if (d.sales.stations.length > 0) {
+    parts.push(heading2('4.1 Sales by Station'));
+    parts.push(tblStart());
+    parts.push(trow([
+      { text: 'Station', shade: '2E6FA3' },
+      { text: 'Effective Vol (m\u00B3)', shade: '2E6FA3', align: 'right' },
+      { text: 'Target (m\u00B3)', shade: '2E6FA3', align: 'right' },
+      { text: 'Variance (m\u00B3)', shade: '2E6FA3', align: 'right' },
+      { text: 'Achievement', shade: '2E6FA3', align: 'right' },
+      { text: 'Source', shade: '2E6FA3', align: 'center' },
+    ], true));
+    d.sales.stations.forEach((st, i) => {
+      const achShade = st.achievementPct === null ? rowAlt(i)
+        : st.achievementPct >= 100 ? 'E8F5E9'
+        : st.achievementPct >= 80 ? 'FFF3CD' : 'FFE5E5';
+      parts.push(trow([
+        { text: st.stationName, shade: rowAlt(i) },
+        { text: fmt(st.effectiveSalesVolume), align: 'right', shade: rowAlt(i) },
+        { text: fmt(st.targetVolume), align: 'right', shade: rowAlt(i) },
+        { text: (st.varianceM3 >= 0 ? '+' : '') + fmt(st.varianceM3), align: 'right', shade: rowAlt(i) },
+        { text: pct(st.achievementPct), align: 'right', shade: achShade },
+        { text: st.usingSageData ? 'Sage' : 'Returns', align: 'center', shade: rowAlt(i) },
+      ]));
+    });
+    parts.push('</w:tbl>');
+  }
+
+  parts.push(hline());
+
+  parts.push(heading1('5. NON-REVENUE WATER (NRW)'));
+  parts.push(tblStart());
+  parts.push(trow([{ text: 'Metric', shade: '1A3A5C' }, { text: 'Value', shade: '1A3A5C', align: 'right' }], true));
+  const nrwRows: [string, string][] = [
+    ['RW Abstracted', fmt(d.nrw.totalRWVolume) + ' m\u00B3'],
+    ['CW Produced', fmt(d.nrw.totalCWVolume) + ' m\u00B3'],
+    ['Sales Volume', fmt(d.nrw.totalSalesVolume) + ' m\u00B3'],
+    ['Station Loss', fmt(d.nrw.stationLossVol) + ' m\u00B3  (' + pct(d.nrw.stationLossPct) + ')'],
+    ['Distribution Loss', fmt(d.nrw.distributionLossVol) + ' m\u00B3  (' + pct(d.nrw.distributionLossPct) + ')'],
+    ['Total NRW Loss', fmt(d.nrw.totalLossVol) + ' m\u00B3  (' + pct(d.nrw.totalLossPct) + ')'],
+  ];
+  nrwRows.forEach(([label, value], i) => {
+    const isLoss = label.includes('Loss');
+    const lossShade = isLoss && d.nrw.totalLossPct > 20 ? 'FFE5E5' : isLoss && d.nrw.totalLossPct > 10 ? 'FFF3CD' : rowAlt(i);
+    parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: isLoss ? lossShade : rowAlt(i) }]));
+  });
+  parts.push('</w:tbl>');
+
+  parts.push(hline());
+
+  parts.push(heading1('6. CHEMICALS USAGE'));
+
+  for (let ci = 0; ci < d.chemicals.length; ci++) {
+    const chem = d.chemicals[ci];
+    if (chem.stations.length === 0) continue;
+
+    parts.push(heading2(`6.${ci + 1} ${chem.label}`));
+    parts.push(tblStart());
+    parts.push(trow([
+      { text: 'Metric', shade: '2E6FA3' },
+      { text: 'Value (kg)', shade: '2E6FA3', align: 'right' },
+    ], true));
+    const chemRows: [string, string][] = [
+      ['Opening Balance', fmt(chem.totalOpening, 1)],
+      ['Total Received', fmt(chem.totalReceived, 1)],
+      ['Total Used', fmt(chem.totalUsed, 1)],
+      ['Used per m\u00B3 Produced', chem.usedPerM3 !== null && chem.usedPerM3 !== undefined ? fmt(chem.usedPerM3, 2) + ' g/m\u00B3' : 'N/A'],
+      ['Closing Balance', fmt(chem.totalClosingBalance, 1)],
+    ];
+    chemRows.forEach(([label, value], i) => {
+      parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: rowAlt(i) }]));
+    });
+    parts.push('</w:tbl>');
+
+    if (chem.stations.length > 0) {
+      parts.push(tblStart());
+      parts.push(trow([
+        { text: 'Station', shade: '2E6FA3' },
+        { text: 'Opening (kg)', shade: '2E6FA3', align: 'right' },
+        { text: 'Received (kg)', shade: '2E6FA3', align: 'right' },
+        { text: 'Used (kg)', shade: '2E6FA3', align: 'right' },
+        { text: 'g/m\u00B3', shade: '2E6FA3', align: 'right' },
+        { text: 'Closing (kg)', shade: '2E6FA3', align: 'right' },
+        { text: 'Days Rem.', shade: '2E6FA3', align: 'right' },
+      ], true));
+      chem.stations.forEach((st, i) => {
+        const drShade = st.daysRemaining !== null && st.daysRemaining <= 5 ? 'FFE5E5'
+          : st.daysRemaining !== null && st.daysRemaining <= 10 ? 'FFF3CD' : rowAlt(i);
+        parts.push(trow([
+          { text: st.stationName, shade: rowAlt(i) },
+          { text: fmt(st.opening, 1), align: 'right', shade: rowAlt(i) },
+          { text: fmt(st.received, 1), align: 'right', shade: rowAlt(i) },
+          { text: fmt(st.used, 1), align: 'right', shade: rowAlt(i) },
+          { text: (st as any).usedPerM3 !== null && (st as any).usedPerM3 !== undefined ? fmt((st as any).usedPerM3, 2) : 'N/A', align: 'right', shade: rowAlt(i) },
+          { text: fmt(st.closing, 1), align: 'right', shade: rowAlt(i) },
+          { text: st.daysRemaining !== null ? String(Math.round(st.daysRemaining)) : 'N/A', align: 'right', shade: drShade },
+        ]));
+      });
+      parts.push('</w:tbl>');
+    }
+
+    if (chem.lowStockCount > 0) {
+      parts.push(para(`Low Stock Alert: ${chem.lowStockStations.map(s => `${s.stationName} (${s.daysRemaining}d)`).join(', ')}`, true));
+    }
+  }
+
+  parts.push(hline());
+
+  parts.push(heading1('7. BREAKDOWNS & MAINTENANCE'));
+
+  if (d.breakdowns.length > 0) {
+    parts.push(tblStart());
+    parts.push(trow([
+      { text: 'Station', shade: '1A3A5C' },
+      { text: 'Component', shade: '1A3A5C' },
+      { text: 'Impact', shade: '1A3A5C' },
+      { text: 'Date', shade: '1A3A5C' },
+      { text: 'Hrs Lost', shade: '1A3A5C', align: 'right' },
+      { text: 'Status', shade: '1A3A5C', align: 'center' },
+    ], true));
+    d.breakdowns.forEach((b, i) => {
+      parts.push(trow([
+        { text: b.stationName, shade: rowAlt(i) },
+        { text: b.component, shade: rowAlt(i) },
+        { text: b.impact, shade: rowAlt(i) },
+        { text: formatDate(b.dateReported), shade: rowAlt(i) },
+        { text: b.hoursLost > 0 ? fmt(b.hoursLost, 1) : '\u2014', align: 'right', shade: b.hoursLost > 0 && b.impact === 'Stopped pumping' ? 'FFE5E5' : rowAlt(i) },
+        { text: b.isResolved ? 'RESOLVED' : 'OPEN', align: 'center', shade: b.isResolved ? 'E8F5E9' : 'FFE5E5' },
+      ]));
+    });
+    if (d.production.totalBreakdownHoursLost > 0) {
+      parts.push(trow([
+        { text: 'TOTAL PUMPING HRS LOST', shade: 'FFF3CD', bold: true },
+        { text: '', shade: 'FFF3CD' },
+        { text: 'Stopped pumping', shade: 'FFF3CD' },
+        { text: '', shade: 'FFF3CD' },
+        { text: fmt(d.production.totalBreakdownHoursLost, 1), align: 'right', shade: 'FFE5E5', bold: true },
+        { text: '', shade: 'FFF3CD' },
+      ]));
+    }
+    parts.push('</w:tbl>');
+  } else {
+    parts.push(para('No breakdowns recorded during this quarter.'));
+  }
+
+  parts.push(hline());
+
+  parts.push(heading1('8. ENERGY CONSUMPTION & COST'));
+
+  const energy = d.energy;
+  if (energy && (energy.stations || []).length > 0) {
+    parts.push(tblStart());
+    parts.push(trow([
+      { text: 'Metric', shade: '1A3A5C' },
+      { text: 'Value', shade: '1A3A5C', align: 'right' },
+    ], true));
+    const energySummary: [string, string][] = [
+      ['Estimated Consumption', fmt(energy.totalEstimatedKWh) + ' kWh'],
+      ['Estimated Cost', '$' + fmt(energy.totalEstimatedCost, 2)],
+      ['Actual ZESA Bill', energy.totalActualBill > 0 ? '$' + fmt(energy.totalActualBill, 2) : '---'],
+      ['Variance', energy.overallVariancePct != null ? (energy.overallVariancePct >= 0 ? '+' : '') + fmt(energy.overallVariancePct, 1) + '%' : '---'],
+    ];
+    energySummary.forEach(([label, value], i) => {
+      parts.push(trow([{ text: label, shade: rowAlt(i) }, { text: value, align: 'right', shade: rowAlt(i) }]));
+    });
+    parts.push('</w:tbl>');
+
+    if (energy.monthlyBreakdown && energy.monthlyBreakdown.length > 0) {
+      parts.push(heading2('8.1 Monthly Breakdown'));
+      parts.push(tblStart());
+      parts.push(trow([
+        { text: 'Month', shade: '2E6FA3' },
+        { text: 'Est. kWh', shade: '2E6FA3', align: 'right' },
+        { text: 'Est. Cost ($)', shade: '2E6FA3', align: 'right' },
+        { text: 'Actual Bill ($)', shade: '2E6FA3', align: 'right' },
+      ], true));
+      energy.monthlyBreakdown.forEach((em, i) => {
+        parts.push(trow([
+          { text: em.monthName, shade: rowAlt(i) },
+          { text: fmt(em.totalEstKWh), align: 'right', shade: rowAlt(i) },
+          { text: fmt(em.totalEstCost, 2), align: 'right', shade: rowAlt(i) },
+          { text: em.totalActBill > 0 ? fmt(em.totalActBill, 2) : '---', align: 'right', shade: rowAlt(i) },
+        ]));
+      });
+      parts.push('</w:tbl>');
+    }
+
+    parts.push(heading2('8.2 Station Detail'));
+    parts.push(tblStart());
+    parts.push(trow([
+      { text: 'Station', shade: '2E6FA3' },
+      { text: 'Est. kWh', shade: '2E6FA3', align: 'right' },
+      { text: 'Est. Cost ($)', shade: '2E6FA3', align: 'right' },
+      { text: 'Actual Bill ($)', shade: '2E6FA3', align: 'right' },
+      { text: 'Actual kWh', shade: '2E6FA3', align: 'right' },
+      { text: 'Variance (%)', shade: '2E6FA3', align: 'right' },
+    ], true));
+    (energy.stations || []).forEach((st: any, i: number) => {
+      const vPct = st.totalEstCost > 0 ? ((st.totalActBill - st.totalEstCost) / st.totalEstCost) * 100 : null;
+      const varShade = vPct == null ? rowAlt(i)
+        : Math.abs(vPct) <= 10 ? 'E8F5E9' : Math.abs(vPct) <= 25 ? 'FFF3CD' : 'FFE5E5';
+      parts.push(trow([
+        { text: st.stationName, shade: rowAlt(i) },
+        { text: fmt(st.totalEstKWh), align: 'right', shade: rowAlt(i) },
+        { text: fmt(st.totalEstCost, 2), align: 'right', shade: rowAlt(i) },
+        { text: st.totalActBill > 0 ? fmt(st.totalActBill, 2) : '---', align: 'right', shade: rowAlt(i) },
+        { text: st.totalActKWh > 0 ? fmt(st.totalActKWh) : '---', align: 'right', shade: rowAlt(i) },
+        { text: vPct != null ? (vPct >= 0 ? '+' : '') + fmt(vPct, 1) + '%' : '---', align: 'right', shade: varShade },
+      ]));
+    });
+    parts.push(trow([
+      { text: 'TOTAL', shade: 'D6EAF8', bold: true },
+      { text: fmt(energy.totalEstimatedKWh), align: 'right', shade: 'D6EAF8', bold: true },
+      { text: fmt(energy.totalEstimatedCost, 2), align: 'right', shade: 'D6EAF8', bold: true },
+      { text: energy.totalActualBill > 0 ? fmt(energy.totalActualBill, 2) : '---', align: 'right', shade: 'D6EAF8', bold: true },
+      { text: energy.totalActualKWh > 0 ? fmt(energy.totalActualKWh) : '---', align: 'right', shade: 'D6EAF8', bold: true },
+      { text: energy.overallVariancePct != null ? (energy.overallVariancePct >= 0 ? '+' : '') + fmt(energy.overallVariancePct, 1) + '%' : '---', align: 'right', shade: 'D6EAF8', bold: true },
+    ]));
+    parts.push('</w:tbl>');
+  } else {
+    parts.push(para('No energy data available for this quarter.'));
+  }
+
+  parts.push(hline());
+
+  parts.push(heading1('9. RAW WATER'));
 
   const rw = d.rwDamReport || [];
   const rwStats = d.rwAgreementStats;
 
   if (rw.length > 0) {
-    parts.push(heading2(`${rwSectionNum}.1 Water Allocation & Sales by Dam`));
+    parts.push(heading2('9.1 Water Allocation & Sales by Dam'));
     parts.push(tblStart());
     parts.push(trow([
       { text: 'Dam', shade: '1A3A5C' },
@@ -574,11 +598,64 @@ function buildContent(d: MonthlyReportData): string {
     ]));
     parts.push('</w:tbl>');
   } else {
-    parts.push(para('No raw water allocation data available for this month.'));
+    parts.push(para('No raw water allocation data available for this quarter.'));
+  }
+
+  if (d.rwBailiffSummary && d.rwBailiffSummary.length > 0) {
+    parts.push(heading2('9.2 Water Allocation & Sales by Bailiff'));
+
+    for (const bailiff of d.rwBailiffSummary) {
+      parts.push(heading2(bailiff.bailiffName));
+      parts.push(tblStart());
+      parts.push(trow([
+        { text: 'Dam', shade: '2E6FA3' },
+        { text: 'Code', shade: '2E6FA3' },
+        { text: 'Agreements', shade: '2E6FA3', align: 'right' },
+        { text: 'Allocated (ML)', shade: '2E6FA3', align: 'right' },
+        { text: 'Target (ML)', shade: '2E6FA3', align: 'right' },
+        { text: 'Sales (ML)', shade: '2E6FA3', align: 'right' },
+        { text: 'Sales vs Target', shade: '2E6FA3', align: 'right' },
+      ], true));
+
+      let bTotAlloc = 0;
+      let bTotTarget = 0;
+      let bTotSales = 0;
+      let bTotAgreements = 0;
+
+      bailiff.dams.forEach((dam, i) => {
+        bTotAlloc += dam.allocationVolume;
+        bTotTarget += dam.targetVolume || 0;
+        bTotSales += dam.salesVolume;
+        bTotAgreements += dam.agreementCount;
+        const svt = (dam.targetVolume || 0) > 0 ? (dam.salesVolume / dam.targetVolume) * 100 : null;
+        const svtShade = svt === null ? rowAlt(i) : svt >= 100 ? 'E8F5E9' : svt >= 80 ? 'FFF3CD' : 'FFE5E5';
+        parts.push(trow([
+          { text: dam.damName, shade: rowAlt(i) },
+          { text: dam.damCode || '-', shade: rowAlt(i) },
+          { text: String(dam.agreementCount), shade: rowAlt(i), align: 'right' },
+          { text: fmt(dam.allocationVolume, 2), shade: rowAlt(i), align: 'right' },
+          { text: fmt(dam.targetVolume || 0, 2), shade: rowAlt(i), align: 'right' },
+          { text: fmt(dam.salesVolume, 2), shade: rowAlt(i), align: 'right' },
+          { text: svt !== null ? fmt(svt, 1) + '%' : 'N/A', shade: svtShade, align: 'right' },
+        ]));
+      });
+
+      const bSvt = bTotTarget > 0 ? (bTotSales / bTotTarget) * 100 : null;
+      parts.push(trow([
+        { text: 'TOTAL', shade: 'E8EEF5', bold: true },
+        { text: '', shade: 'E8EEF5' },
+        { text: String(bTotAgreements), shade: 'E8EEF5', bold: true, align: 'right' },
+        { text: fmt(bTotAlloc, 2), shade: 'E8EEF5', bold: true, align: 'right' },
+        { text: fmt(bTotTarget, 2), shade: 'E8EEF5', bold: true, align: 'right' },
+        { text: fmt(bTotSales, 2), shade: 'E8EEF5', bold: true, align: 'right' },
+        { text: bSvt !== null ? fmt(bSvt, 1) + '%' : 'N/A', shade: 'E8EEF5', bold: true, align: 'right' },
+      ]));
+      parts.push('</w:tbl>');
+    }
   }
 
   if (rwStats) {
-    parts.push(heading2(`${rwSectionNum}.2 Agreement Statistics`));
+    parts.push(heading2('9.3 Agreement Statistics'));
     parts.push(tblStart());
     parts.push(trow([
       { text: 'Metric', shade: '1A3A5C' },
@@ -587,8 +664,8 @@ function buildContent(d: MonthlyReportData): string {
     const statsRows = [
       { label: `Active agreements in ${d.year}`, value: rwStats.totalActiveInYear },
       { label: 'Currently active agreements', value: rwStats.currentlyActive },
-      { label: `Expired in ${d.monthName}`, value: rwStats.expiredInMonth },
-      { label: 'Expiring next month', value: rwStats.expiringNextMonth },
+      { label: `Expired in Q${d.quarter}`, value: rwStats.expiredInMonth },
+      { label: 'Expiring next quarter', value: rwStats.expiringNextMonth },
     ];
     statsRows.forEach((row, i) => {
       const shade = row.label.includes('Expiring') && row.value > 0 ? 'FFF3CD' : rowAlt(i);
@@ -602,7 +679,7 @@ function buildContent(d: MonthlyReportData): string {
 
   parts.push(hline());
 
-  parts.push(heading1(`${rwSectionNum + 1}. OBSERVATIONS & RECOMMENDATIONS`));
+  parts.push(heading1('10. OBSERVATIONS & RECOMMENDATIONS'));
   for (let i = 0; i < 5; i++) {
     parts.push(`<w:p>
       <w:pPr><w:spacing w:after="0"/>
@@ -808,12 +885,12 @@ function makeTable(): Uint32Array {
   return t;
 }
 
-export function generateMonthlyReportDocx(data: MonthlyReportData): Uint8Array {
+export function generateQuarterlyReportDocx(data: QuarterlyReportData): Uint8Array {
   return buildDocx(buildContent(data));
 }
 
-export function downloadMonthlyReport(data: MonthlyReportData): void {
-  const bytes = generateMonthlyReportDocx(data);
+export function downloadQuarterlyReport(data: QuarterlyReportData): void {
+  const bytes = generateQuarterlyReportDocx(data);
   const blob = new Blob([bytes], {
     type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   });
@@ -821,7 +898,7 @@ export function downloadMonthlyReport(data: MonthlyReportData): void {
   const a = document.createElement('a');
   const scSafe = data.serviceCentreName.replace(/[^a-zA-Z0-9]/g, '_');
   a.href = url;
-  a.download = `Monthly_Report_${data.monthName}_${data.year}_${scSafe}.docx`;
+  a.download = `Quarterly_Report_Q${data.quarter}_${data.year}_${scSafe}.docx`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

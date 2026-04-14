@@ -251,7 +251,9 @@ export interface RWMonthlyDamReport {
   damId: string;
   damName: string;
   damCode: string | null;
+  bailiff?: string | null;
   allocationVolume: number;
+  targetVolume: number;
   salesVolume: number;
   agreementCount: number;
 }
@@ -268,16 +270,33 @@ export async function fetchRWMonthlyDamReport(
   year: number,
   month: number
 ): Promise<RWMonthlyDamReport[]> {
+  const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as const;
+  const monthKey = MONTH_KEYS[month - 1];
+
   const vsSales = await fetchRWAllocationVsSales(scope, year, [month]);
 
-  let damsQuery = supabase.from('dams').select('id, name, dam_code');
+  let damsQuery = supabase.from('dams').select('id, name, dam_code, bailiff');
   damsQuery = applyScopeToQuery(damsQuery, scope);
   const { data: damsData } = await damsQuery;
   const damCodeMap = new Map<string, string | null>();
+  const damBailiffMap = new Map<string, string | null>();
   const damNameMap = new Map<string, string>();
   for (const d of (damsData || [])) {
     damCodeMap.set(d.id, d.dam_code);
+    damBailiffMap.set(d.id, (d as any).bailiff || null);
     damNameMap.set(d.name.toLowerCase(), d.id);
+  }
+
+  const damIds = (damsData || []).map((d: any) => d.id);
+  const { data: targetsData } = await supabase
+    .from('rw_sales_targets')
+    .select(`dam_id, ${monthKey}`)
+    .in('dam_id', damIds.length > 0 ? damIds : ['__none__'])
+    .eq('year', year);
+
+  const targetMap = new Map<string, number>();
+  for (const t of (targetsData || [])) {
+    targetMap.set(t.dam_id, Number((t as any)[monthKey]) || 0);
   }
 
   const { data: allocData } = await supabase
@@ -304,7 +323,9 @@ export async function fetchRWMonthlyDamReport(
       damId: r.damId,
       damName: r.damName,
       damCode: damCodeMap.get(r.damId) || null,
+      bailiff: damBailiffMap.get(r.damId) || null,
       allocationVolume: r.allocationVolume,
+      targetVolume: targetMap.get(r.damId) || 0,
       salesVolume: r.salesVolume,
       agreementCount: agreementCountMap.get(r.damId) || 0,
     }))

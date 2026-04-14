@@ -26,7 +26,6 @@ import {
 import { fetchMonthlyEnergySummary, type MonthlyEnergySummary } from './energyMetrics';
 import { fetchRWMonthlyDamReport, fetchRWAgreementStats } from './rwAllocationMetrics';
 import type { RWMonthlyDamReport, RWAgreementStats } from './rwAllocationMetrics';
-import { fetchYTDProduction } from './productionMetrics';
 
 export interface MonthlyStationProduction {
   stationId: string;
@@ -44,7 +43,6 @@ export interface MonthlyStationProduction {
   cwPumpRate: number | null;
   rwPumpRate: number | null;
   newConnections: number;
-  newConnectionsYTD?: number;
 }
 
 export interface MonthlyProductionSummary {
@@ -60,7 +58,6 @@ export interface MonthlyProductionSummary {
   avgEfficiency: number;
   avgCWPumpRate: number | null;
   totalNewConnections: number;
-  totalNewConnectionsYTD: number;
   totalBreakdownHoursLost: number;
   stations: MonthlyStationProduction[];
 }
@@ -149,19 +146,19 @@ export interface KPISummaryAnalysis {
   mostBreakdowns: KPIWorstStation | null;
 }
 
-export interface YTDProductionVsTargetStation {
+export interface ProductionVsTargetStation {
   stationId: string;
   stationName: string;
-  ytdProduction: number;
-  ytdTarget: number;
+  actualProduction: number;
+  targetProduction: number;
   variance: number;
   achievementPct: number | null;
 }
 
-export interface YTDProductionVsTarget {
-  stations: YTDProductionVsTargetStation[];
-  totalYTDProduction: number;
-  totalYTDTarget: number;
+export interface ProductionVsTarget {
+  stations: ProductionVsTargetStation[];
+  totalActualProduction: number;
+  totalTargetProduction: number;
   totalVariance: number;
   totalAchievementPct: number | null;
 }
@@ -178,7 +175,7 @@ export interface MonthlyReportData {
   nrw: MonthlyNRWSummary;
   chemicals: MonthlyChemicalSummary[];
   breakdowns: MonthlyBreakdown[];
-  ytdProductionVsTarget: YTDProductionVsTarget;
+  productionVsTarget: ProductionVsTarget;
   energy: MonthlyEnergySummary;
   rwDamReport: RWMonthlyDamReport[];
   rwAgreementStats: RWAgreementStats;
@@ -218,23 +215,24 @@ export async function fetchMonthlyReportData(
     return buildEmptyMonthlyReport(scope.scopeId || '', serviceCentreName, year, month);
   }
 
-  const ytdStartDate = `${year}-01-01`;
-  const ytdEndDate = dateRange.end;
-
   const prevPeriod = getPreviousMonthPeriod(year, month);
   const prevDateRange = buildMonthDateRange(prevPeriod.year, prevPeriod.month);
 
-  const [logs, ytdLogs, breakdownsData, salesData, targetsData, balancesData, receiptsData, prevProdLogs] = await Promise.all([
+  const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as const;
+
+  const [logs, cwProdTargets, breakdownsData, salesData, targetsData, balancesData, receiptsData, prevProdLogs] = await Promise.all([
     queryProductionLogs({
       stationIds,
       dateRange,
       fields: ['station_id', 'date', 'cw_volume_m3', 'rw_volume_m3', 'cw_hours_run', 'rw_hours_run', 'load_shedding_hours', 'other_downtime_hours', 'alum_kg', 'hth_kg', 'activated_carbon_kg', 'new_connections'],
     }),
-    queryProductionLogs({
-      stationIds,
-      dateRange: { start: ytdStartDate, end: ytdEndDate },
-      fields: ['station_id', 'new_connections'],
-    }),
+    fetchAllRows(
+      supabase
+        .from('cw_production_targets')
+        .select('station_id, year, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
+        .in('station_id', stationIds)
+        .eq('year', year)
+    ),
     fetchAllRows(
       supabase
         .from('station_breakdowns')
@@ -303,23 +301,14 @@ export async function fetchMonthlyReportData(
     stationAgg.set(sid, ex);
   }
 
-  const ytdConnectionsMap = new Map<string, number>();
-  for (const log of ytdLogs) {
-    ytdConnectionsMap.set(
-      log.station_id,
-      (ytdConnectionsMap.get(log.station_id) || 0) + (Number(log.new_connections) || 0)
-    );
-  }
-
   const stationList: MonthlyStationProduction[] = [];
   let totCWVol = 0, totRWVol = 0, totCWHrs = 0, totRWHrs = 0;
-  let totLS = 0, totOther = 0, totLogCount = 0, totConn = 0, totConnYTD = 0;
+  let totLS = 0, totOther = 0, totLogCount = 0, totConn = 0;
 
   for (const station of allStations) {
     const agg = stationAgg.get(station.id);
     if (!agg) continue;
     const downtime = agg.ls + agg.other;
-    const ytdConn = ytdConnectionsMap.get(station.id) || 0;
 
     stationList.push({
       stationId: station.id,
@@ -337,7 +326,6 @@ export async function fetchMonthlyReportData(
       cwPumpRate: computePumpRate(agg.cwVol, agg.cwHrs),
       rwPumpRate: computePumpRate(agg.rwVol, agg.rwHrs),
       newConnections: agg.connections,
-      newConnectionsYTD: ytdConn,
     });
 
     totCWVol += agg.cwVol;
@@ -348,7 +336,6 @@ export async function fetchMonthlyReportData(
     totOther += agg.other;
     totLogCount += agg.count;
     totConn += agg.connections;
-    totConnYTD += ytdConn;
   }
 
   stationList.sort((a, b) => b.cwVolume - a.cwVolume);
@@ -369,7 +356,6 @@ export async function fetchMonthlyReportData(
     avgEfficiency: computeProductionEfficiency(totCWHrs, totLogCount),
     avgCWPumpRate: computePumpRate(totCWVol, totCWHrs),
     totalNewConnections: totConn,
-    totalNewConnectionsYTD: totConnYTD,
     totalBreakdownHoursLost: 0,
     stations: stationList,
   };
@@ -645,20 +631,39 @@ export async function fetchMonthlyReportData(
   }
   production.totalBreakdownHoursLost = roundTo(totalBreakdownHoursLost, 1);
 
-  const ytdResult = await fetchYTDProduction(scope, year, month - 1);
-  const ytdProductionVsTarget: YTDProductionVsTarget = {
-    stations: ytdResult.stations.map(s => ({
-      stationId: s.stationId,
-      stationName: s.stationName,
-      ytdProduction: s.ytdProduction,
-      ytdTarget: s.ytdTarget,
-      variance: s.variance,
-      achievementPct: s.achievementPct,
-    })),
-    totalYTDProduction: ytdResult.totalYTDProduction,
-    totalYTDTarget: ytdResult.totalYTDTarget,
-    totalVariance: ytdResult.totalVariance,
-    totalAchievementPct: ytdResult.totalAchievementPct,
+  const prodTargetMap = new Map<string, number>();
+  for (const t of cwProdTargets) {
+    const monthTarget = Number((t as any)[MONTH_KEYS[month - 1]]) || 0;
+    prodTargetMap.set(t.station_id, monthTarget);
+  }
+
+  const pvtStations: ProductionVsTargetStation[] = [];
+  let pvtTotalActual = 0, pvtTotalTarget = 0;
+  for (const st of stationList) {
+    const target = prodTargetMap.get(st.stationId) || 0;
+    const actual = st.cwVolume;
+    const variance = roundTo(actual - target, 0);
+    const achievement = target > 0 ? roundTo((actual / target) * 100, 1) : null;
+    pvtStations.push({
+      stationId: st.stationId,
+      stationName: st.stationName,
+      actualProduction: actual,
+      targetProduction: target,
+      variance,
+      achievementPct: achievement,
+    });
+    pvtTotalActual += actual;
+    pvtTotalTarget += target;
+  }
+  const pvtTotalVariance = roundTo(pvtTotalActual - pvtTotalTarget, 0);
+  const pvtTotalAchievement = pvtTotalTarget > 0 ? roundTo((pvtTotalActual / pvtTotalTarget) * 100, 1) : null;
+
+  const productionVsTarget: ProductionVsTarget = {
+    stations: pvtStations,
+    totalActualProduction: roundTo(pvtTotalActual, 0),
+    totalTargetProduction: roundTo(pvtTotalTarget, 0),
+    totalVariance: pvtTotalVariance,
+    totalAchievementPct: pvtTotalAchievement,
   };
 
   const kpiAnalysis = computeKPISummaryAnalysis(
@@ -687,7 +692,7 @@ export async function fetchMonthlyReportData(
     nrw,
     chemicals,
     breakdowns,
-    ytdProductionVsTarget,
+    productionVsTarget,
     energy,
     rwDamReport,
     rwAgreementStats,
@@ -806,7 +811,7 @@ function buildEmptyMonthlyReport(
       totalCWVolume: 0, totalRWVolume: 0, totalCWHours: 0, totalRWHours: 0,
       totalLoadShedding: 0, totalOtherDowntime: 0, totalDowntime: 0,
       stationCount: 0, logCount: 0, avgEfficiency: 0, avgCWPumpRate: null,
-      totalNewConnections: 0, totalNewConnectionsYTD: 0, totalBreakdownHoursLost: 0, stations: [],
+      totalNewConnections: 0, totalBreakdownHoursLost: 0, stations: [],
     },
     sales: {
       totalEffectiveSalesVolume: 0, totalTargetVolume: 0, overallVarianceM3: 0,
@@ -819,8 +824,8 @@ function buildEmptyMonthlyReport(
     },
     chemicals: [],
     breakdowns: [],
-    ytdProductionVsTarget: {
-      stations: [], totalYTDProduction: 0, totalYTDTarget: 0, totalVariance: 0, totalAchievementPct: null,
+    productionVsTarget: {
+      stations: [], totalActualProduction: 0, totalTargetProduction: 0, totalVariance: 0, totalAchievementPct: null,
     },
     energy: {
       totalEstimatedKWh: 0, totalEstimatedCost: 0, totalActualBill: 0, totalActualKWh: 0,

@@ -1,10 +1,11 @@
 import { ArrowLeft, Download, RefreshCw } from 'lucide-react';
 import type { WeeklyReportData } from '../../lib/metrics/weeklyReportMetrics';
 import type { MonthlyReportData } from '../../lib/metrics/monthlyReportMetrics';
+import type { QuarterlyReportData } from '../../lib/metrics/quarterlyReportMetrics';
 
 interface ReportViewerProps {
-  reportType: 'weekly' | 'monthly';
-  reportData: WeeklyReportData | MonthlyReportData;
+  reportType: 'weekly' | 'monthly' | 'quarterly';
+  reportData: WeeklyReportData | MonthlyReportData | QuarterlyReportData;
   title: string;
   subtitle: string;
   onBack: () => void;
@@ -550,7 +551,6 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
           ['Sales Achievement', pct(sales.overallAchievementPct)],
           ['Total NRW Losses', fmt(nrw.totalLossVol) + ' m\u00b3 (' + pct(nrw.totalLossPct) + ')'],
           ['New Connections', String(prod.totalNewConnections ?? 0)],
-          ['New Connections YTD', String(prod.totalNewConnectionsYTD ?? 0)],
           ['Total Breakdowns', String(bkd.length)],
           ['Breakdown Hrs Lost', fmt(prod.totalBreakdownHoursLost, 1) + ' hrs'],
         ].map(([label, value]) => (
@@ -575,7 +575,6 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
             ['Other Downtime Hours', fmt(prod.totalOtherDowntime, 1) + ' hrs'],
             ['Total Downtime', fmt(prod.totalDowntime, 1) + ' hrs'],
             ['New Connections', String(prod.totalNewConnections ?? 0)],
-            ['New Connections YTD', String(prod.totalNewConnectionsYTD ?? 0)],
             ['Breakdown Hours Lost', fmt(prod.totalBreakdownHoursLost, 1) + ' hrs'],
           ].map(([label, value], i) => (
             <tr key={label} className={TR_ALT(i)}>
@@ -616,27 +615,27 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
         </>
       )}
 
-      {(data.ytdProductionVsTarget?.stations || []).length > 0 && (
+      {((data as any).productionVsTarget?.stations || []).length > 0 && (
         <>
-          <SubTitle>YTD CW Production Performance vs Target</SubTitle>
+          <SubTitle>Monthly CW Production Performance vs Target</SubTitle>
           <div className="overflow-x-auto mb-3">
             <table className="w-full border border-gray-200 rounded text-left">
               <thead>
                 <tr>
-                  {['Station', 'YTD Production (m\u00b3)', 'YTD Target (m\u00b3)', 'Variance (m\u00b3)', 'Achievement (%)'].map(h => (
+                  {['Station', 'Actual (m\u00b3)', 'Target (m\u00b3)', 'Variance (m\u00b3)', 'Achievement (%)'].map(h => (
                     <th key={h} className={HDR2}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {data.ytdProductionVsTarget.stations.map((st: any, i: number) => {
+                {(data as any).productionVsTarget.stations.map((st: any, i: number) => {
                   const achShade = st.achievementPct == null ? TR_ALT(i)
                     : st.achievementPct >= 100 ? 'bg-green-50' : st.achievementPct >= 80 ? 'bg-yellow-50' : 'bg-red-50';
                   return (
                     <tr key={st.stationId} className={TR_ALT(i)}>
                       <td className={TD + ' font-medium'}>{st.stationName}</td>
-                      <td className={TD + ' text-right'}>{fmt(st.ytdProduction)}</td>
-                      <td className={TD + ' text-right'}>{fmt(st.ytdTarget)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.actualProduction)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.targetProduction)}</td>
                       <td className={TD + ' text-right'}>{(st.variance >= 0 ? '+' : '') + fmt(st.variance)}</td>
                       <td className={`${TD} text-right ${achShade}`}>{st.achievementPct != null ? fmt(st.achievementPct, 1) + '%' : 'N/A'}</td>
                     </tr>
@@ -644,10 +643,10 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
                 })}
                 <tr className="bg-[#D6EAF8] font-semibold">
                   <td className={TD + ' font-bold'}>TOTAL</td>
-                  <td className={TD + ' text-right font-bold'}>{fmt(data.ytdProductionVsTarget.totalYTDProduction)}</td>
-                  <td className={TD + ' text-right font-bold'}>{fmt(data.ytdProductionVsTarget.totalYTDTarget)}</td>
-                  <td className={TD + ' text-right font-bold'}>{(data.ytdProductionVsTarget.totalVariance >= 0 ? '+' : '') + fmt(data.ytdProductionVsTarget.totalVariance)}</td>
-                  <td className={TD + ' text-right font-bold'}>{data.ytdProductionVsTarget.totalAchievementPct != null ? fmt(data.ytdProductionVsTarget.totalAchievementPct, 1) + '%' : 'N/A'}</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt((data as any).productionVsTarget.totalActualProduction)}</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt((data as any).productionVsTarget.totalTargetProduction)}</td>
+                  <td className={TD + ' text-right font-bold'}>{((data as any).productionVsTarget.totalVariance >= 0 ? '+' : '') + fmt((data as any).productionVsTarget.totalVariance)}</td>
+                  <td className={TD + ' text-right font-bold'}>{(data as any).productionVsTarget.totalAchievementPct != null ? fmt((data as any).productionVsTarget.totalAchievementPct, 1) + '%' : 'N/A'}</td>
                 </tr>
               </tbody>
             </table>
@@ -917,41 +916,57 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
         </>
       )}
 
-      {((data as any).rwDamReport || []).length > 0 && (
-        <>
-          <SectionTitle>9. Raw Water</SectionTitle>
-          <SubTitle>9.1 Water Allocation &amp; Sales by Dam</SubTitle>
-          <div className="overflow-x-auto mb-3">
-            <table className="w-full border border-gray-200 rounded text-left">
-              <thead>
-                <tr>
-                  {['Dam', 'Code', 'Agreements', 'Allocated (ML)', 'Sales (ML)'].map(h => (
-                    <th key={h} className={HDR}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {((data as any).rwDamReport || []).map((dam: any, i: number) => (
-                  <tr key={dam.damName} className={TR_ALT(i)}>
-                    <td className={TD + ' font-medium'}>{dam.damName}</td>
-                    <td className={TD}>{dam.damCode || '-'}</td>
-                    <td className={TD + ' text-right'}>{dam.agreementCount}</td>
-                    <td className={TD + ' text-right'}>{fmt(dam.allocationVolume, 2)}</td>
-                    <td className={TD + ' text-right'}>{fmt(dam.salesVolume, 2)}</td>
+      {((data as any).rwDamReport || []).length > 0 && (() => {
+        const rwd = (data as any).rwDamReport || [];
+        const totAlloc = rwd.reduce((s: number, d: any) => s + d.allocationVolume, 0);
+        const totTarget = rwd.reduce((s: number, d: any) => s + (d.targetVolume || 0), 0);
+        const totSales = rwd.reduce((s: number, d: any) => s + d.salesVolume, 0);
+        const totAgr = rwd.reduce((s: number, d: any) => s + d.agreementCount, 0);
+        const totSvt = totTarget > 0 ? (totSales / totTarget) * 100 : null;
+        return (
+          <>
+            <SectionTitle>9. Raw Water</SectionTitle>
+            <SubTitle>9.1 Water Allocation &amp; Sales by Dam</SubTitle>
+            <div className="overflow-x-auto mb-3">
+              <table className="w-full border border-gray-200 rounded text-left">
+                <thead>
+                  <tr>
+                    {['Dam', 'Code', 'Agreements', 'Allocated (ML)', 'Target (ML)', 'Sales (ML)', 'Sales vs Target'].map(h => (
+                      <th key={h} className={HDR}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-                <tr className="bg-[#E8EEF5] font-semibold">
-                  <td className={TD + ' font-bold'}>TOTAL</td>
-                  <td className={TD}></td>
-                  <td className={TD + ' text-right font-bold'}>{((data as any).rwDamReport || []).reduce((s: number, d: any) => s + d.agreementCount, 0)}</td>
-                  <td className={TD + ' text-right font-bold'}>{fmt(((data as any).rwDamReport || []).reduce((s: number, d: any) => s + d.allocationVolume, 0), 2)}</td>
-                  <td className={TD + ' text-right font-bold'}>{fmt(((data as any).rwDamReport || []).reduce((s: number, d: any) => s + d.salesVolume, 0), 2)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+                </thead>
+                <tbody>
+                  {rwd.map((dam: any, i: number) => {
+                    const svt = (dam.targetVolume || 0) > 0 ? (dam.salesVolume / dam.targetVolume) * 100 : null;
+                    const svtClass = svt === null ? '' : svt >= 100 ? 'bg-green-50' : svt >= 80 ? 'bg-yellow-50' : 'bg-red-50';
+                    return (
+                      <tr key={dam.damName} className={TR_ALT(i)}>
+                        <td className={TD + ' font-medium'}>{dam.damName}</td>
+                        <td className={TD}>{dam.damCode || '-'}</td>
+                        <td className={TD + ' text-right'}>{dam.agreementCount}</td>
+                        <td className={TD + ' text-right'}>{fmt(dam.allocationVolume, 2)}</td>
+                        <td className={TD + ' text-right'}>{fmt(dam.targetVolume || 0, 2)}</td>
+                        <td className={TD + ' text-right'}>{fmt(dam.salesVolume, 2)}</td>
+                        <td className={`${TD} text-right ${svtClass}`}>{svt !== null ? fmt(svt, 1) + '%' : 'N/A'}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-[#E8EEF5] font-semibold">
+                    <td className={TD + ' font-bold'}>TOTAL</td>
+                    <td className={TD}></td>
+                    <td className={TD + ' text-right font-bold'}>{totAgr}</td>
+                    <td className={TD + ' text-right font-bold'}>{fmt(totAlloc, 2)}</td>
+                    <td className={TD + ' text-right font-bold'}>{fmt(totTarget, 2)}</td>
+                    <td className={TD + ' text-right font-bold'}>{fmt(totSales, 2)}</td>
+                    <td className={TD + ' text-right font-bold'}>{totSvt !== null ? fmt(totSvt, 1) + '%' : 'N/A'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        );
+      })()}
 
       {(data as any).rwAgreementStats && (
         <>
@@ -979,6 +994,497 @@ function MonthlyReportView({ data }: { data: MonthlyReportData }) {
           </table>
         </>
       )}
+    </div>
+  );
+}
+
+function QuarterlyReportView({ data }: { data: QuarterlyReportData }) {
+  if (!data) return <p className="text-xs text-gray-500 py-8 text-center">No report data available. Try refreshing.</p>;
+  const prod = data.production || {} as any;
+  const sales = data.sales || {} as any;
+  const nrw = data.nrw || {} as any;
+  const chems = data.chemicals || [];
+  const bkd = data.breakdowns || [];
+  const pvt = data.productionVsTarget;
+  const energy = data.energy;
+  const rwd = data.rwDamReport || [];
+  const bailiffs = data.rwBailiffSummary || [];
+  const kpi = data.kpiAnalysis;
+
+  return (
+    <div>
+      <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+        <KVRow label="Service Centre" value={data.serviceCentreName || ''} />
+        <KVRow label="Quarter" value={data.quarterLabel || `Q${data.quarter} ${data.year}`} />
+        <KVRow label="Months" value={(data.monthNames || []).join(', ')} />
+        <KVRow label="Active Stations" value={String(prod.stationCount ?? 0)} />
+        <KVRow label="Data Completeness" value={`${data.totalActualLogs ?? 0} of ${data.totalExpectedLogs ?? 0} logs (${data.completionPct ?? 0}%)`} />
+        <KVRow label="Generated" value={data.generatedAt ? new Date(data.generatedAt).toLocaleString('en-GB') : 'N/A'} />
+      </div>
+
+      <SectionTitle>1. Executive Summary</SectionTitle>
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {[
+          ['Total CW Volume', fmt(prod.totalCWVolume) + ' m\u00b3'],
+          ['Total Sales Volume', fmt(sales.totalEffectiveSalesVolume) + ' m\u00b3'],
+          ['Sales Achievement', pct(sales.overallAchievementPct)],
+          ['Total NRW Losses', fmt(nrw.totalLossVol) + ' m\u00b3 (' + pct(nrw.totalLossPct) + ')'],
+          ['New Connections', String(prod.totalNewConnections ?? 0)],
+          ['Total Breakdowns', String(bkd.length)],
+          ['Breakdown Hrs Lost', fmt(prod.totalBreakdownHoursLost, 1) + ' hrs'],
+        ].map(([label, value]) => (
+          <div key={label} className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
+            <p className="text-[10px] text-gray-500 uppercase font-semibold">{label}</p>
+            <p className="text-sm font-bold text-gray-800 mt-0.5">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {kpi && (
+        <>
+          <SubTitle>1.1 KPI Summary Analysis</SubTitle>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  {['KPI', 'Worst Station', 'Value', 'Context'].map(h => (
+                    <th key={h} className={HDR}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  kpi.worstNRW && { label: 'Highest NRW Rate', station: kpi.worstNRW.stationName, value: `${kpi.worstNRW.value.toFixed(1)}${kpi.worstNRW.unit}`, context: kpi.worstNRW.context || '' },
+                  kpi.worstFinancialLoss && { label: 'Highest Water Loss Volume', station: kpi.worstFinancialLoss.stationName, value: `${fmt(kpi.worstFinancialLoss.value)} ${kpi.worstFinancialLoss.unit}`, context: kpi.worstFinancialLoss.context || '' },
+                  kpi.worstSalesAchievement && { label: 'Lowest Sales Achievement', station: kpi.worstSalesAchievement.stationName, value: `${kpi.worstSalesAchievement.value.toFixed(1)}${kpi.worstSalesAchievement.unit}`, context: kpi.worstSalesAchievement.context || '' },
+                  kpi.worstEfficiency && { label: 'Lowest Efficiency', station: kpi.worstEfficiency.stationName, value: `${kpi.worstEfficiency.value.toFixed(1)}${kpi.worstEfficiency.unit}`, context: kpi.worstEfficiency.context || '' },
+                  kpi.worstDowntime && { label: 'Highest Downtime', station: kpi.worstDowntime.stationName, value: `${kpi.worstDowntime.value.toFixed(1)} ${kpi.worstDowntime.unit}`, context: kpi.worstDowntime.context || '' },
+                  kpi.mostBreakdowns && { label: 'Most Breakdowns', station: kpi.mostBreakdowns.stationName, value: `${kpi.mostBreakdowns.value} ${kpi.mostBreakdowns.unit}`, context: kpi.mostBreakdowns.context || '' },
+                ].filter(Boolean).map((item: any, i: number) => (
+                  <tr key={item.label} className={TR_ALT(i)}>
+                    <td className={TD + ' font-semibold'}>{item.label}</td>
+                    <td className={TD}>{item.station}</td>
+                    <td className={TD + ' text-right'}>{item.value}</td>
+                    <td className={TD + ' text-xs text-gray-500'}>{item.context}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      <SectionTitle>2. CW Performance Summary</SectionTitle>
+      <table className="w-full border border-gray-200 rounded text-left mb-3">
+        <tbody>
+          {[
+            ['Total CW Volume', fmt(prod.totalCWVolume) + ' m\u00b3'],
+            ['Total RW Volume', fmt(prod.totalRWVolume) + ' m\u00b3'],
+            ['Total CW Hours Run', fmt(prod.totalCWHours, 1) + ' hrs'],
+            ['Total RW Hours Run', fmt(prod.totalRWHours, 1) + ' hrs'],
+            ['Avg CW Pump Rate', prod.avgCWPumpRate != null ? fmt(prod.avgCWPumpRate, 1) + ' m\u00b3/hr' : 'N/A'],
+            ['Average Efficiency', pct(prod.avgEfficiency)],
+            ['Load Shedding Hours', fmt(prod.totalLoadShedding, 1) + ' hrs'],
+            ['Other Downtime Hours', fmt(prod.totalOtherDowntime, 1) + ' hrs'],
+            ['Total Downtime', fmt(prod.totalDowntime, 1) + ' hrs'],
+            ['New Connections', String(prod.totalNewConnections ?? 0)],
+            ['Breakdown Hours Lost', fmt(prod.totalBreakdownHoursLost, 1) + ' hrs'],
+          ].map(([label, value], i) => (
+            <tr key={label} className={TR_ALT(i)}>
+              <td className={TD + ' font-medium text-gray-700 w-52'}>{label}</td>
+              <td className={TD + ' text-right'}>{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {(prod.stations || []).length > 0 && (
+        <>
+          <SubTitle>2.1 Station Detail</SubTitle>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  {['Station', 'Type', 'CW Vol (m\u00b3)', 'CW Hrs', 'Efficiency', 'Downtime (hrs)', 'New Conn.'].map(h => (
+                    <th key={h} className={HDR2}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(prod.stations || []).map((st: any, i: number) => (
+                  <tr key={st.stationId} className={TR_ALT(i)}>
+                    <td className={TD + ' font-medium'}>{st.stationName}</td>
+                    <td className={TD}>{st.stationType}</td>
+                    <td className={TD + ' text-right'}>{fmt(st.cwVolume)}</td>
+                    <td className={TD + ' text-right'}>{fmt(st.cwHours, 1)}</td>
+                    <td className={TD + ' text-right'}>{pct(st.efficiency)}</td>
+                    <td className={TD + ' text-right'}>{fmt(st.totalDowntime, 1)}</td>
+                    <td className={TD + ' text-right'}>{st.newConnections ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {pvt && (pvt.stations || []).length > 0 && (
+        <>
+          <SectionTitle>3. Production vs Target</SectionTitle>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  {['Station', 'Actual (m\u00b3)', 'Target (m\u00b3)', 'Variance (m\u00b3)', 'Achievement (%)'].map(h => (
+                    <th key={h} className={HDR}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pvt.stations.map((st: any, i: number) => {
+                  const achShade = st.achievementPct == null ? TR_ALT(i) : st.achievementPct >= 100 ? 'bg-green-50' : st.achievementPct >= 80 ? 'bg-yellow-50' : 'bg-red-50';
+                  return (
+                    <tr key={st.stationId} className={TR_ALT(i)}>
+                      <td className={TD + ' font-medium'}>{st.stationName}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.actualProduction)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.targetProduction)}</td>
+                      <td className={TD + ' text-right'}>{(st.variance >= 0 ? '+' : '') + fmt(st.variance)}</td>
+                      <td className={`${TD} text-right ${achShade}`}>{st.achievementPct != null ? fmt(st.achievementPct, 1) + '%' : 'N/A'}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-[#D6EAF8] font-semibold">
+                  <td className={TD + ' font-bold'}>TOTAL</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(pvt.totalActualProduction)}</td>
+                  <td className={TD + ' text-right font-bold'}>{fmt(pvt.totalTargetProduction)}</td>
+                  <td className={TD + ' text-right font-bold'}>{(pvt.totalVariance >= 0 ? '+' : '') + fmt(pvt.totalVariance)}</td>
+                  <td className={TD + ' text-right font-bold'}>{pvt.totalAchievementPct != null ? fmt(pvt.totalAchievementPct, 1) + '%' : 'N/A'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      <SectionTitle>4. Sales Performance</SectionTitle>
+      <table className="w-full border border-gray-200 rounded text-left mb-3">
+        <tbody>
+          {[
+            ['Total Sales Volume', fmt(sales.totalEffectiveSalesVolume) + ' m\u00b3'],
+            ['Total Sales Target', fmt(sales.totalTargetVolume) + ' m\u00b3'],
+            ['Variance vs Target', (sales.overallVarianceM3 >= 0 ? '+' : '') + fmt(sales.overallVarianceM3) + ' m\u00b3'],
+            ['Achievement', pct(sales.overallAchievementPct)],
+          ].map(([label, value], i) => (
+            <tr key={label} className={TR_ALT(i)}>
+              <td className={TD + ' font-medium text-gray-700 w-52'}>{label}</td>
+              <td className={TD + ' text-right'}>{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {(sales.stations || []).length > 0 && (
+        <>
+          <SubTitle>4.1 Sales by Station</SubTitle>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  {['Station', 'Volume (m\u00b3)', 'Target (m\u00b3)', 'Variance', 'Achievement', 'Source'].map(h => (
+                    <th key={h} className={HDR2}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(sales.stations || []).map((st: any, i: number) => {
+                  const achShade = st.achievementPct == null ? TR_ALT(i) : st.achievementPct >= 100 ? 'bg-green-50' : st.achievementPct >= 80 ? 'bg-yellow-50' : 'bg-red-50';
+                  return (
+                    <tr key={st.stationId || st.stationName} className={TR_ALT(i)}>
+                      <td className={TD + ' font-medium'}>{st.stationName}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.effectiveSalesVolume)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.targetVolume)}</td>
+                      <td className={TD + ' text-right'}>{(st.varianceM3 >= 0 ? '+' : '') + fmt(st.varianceM3)}</td>
+                      <td className={`${TD} text-right ${achShade}`}>{pct(st.achievementPct)}</td>
+                      <td className={TD + ' text-center'}>{st.usingSageData ? 'Sage' : 'Returns'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      <SectionTitle>5. Non-Revenue Water (NRW)</SectionTitle>
+      <table className="w-full border border-gray-200 rounded text-left mb-3">
+        <tbody>
+          {[
+            ['Total RW Abstracted', fmt(nrw.totalRWVolume) + ' m\u00b3'],
+            ['Total CW Produced', fmt(nrw.totalCWVolume) + ' m\u00b3'],
+            ['Total Sales Volume', fmt(nrw.totalSalesVolume) + ' m\u00b3'],
+            ['Station Loss', fmt(nrw.stationLossVol) + ' m\u00b3 (' + pct(nrw.stationLossPct) + ')'],
+            ['Distribution Loss', fmt(nrw.distributionLossVol) + ' m\u00b3 (' + pct(nrw.distributionLossPct) + ')'],
+            ['Total NRW Loss', fmt(nrw.totalLossVol) + ' m\u00b3 (' + pct(nrw.totalLossPct) + ')'],
+          ].map(([label, value], i) => (
+            <tr key={label} className={TR_ALT(i)}>
+              <td className={TD + ' font-medium text-gray-700 w-52'}>{label}</td>
+              <td className={TD + ' text-right'}>{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <SectionTitle>6. Chemicals Usage</SectionTitle>
+      {chems.length === 0 && <p className="text-xs text-gray-400 mb-3">No chemical data available.</p>}
+      {chems.map((chem: any, ci: number) => (
+        <div key={ci} className="mb-3">
+          <SubTitle>{chem.label}</SubTitle>
+          <table className="w-full border border-gray-200 rounded text-left mb-2">
+            <tbody>
+              {[
+                ['Opening Balance', fmt(chem.totalOpening, 1) + ' kg'],
+                ['Total Received', fmt(chem.totalReceived, 1) + ' kg'],
+                ['Total Used', fmt(chem.totalUsed, 1) + ' kg'],
+                ['Used per m\u00b3', chem.usedPerM3 != null ? fmt(chem.usedPerM3, 2) + ' g/m\u00b3' : 'N/A'],
+                ['Closing Balance', fmt(chem.totalClosingBalance, 1) + ' kg'],
+              ].map(([label, value], i) => (
+                <tr key={label} className={TR_ALT(i)}>
+                  <td className={TD + ' font-medium text-gray-700 w-52'}>{label}</td>
+                  <td className={TD + ' text-right'}>{value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+
+      <SectionTitle>7. Breakdowns &amp; Maintenance</SectionTitle>
+      {bkd.length === 0 ? (
+        <p className="text-xs text-gray-400 mb-3">No breakdowns recorded during this quarter.</p>
+      ) : (
+        <div className="overflow-x-auto mb-3">
+          <table className="w-full border border-gray-200 rounded text-left">
+            <thead>
+              <tr>
+                {['Station', 'Component', 'Impact', 'Date', 'Hrs Lost', 'Status'].map(h => (
+                  <th key={h} className={HDR}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {bkd.map((b: any, i: number) => (
+                <tr key={i} className={TR_ALT(i)}>
+                  <td className={TD + ' font-medium'}>{b.stationName}</td>
+                  <td className={TD}>{b.component}</td>
+                  <td className={TD}>{b.impact}</td>
+                  <td className={TD}>{b.dateReported}</td>
+                  <td className={TD + ' text-right'}>{b.hoursLost > 0 ? fmt(b.hoursLost, 1) : '\u2014'}</td>
+                  <td className={`${TD} text-center ${b.isResolved ? 'text-green-700' : 'text-red-600'}`}>{b.isResolved ? 'RESOLVED' : 'OPEN'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {energy && (energy.stations || []).length > 0 && (
+        <>
+          <SectionTitle>8. Energy Consumption &amp; Cost</SectionTitle>
+          <table className="w-full border border-gray-200 rounded text-left mb-3">
+            <tbody>
+              {[
+                ['Estimated Consumption', fmt(energy.totalEstimatedKWh) + ' kWh'],
+                ['Estimated Cost', '$' + fmt(energy.totalEstimatedCost, 2)],
+                ['Actual ZESA Bill', energy.totalActualBill > 0 ? '$' + fmt(energy.totalActualBill, 2) : '---'],
+                ['Variance', energy.overallVariancePct != null ? (energy.overallVariancePct >= 0 ? '+' : '') + fmt(energy.overallVariancePct, 1) + '%' : '---'],
+              ].map(([label, value], i) => (
+                <tr key={label} className={TR_ALT(i)}>
+                  <td className={TD + ' font-medium text-gray-700 w-52'}>{label}</td>
+                  <td className={TD + ' text-right'}>{value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {(energy.monthlyBreakdown || []).length > 0 && (
+            <>
+              <SubTitle>8.1 Monthly Breakdown</SubTitle>
+              <div className="overflow-x-auto mb-3">
+                <table className="w-full border border-gray-200 rounded text-left">
+                  <thead>
+                    <tr>
+                      {['Month', 'Est. kWh', 'Est. Cost ($)', 'Actual Bill ($)'].map(h => (
+                        <th key={h} className={HDR2}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {energy.monthlyBreakdown.map((em: any, i: number) => (
+                      <tr key={em.monthName} className={TR_ALT(i)}>
+                        <td className={TD + ' font-medium'}>{em.monthName}</td>
+                        <td className={TD + ' text-right'}>{fmt(em.totalEstKWh)}</td>
+                        <td className={TD + ' text-right'}>{fmt(em.totalEstCost, 2)}</td>
+                        <td className={TD + ' text-right'}>{em.totalActBill > 0 ? fmt(em.totalActBill, 2) : '---'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          <SubTitle>8.2 Station Detail</SubTitle>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full border border-gray-200 rounded text-left">
+              <thead>
+                <tr>
+                  {['Station', 'Est. kWh', 'Est. Cost ($)', 'Actual Bill ($)', 'Actual kWh', 'Variance (%)'].map(h => (
+                    <th key={h} className={HDR2}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(energy.stations || []).map((st: any, i: number) => {
+                  const vPct = st.totalEstCost > 0 ? ((st.totalActBill - st.totalEstCost) / st.totalEstCost) * 100 : null;
+                  const varClass = vPct == null ? '' : Math.abs(vPct) <= 10 ? 'bg-green-50' : Math.abs(vPct) <= 25 ? 'bg-yellow-50' : 'bg-red-50';
+                  return (
+                    <tr key={st.stationId || st.stationName} className={TR_ALT(i)}>
+                      <td className={TD + ' font-medium'}>{st.stationName}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.totalEstKWh)}</td>
+                      <td className={TD + ' text-right'}>{fmt(st.totalEstCost, 2)}</td>
+                      <td className={TD + ' text-right'}>{st.totalActBill > 0 ? fmt(st.totalActBill, 2) : '---'}</td>
+                      <td className={TD + ' text-right'}>{st.totalActKWh > 0 ? fmt(st.totalActKWh) : '---'}</td>
+                      <td className={`${TD} text-right ${varClass}`}>{vPct != null ? (vPct >= 0 ? '+' : '') + fmt(vPct, 1) + '%' : '---'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {rwd.length > 0 && (() => {
+        const totAlloc = rwd.reduce((s: number, d: any) => s + d.allocationVolume, 0);
+        const totTarget = rwd.reduce((s: number, d: any) => s + (d.targetVolume || 0), 0);
+        const totSales = rwd.reduce((s: number, d: any) => s + d.salesVolume, 0);
+        const totAgr = rwd.reduce((s: number, d: any) => s + d.agreementCount, 0);
+        const totSvt = totTarget > 0 ? (totSales / totTarget) * 100 : null;
+        return (
+          <>
+            <SectionTitle>9. Raw Water</SectionTitle>
+            <SubTitle>9.1 Water Allocation &amp; Sales by Dam</SubTitle>
+            <div className="overflow-x-auto mb-3">
+              <table className="w-full border border-gray-200 rounded text-left">
+                <thead>
+                  <tr>
+                    {['Dam', 'Code', 'Agreements', 'Allocated (ML)', 'Target (ML)', 'Sales (ML)', 'Sales vs Target'].map(h => (
+                      <th key={h} className={HDR}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rwd.map((dam: any, i: number) => {
+                    const svt = (dam.targetVolume || 0) > 0 ? (dam.salesVolume / dam.targetVolume) * 100 : null;
+                    const svtClass = svt === null ? '' : svt >= 100 ? 'bg-green-50' : svt >= 80 ? 'bg-yellow-50' : 'bg-red-50';
+                    return (
+                      <tr key={dam.damName} className={TR_ALT(i)}>
+                        <td className={TD + ' font-medium'}>{dam.damName}</td>
+                        <td className={TD}>{dam.damCode || '-'}</td>
+                        <td className={TD + ' text-right'}>{dam.agreementCount}</td>
+                        <td className={TD + ' text-right'}>{fmt(dam.allocationVolume, 2)}</td>
+                        <td className={TD + ' text-right'}>{fmt(dam.targetVolume || 0, 2)}</td>
+                        <td className={TD + ' text-right'}>{fmt(dam.salesVolume, 2)}</td>
+                        <td className={`${TD} text-right ${svtClass}`}>{svt !== null ? fmt(svt, 1) + '%' : 'N/A'}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-[#E8EEF5] font-semibold">
+                    <td className={TD + ' font-bold'}>TOTAL</td>
+                    <td className={TD}></td>
+                    <td className={TD + ' text-right font-bold'}>{totAgr}</td>
+                    <td className={TD + ' text-right font-bold'}>{fmt(totAlloc, 2)}</td>
+                    <td className={TD + ' text-right font-bold'}>{fmt(totTarget, 2)}</td>
+                    <td className={TD + ' text-right font-bold'}>{fmt(totSales, 2)}</td>
+                    <td className={TD + ' text-right font-bold'}>{totSvt !== null ? fmt(totSvt, 1) + '%' : 'N/A'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {bailiffs.length > 0 && (
+              <>
+                <SubTitle>9.2 Water Allocation &amp; Sales by Bailiff</SubTitle>
+                {bailiffs.map((b: any, bi: number) => (
+                  <div key={b.bailiff} className="mb-4">
+                    <p className="text-xs font-bold text-teal-700 uppercase mb-1">{b.bailiff}</p>
+                    <div className="overflow-x-auto mb-2">
+                      <table className="w-full border border-gray-200 rounded text-left">
+                        <thead>
+                          <tr>
+                            {['Dam', 'Allocated (ML)', 'Target (ML)', 'Sales (ML)', 'Sales vs Target'].map(h => (
+                              <th key={h} className={HDR2}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(b.dams || []).map((d: any, di: number) => {
+                            const svt = (d.targetVolume || 0) > 0 ? (d.salesVolume / d.targetVolume) * 100 : null;
+                            const svtClass = svt === null ? '' : svt >= 100 ? 'bg-green-50' : svt >= 80 ? 'bg-yellow-50' : 'bg-red-50';
+                            return (
+                              <tr key={d.damName} className={TR_ALT(di)}>
+                                <td className={TD + ' font-medium'}>{d.damName}</td>
+                                <td className={TD + ' text-right'}>{fmt(d.allocationVolume, 2)}</td>
+                                <td className={TD + ' text-right'}>{fmt(d.targetVolume || 0, 2)}</td>
+                                <td className={TD + ' text-right'}>{fmt(d.salesVolume, 2)}</td>
+                                <td className={`${TD} text-right ${svtClass}`}>{svt !== null ? fmt(svt, 1) + '%' : 'N/A'}</td>
+                              </tr>
+                            );
+                          })}
+                          <tr className="bg-[#E8EEF5] font-semibold">
+                            <td className={TD + ' font-bold'}>TOTAL</td>
+                            <td className={TD + ' text-right font-bold'}>{fmt(b.totalAllocation, 2)}</td>
+                            <td className={TD + ' text-right font-bold'}>{fmt(b.totalTarget, 2)}</td>
+                            <td className={TD + ' text-right font-bold'}>{fmt(b.totalSales, 2)}</td>
+                            <td className={TD + ' text-right font-bold'}>{b.salesVsTargetPct !== null ? fmt(b.salesVsTargetPct, 1) + '%' : 'N/A'}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {data.rwAgreementStats && (
+              <>
+                <SubTitle>9.3 Agreement Statistics</SubTitle>
+                <table className="w-full border border-gray-200 rounded text-left mb-3">
+                  <thead>
+                    <tr>
+                      <th className={HDR}>Metric</th>
+                      <th className={HDR + ' text-right'}>Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label: `Active agreements in ${data.year}`, value: data.rwAgreementStats.totalActiveInYear },
+                      { label: 'Currently active agreements', value: data.rwAgreementStats.currentlyActive },
+                      { label: 'Expired in quarter', value: data.rwAgreementStats.expiredInMonth },
+                      { label: 'Expiring next month', value: data.rwAgreementStats.expiringNextMonth },
+                    ].map((row, i) => (
+                      <tr key={row.label} className={row.label.includes('Expiring') && row.value > 0 ? 'bg-yellow-50' : TR_ALT(i)}>
+                        <td className={TD + ' font-medium text-gray-700'}>{row.label}</td>
+                        <td className={TD + ' text-right font-semibold'}>{row.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -1036,6 +1542,8 @@ export default function ReportViewer({
         <div className="max-w-4xl">
           {reportType === 'weekly' ? (
             <WeeklyReportView data={reportData as WeeklyReportData} />
+          ) : reportType === 'quarterly' ? (
+            <QuarterlyReportView data={reportData as QuarterlyReportData} />
           ) : (
             <MonthlyReportView data={reportData as MonthlyReportData} />
           )}

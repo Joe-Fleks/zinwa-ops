@@ -24,6 +24,8 @@ import { fetchPendingWeeklyReports, markReportDownloaded, checkAndTriggerWeeklyR
 import { downloadWeeklyReport } from '../lib/weeklyReportDocument';
 import { fetchPendingMonthlyReports, markMonthlyReportDownloaded, checkAndTriggerMonthlyReport, refreshMonthlyReportData, type MonthlyReportRecord } from '../lib/monthlyReportService';
 import { downloadMonthlyReport } from '../lib/monthlyReportDocument';
+import { fetchPendingQuarterlyReports, markQuarterlyReportDownloaded, checkAndTriggerQuarterlyReport, refreshQuarterlyReportData, type QuarterlyReportRecord } from '../lib/quarterlyReportService';
+import { downloadQuarterlyReport } from '../lib/quarterlyReportDocument';
 import ReportViewer from '../components/reports/ReportViewer';
 import EmbeddedChatPanel from '../components/chat/ChatPanel';
 
@@ -91,13 +93,15 @@ export default function Dashboard() {
   const [monthlyReports, setMonthlyReports] = useState<MonthlyReportRecord[]>([]);
   const [allWeeklyReports, setAllWeeklyReports] = useState<WeeklyReportRecord[]>([]);
   const [allMonthlyReports, setAllMonthlyReports] = useState<MonthlyReportRecord[]>([]);
+  const [quarterlyReports, setQuarterlyReports] = useState<QuarterlyReportRecord[]>([]);
+  const [allQuarterlyReports, setAllQuarterlyReports] = useState<QuarterlyReportRecord[]>([]);
   const [equipmentAlerts, setEquipmentAlerts] = useState<{ type: string; label: string; station: string; tag: string; expiry: string; daysLeft: number }[]>([]);
   const [missingLogsInfo, setMissingLogsInfo] = useState<MissingLogsInfo | null>(null);
   const [reportGenError, setReportGenError] = useState<string | null>(null);
   const [isRefreshingReports, setIsRefreshingReports] = useState(false);
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
   const [refreshingReportId, setRefreshingReportId] = useState<string | null>(null);
-  const [viewingReport, setViewingReport] = useState<{ type: 'weekly' | 'monthly'; record: WeeklyReportRecord | MonthlyReportRecord } | null>(null);
+  const [viewingReport, setViewingReport] = useState<{ type: 'weekly' | 'monthly' | 'quarterly'; record: WeeklyReportRecord | MonthlyReportRecord | QuarterlyReportRecord } | null>(null);
   const [alertsTab, setAlertsTab] = useState<'alerts' | 'followups'>('alerts');
   const [trendsTab, setTrendsTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'ai'>('cw');
   const [mergedTab, setMergedTab] = useState<'cw' | 'rw' | 'kpis' | 'reports' | 'ai' | 'alerts' | 'followups'>('cw');
@@ -155,9 +159,10 @@ export default function Dashboard() {
     const scope = { isSCScoped: accessContext.isSCScoped, scopeId: accessContext.scopeId };
     const scName = accessContext.serviceCentre?.name ?? '';
     try {
-      const [weeklyResult, monthlyResult] = await Promise.allSettled([
+      const [weeklyResult, monthlyResult, quarterlyResult] = await Promise.allSettled([
         checkAndTriggerWeeklyReport(scope, scId, scName),
         checkAndTriggerMonthlyReport(scope, scId, scName),
+        checkAndTriggerQuarterlyReport(scope, scId, scName),
       ]);
       if (weeklyResult.status === 'fulfilled') {
         if (weeklyResult.value.missingLogs) {
@@ -174,6 +179,9 @@ export default function Dashboard() {
       if (monthlyResult.status === 'rejected') {
         console.error('Monthly report generation failed:', monthlyResult.reason);
       }
+      if (quarterlyResult.status === 'rejected') {
+        console.error('Quarterly report generation failed:', quarterlyResult.reason);
+      }
     } catch (err) {
       console.error('Report trigger error:', err);
       setReportGenError(err instanceof Error ? err.message : 'Failed to check reports');
@@ -181,6 +189,7 @@ export default function Dashboard() {
     await Promise.all([
       loadWeeklyReports(scId),
       loadMonthlyReports(scId),
+      loadQuarterlyReports(scId),
       loadAllReports(scId),
     ]);
   };
@@ -214,9 +223,18 @@ export default function Dashboard() {
     }
   };
 
+  const loadQuarterlyReports = async (scId: string) => {
+    try {
+      const reports = await fetchPendingQuarterlyReports(scId);
+      setQuarterlyReports(reports);
+    } catch (err) {
+      console.error('Error loading quarterly reports:', err);
+    }
+  };
+
   const loadAllReports = async (scId: string) => {
     try {
-      const [wRes, mRes] = await Promise.all([
+      const [wRes, mRes, qRes] = await Promise.all([
         supabase
           .from('weekly_reports')
           .select('id, service_centre_id, week_number, year, report_type, period_start, period_end, report_data, status, generated_at, downloaded_at')
@@ -229,9 +247,16 @@ export default function Dashboard() {
           .eq('service_centre_id', scId)
           .order('generated_at', { ascending: false })
           .limit(24),
+        supabase
+          .from('quarterly_reports')
+          .select('id, service_centre_id, quarter, year, report_data, status, generated_at, downloaded_at')
+          .eq('service_centre_id', scId)
+          .order('generated_at', { ascending: false })
+          .limit(20),
       ]);
       setAllWeeklyReports((wRes.data || []) as WeeklyReportRecord[]);
       setAllMonthlyReports((mRes.data || []) as MonthlyReportRecord[]);
+      setAllQuarterlyReports((qRes.data || []) as QuarterlyReportRecord[]);
     } catch (err) {
       console.error('Error loading all reports:', err);
     }
@@ -317,6 +342,40 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error('Error refreshing monthly report:', err);
+    } finally {
+      setRefreshingReportId(null);
+    }
+  };
+
+  const handleDownloadQuarterlyReport = async (report: QuarterlyReportRecord) => {
+    if (!user) return;
+    setDownloadingReportId(report.id);
+    try {
+      downloadQuarterlyReport(report.report_data);
+      await markQuarterlyReportDownloaded(report.id, user.id);
+      setQuarterlyReports(prev => prev.filter(r => r.id !== report.id));
+      setAllQuarterlyReports(prev => prev.map(r => r.id === report.id ? { ...r, status: 'downloaded' } : r));
+    } catch (err) {
+      console.error('Error downloading quarterly report:', err);
+    } finally {
+      setDownloadingReportId(null);
+    }
+  };
+
+  const handleRefreshQuarterlyReport = async (report: QuarterlyReportRecord) => {
+    if (!accessContext) return;
+    setRefreshingReportId(report.id);
+    try {
+      const scope = { isSCScoped: accessContext.isSCScoped, scopeId: accessContext.scopeId, allowedServiceCentreIds: [] as string[] };
+      const scName = accessContext.serviceCentre?.name ?? '';
+      const newData = await refreshQuarterlyReportData(scope, report.id, scName, report.year, report.quarter);
+      const updated = { ...report, report_data: newData };
+      setAllQuarterlyReports(prev => prev.map(r => r.id === report.id ? updated : r));
+      if (viewingReport?.record.id === report.id) {
+        setViewingReport({ type: 'quarterly', record: updated });
+      }
+    } catch (err) {
+      console.error('Error refreshing quarterly report:', err);
     } finally {
       setRefreshingReportId(null);
     }
@@ -943,6 +1002,32 @@ export default function Dashboard() {
           </div>
         );
       })}
+      {quarterlyReports.length > 0 && quarterlyReports.map(report => {
+        const isDownloading = downloadingReportId === report.id;
+        return (
+          <div key={report.id} className="bg-emerald-50 border border-emerald-300 rounded-xl px-3.5 py-2.5 shadow-sm">
+            <div className="flex items-start gap-2 mb-2">
+              <FileText className="w-4 h-4 text-emerald-700 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold text-emerald-900 uppercase tracking-wide">Quarterly Report Ready</p>
+                <p className="text-sm font-semibold text-emerald-800 mt-0.5">Q{report.quarter} {report.year} Operations Report</p>
+                <p className="text-xs text-emerald-700 mt-0.5">{report.report_data?.production?.stationCount ?? 0} stations · {report.report_data?.completionPct ?? 0}% data coverage</p>
+              </div>
+            </div>
+            <button
+              onClick={() => handleDownloadQuarterlyReport(report)}
+              disabled={isDownloading}
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 disabled:bg-blue-50/50 disabled:ring-blue-100 text-blue-700 ring-1 ring-blue-200 text-xs font-semibold rounded transition-colors"
+            >
+              {isDownloading ? (
+                <><span className="w-3 h-3 border-2 border-blue-900 border-t-transparent rounded-full animate-spin"></span>Preparing...</>
+              ) : (
+                <><Download className="w-3.5 h-3.5" />Download Quarterly Report (.docx)</>
+              )}
+            </button>
+          </div>
+        );
+      })}
       {nonFunctionalStats && (nonFunctionalStats.savedPercentage < 100 || nonFunctionalStats.nonFunctionalCount > 0) && (
         <div className="bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 space-y-1 shadow-sm">
           <div className="flex items-center gap-2 mb-1">
@@ -1420,10 +1505,14 @@ export default function Dashboard() {
     if (viewingReport) {
       const { type, record } = viewingReport;
       const isWeekly = type === 'weekly';
+      const isQuarterly = type === 'quarterly';
       const wr = record as WeeklyReportRecord;
       const mr = record as MonthlyReportRecord;
+      const qr = record as QuarterlyReportRecord;
       const title = isWeekly
         ? `Week ${wr.week_number}, ${wr.year} — ${wr.report_type === 'friday' ? 'End of Week' : 'Mid-week'} Report`
+        : isQuarterly
+        ? `Q${qr.quarter} ${qr.year} — Quarterly Operations Report`
         : `${(record as MonthlyReportRecord).report_data?.monthName} ${mr.year} — Monthly Operations Report`;
       const subtitle = isWeekly
         ? `${new Date(wr.period_start + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} – ${new Date(wr.period_end + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
@@ -1439,9 +1528,11 @@ export default function Dashboard() {
           title={title}
           subtitle={subtitle}
           onBack={() => setViewingReport(null)}
-          onDownload={() => isWeekly ? handleDownloadReport(wr) : handleDownloadMonthlyReport(mr)}
+          onDownload={() => isWeekly ? handleDownloadReport(wr) : isQuarterly ? handleDownloadQuarterlyReport(qr) : handleDownloadMonthlyReport(mr)}
           onRefresh={isWeekly
             ? () => handleRefreshWeeklyReport(wr)
+            : isQuarterly
+            ? () => handleRefreshQuarterlyReport(qr)
             : () => handleRefreshMonthlyReport(mr)
           }
           isDownloading={isDownloading}
@@ -1673,13 +1764,63 @@ export default function Dashboard() {
           </div>
         )}
 
-        {(reportSection === 'quarterly' || reportSection === 'yearly') && (
+        {reportSection === 'quarterly' && (
+          allQuarterlyReports.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <FileText className="w-10 h-10 text-gray-200 mb-3" />
+              <p className="text-sm font-medium text-gray-400">No quarterly reports yet</p>
+              <p className="text-xs text-gray-300 mt-1">Quarterly reports are generated automatically when all data is submitted for the quarter.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {allQuarterlyReports.map(r => {
+                const isPending = r.status === 'ready';
+                return (
+                  <div key={r.id} className={`flex items-center justify-between border rounded-lg px-3 py-2 ${isPending ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-gray-200'}`}>
+                    <div className="flex-1 min-w-0 mr-3">
+                      <p className="text-sm font-semibold text-gray-800 truncate">
+                        Q{r.quarter} {r.year} Quarterly Report
+                        {isPending && <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded">NEW</span>}
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        Generated: {new Date(r.generated_at).toLocaleString('en-GB')}
+                        {r.downloaded_at && ` | Downloaded: ${new Date(r.downloaded_at).toLocaleString('en-GB')}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setViewingReport({ type: 'quarterly', record: r })}
+                        className="px-2 py-1 text-[10px] font-semibold bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
+                      >Preview</button>
+                      <button
+                        onClick={() => handleDownloadQuarterlyReport(r)}
+                        disabled={downloadingReportId === r.id}
+                        className="px-2 py-1 text-[10px] font-semibold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {downloadingReportId === r.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                        Download
+                      </button>
+                      <button
+                        onClick={() => handleRefreshQuarterlyReport(r)}
+                        disabled={refreshingReportId === r.id}
+                        className="px-2 py-1 text-[10px] font-semibold bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+                        title="Refresh report data"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${refreshingReportId === r.id ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        )}
+
+        {reportSection === 'yearly' && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <FileText className="w-10 h-10 text-gray-200 mb-3" />
             <p className="text-sm font-medium text-gray-400">Coming soon</p>
-            <p className="text-xs text-gray-300 mt-1">
-              {reportSection === 'quarterly' ? 'Quarterly' : 'Yearly'} reports will be available in a future update
-            </p>
+            <p className="text-xs text-gray-300 mt-1">Yearly reports will be available in a future update</p>
           </div>
         )}
       </div>
@@ -1735,8 +1876,8 @@ export default function Dashboard() {
                 {tabDropdownOpen && (
                   <div className="absolute left-0 right-0 top-full bg-white border border-gray-200 shadow-lg rounded-b-lg z-40">
                     {(['cw', 'rw', 'kpis', 'reports', 'ai', 'alerts', 'followups'] as const).map((tab) => {
-                      const alertCount = weeklyReports.length + monthlyReports.length + alerts.length + (missingLogsInfo ? 1 : 0) + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0);
-                      const readyReportCount = allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length;
+                      const alertCount = weeklyReports.length + monthlyReports.length + quarterlyReports.length + alerts.length + (missingLogsInfo ? 1 : 0) + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0);
+                      const readyReportCount = allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length + allQuarterlyReports.filter(r => r.status === 'ready').length;
                       const isActive = mergedTab === tab;
                       return (
                         <button
@@ -1776,8 +1917,8 @@ export default function Dashboard() {
             ) : (
               <div className="flex flex-shrink-0 border-b border-gray-200 overflow-x-auto">
                 {(['cw', 'rw', 'kpis', 'reports', 'ai', 'alerts', 'followups'] as const).map((tab) => {
-                  const alertCount = weeklyReports.length + monthlyReports.length + alerts.length + (missingLogsInfo ? 1 : 0) + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0);
-                  const readyReportCount = allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length;
+                  const alertCount = weeklyReports.length + monthlyReports.length + quarterlyReports.length + alerts.length + (missingLogsInfo ? 1 : 0) + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0);
+                  const readyReportCount = allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length + allQuarterlyReports.filter(r => r.status === 'ready').length;
                   return (
                     <button
                       key={tab}
@@ -1879,9 +2020,9 @@ export default function Dashboard() {
                 }`}
               >
                 Reports
-                {(allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length) > 0 && (
+                {(allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length + allQuarterlyReports.filter(r => r.status === 'ready').length) > 0 && (
                   <span className="ml-0.5 bg-sky-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>
-                    {allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length}
+                    {allWeeklyReports.filter(r => r.status === 'ready').length + allMonthlyReports.filter(r => r.status === 'ready').length + allQuarterlyReports.filter(r => r.status === 'ready').length}
                   </span>
                 )}
               </button>
@@ -1924,9 +2065,9 @@ export default function Dashboard() {
             >
               <Bell className="w-3.5 h-3.5" />
               Alerts
-              {(weeklyReports.length > 0 || monthlyReports.length > 0 || missingLogsInfo || (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0) || alerts.length > 0) && (
+              {(weeklyReports.length > 0 || monthlyReports.length > 0 || quarterlyReports.length > 0 || missingLogsInfo || (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0) || alerts.length > 0) && (
                 <span className="ml-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '10px' }}>
-                  {weeklyReports.length + monthlyReports.length + alerts.length + (missingLogsInfo ? 1 : 0) + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0)}
+                  {weeklyReports.length + monthlyReports.length + quarterlyReports.length + alerts.length + (missingLogsInfo ? 1 : 0) + (nonFunctionalStats && nonFunctionalStats.nonFunctionalCount > 0 ? 1 : 0)}
                 </span>
               )}
             </button>
