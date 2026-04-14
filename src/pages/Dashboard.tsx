@@ -156,7 +156,7 @@ export default function Dashboard() {
   const triggerAndLoadReports = async (scId: string) => {
     if (!accessContext) return;
     setReportGenError(null);
-    const scope = { isSCScoped: accessContext.isSCScoped, scopeId: accessContext.scopeId };
+    const scope = { scopeType: accessContext.scopeType, scopeId: accessContext.scopeId, allowedServiceCentreIds: accessContext.allowedServiceCentreIds };
     const scName = accessContext.serviceCentre?.name ?? '';
     try {
       const [weeklyResult, monthlyResult, quarterlyResult] = await Promise.allSettled([
@@ -310,7 +310,7 @@ export default function Dashboard() {
     if (!accessContext) return;
     setRefreshingReportId(report.id);
     try {
-      const scope = { isSCScoped: accessContext.isSCScoped, scopeId: accessContext.scopeId, allowedServiceCentreIds: [] as string[] };
+      const scope = { scopeType: accessContext.scopeType, scopeId: accessContext.scopeId, allowedServiceCentreIds: accessContext.allowedServiceCentreIds };
       const scName = accessContext.serviceCentre?.name ?? '';
       const newData = await refreshWeeklyReportData(
         scope, report.id, scName, report.week_number, report.year,
@@ -332,7 +332,7 @@ export default function Dashboard() {
     if (!accessContext) return;
     setRefreshingReportId(report.id);
     try {
-      const scope = { isSCScoped: accessContext.isSCScoped, scopeId: accessContext.scopeId, allowedServiceCentreIds: [] as string[] };
+      const scope = { scopeType: accessContext.scopeType, scopeId: accessContext.scopeId, allowedServiceCentreIds: accessContext.allowedServiceCentreIds };
       const scName = accessContext.serviceCentre?.name ?? '';
       const newData = await refreshMonthlyReportData(scope, report.id, scName, report.year, report.month);
       const updated = { ...report, report_data: newData };
@@ -366,7 +366,7 @@ export default function Dashboard() {
     if (!accessContext) return;
     setRefreshingReportId(report.id);
     try {
-      const scope = { isSCScoped: accessContext.isSCScoped, scopeId: accessContext.scopeId, allowedServiceCentreIds: [] as string[] };
+      const scope = { scopeType: accessContext.scopeType, scopeId: accessContext.scopeId, allowedServiceCentreIds: accessContext.allowedServiceCentreIds };
       const scName = accessContext.serviceCentre?.name ?? '';
       const newData = await refreshQuarterlyReportData(scope, report.id, scName, report.year, report.quarter);
       const updated = { ...report, report_data: newData };
