@@ -110,34 +110,26 @@ export async function refreshQuarterlyReportData(
   return reportData;
 }
 
+function getMostRecentCompletedQuarter(today: Date): { quarter: number; year: number } | null {
+  const currentMonth = today.getMonth() + 1;
+  const currentYear = today.getFullYear();
+
+  if (currentMonth >= 4) {
+    return { quarter: Math.floor((currentMonth - 1) / 3), year: currentYear };
+  }
+  return { quarter: 4, year: currentYear - 1 };
+}
+
 export async function checkAndTriggerQuarterlyReport(
   scope: ScopeFilter,
   serviceCentreId: string,
   serviceCentreName: string
 ): Promise<{ triggered: boolean; quarter?: number; year?: number }> {
   const today = new Date();
-  const currentMonth = today.getMonth() + 1;
-  const currentDay = today.getDate();
+  const result = getMostRecentCompletedQuarter(today);
+  if (!result) return { triggered: false };
 
-  const triggerMonths = [1, 4, 7, 10];
-  if (!triggerMonths.includes(currentMonth) || currentDay < 2) return { triggered: false };
-
-  let prevQuarter: number;
-  let prevYear: number;
-
-  if (currentMonth === 1) {
-    prevQuarter = 4;
-    prevYear = today.getFullYear() - 1;
-  } else if (currentMonth === 4) {
-    prevQuarter = 1;
-    prevYear = today.getFullYear();
-  } else if (currentMonth === 7) {
-    prevQuarter = 2;
-    prevYear = today.getFullYear();
-  } else {
-    prevQuarter = 3;
-    prevYear = today.getFullYear();
-  }
+  const { quarter: prevQuarter, year: prevYear } = result;
 
   const { data: existing } = await supabase
     .from('quarterly_reports')
@@ -177,11 +169,11 @@ export async function checkAndTriggerQuarterlyReport(
   }
 
   const coveragePct = totalExpected > 0 ? (totalCount / totalExpected) * 100 : 0;
-  if (coveragePct < 100) return { triggered: false };
+  if (coveragePct < 50) return { triggered: false };
 
-  const result = await generateAndSaveQuarterlyReport(
+  const generated = await generateAndSaveQuarterlyReport(
     scope, serviceCentreId, serviceCentreName, prevYear, prevQuarter
   );
 
-  return result ? { triggered: true, quarter: prevQuarter, year: prevYear } : { triggered: false };
+  return generated ? { triggered: true, quarter: prevQuarter, year: prevYear } : { triggered: false };
 }
