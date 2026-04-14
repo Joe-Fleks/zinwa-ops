@@ -131,7 +131,7 @@ export async function checkAndTriggerQuarterlyReport(
 
   const { quarter: prevQuarter, year: prevYear } = result;
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingErr } = await supabase
     .from('quarterly_reports')
     .select('id')
     .eq('service_centre_id', serviceCentreId)
@@ -139,6 +139,7 @@ export async function checkAndTriggerQuarterlyReport(
     .eq('year', prevYear)
     .maybeSingle();
 
+  if (existingErr) throw new Error(`Quarterly check existing failed: ${existingErr.message}`);
   if (existing) return { triggered: false };
 
   const stationsRes = await supabase
@@ -146,7 +147,8 @@ export async function checkAndTriggerQuarterlyReport(
     .select('id')
     .eq('service_centre_id', serviceCentreId);
 
-  if (stationsRes.error || !stationsRes.data?.length) return { triggered: false };
+  if (stationsRes.error) throw new Error(`Quarterly stations query failed: ${stationsRes.error.message}`);
+  if (!stationsRes.data?.length) return { triggered: false };
 
   const stationIds = stationsRes.data.map(s => s.id);
   const months = getQuarterMonths(prevQuarter);
@@ -158,18 +160,21 @@ export async function checkAndTriggerQuarterlyReport(
     const daysInMonth = new Date(prevYear, month, 0).getDate();
     totalExpected += stationIds.length * daysInMonth;
 
-    const { count } = await supabase
+    const { count, error: countErr } = await supabase
       .from('production_logs')
       .select('id', { count: 'exact', head: true })
       .in('station_id', stationIds)
       .gte('date', `${prevYear}-${String(month).padStart(2, '0')}-01`)
       .lte('date', `${prevYear}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`);
 
+    if (countErr) throw new Error(`Quarterly log count failed for month ${month}: ${countErr.message}`);
     totalCount += count || 0;
   }
 
   const coveragePct = totalExpected > 0 ? (totalCount / totalExpected) * 100 : 0;
-  if (coveragePct < 50) return { triggered: false };
+  if (coveragePct < 50) {
+    throw new Error(`Quarterly Q${prevQuarter} ${prevYear}: only ${coveragePct.toFixed(1)}% data coverage (need 50%)`);
+  }
 
   const generated = await generateAndSaveQuarterlyReport(
     scope, serviceCentreId, serviceCentreName, prevYear, prevQuarter

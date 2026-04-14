@@ -91,12 +91,15 @@ export async function fetchQuarterlyReportData(
     return buildEmptyQuarterlyReport(scope.scopeId || '', serviceCentreName, year, quarter);
   }
 
-  const [month1Data, month2Data, month3Data] = await Promise.all([
+  const monthResults = await Promise.allSettled([
     fetchMonthlyReportData(scope, year, months[0], serviceCentreName),
     fetchMonthlyReportData(scope, year, months[1], serviceCentreName),
     fetchMonthlyReportData(scope, year, months[2], serviceCentreName),
   ]);
-  const monthlyReports = [month1Data, month2Data, month3Data];
+  const monthlyReports = monthResults.map((r, i) => {
+    if (r.status === 'rejected') throw new Error(`Monthly data for month ${months[i]} failed: ${r.reason?.message || r.reason}`);
+    return r.value;
+  });
 
   const production = mergeProduction(monthlyReports.map(r => r.production));
   const sales = mergeSales(monthlyReports.map(r => r.sales));
@@ -104,28 +107,46 @@ export async function fetchQuarterlyReportData(
   const chemicals = mergeChemicals(monthlyReports.map(r => r.chemicals));
   const breakdowns = mergeBreakdowns(monthlyReports.map(r => r.breakdowns));
 
-  const cwProdTargets = await fetchAllRows(
-    supabase.from('cw_production_targets')
-      .select('station_id, year, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
-      .in('station_id', stationIds).eq('year', year)
-  );
+  let cwProdTargets: any[] = [];
+  try {
+    cwProdTargets = await fetchAllRows(
+      supabase.from('cw_production_targets')
+        .select('station_id, year, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
+        .in('station_id', stationIds).eq('year', year)
+    );
+  } catch (e) {
+    console.warn('Quarterly: failed to fetch production targets, using empty', e);
+  }
   const productionVsTarget = buildProductionVsTarget(production, cwProdTargets, months);
 
-  const [energy1, energy2, energy3] = await Promise.all([
-    fetchMonthlyEnergySummary(scope, year, months[0]),
-    fetchMonthlyEnergySummary(scope, year, months[1]),
-    fetchMonthlyEnergySummary(scope, year, months[2]),
-  ]);
-  const energy = mergeQuarterlyEnergy([energy1, energy2, energy3], months);
+  let energy: QuarterlyEnergyData;
+  try {
+    const [energy1, energy2, energy3] = await Promise.all([
+      fetchMonthlyEnergySummary(scope, year, months[0]),
+      fetchMonthlyEnergySummary(scope, year, months[1]),
+      fetchMonthlyEnergySummary(scope, year, months[2]),
+    ]);
+    energy = mergeQuarterlyEnergy([energy1, energy2, energy3], months);
+  } catch (e) {
+    console.warn('Quarterly: failed to fetch energy data, using empty', e);
+    energy = { totalEstimatedKWh: 0, totalEstimatedCost: 0, totalActualBill: 0, totalActualKWh: 0, overallVariancePct: null, stations: [], monthlyBreakdown: [] };
+  }
 
-  const [rwDam1, rwDam2, rwDam3] = await Promise.all([
-    fetchRWMonthlyDamReport(scope, year, months[0]),
-    fetchRWMonthlyDamReport(scope, year, months[1]),
-    fetchRWMonthlyDamReport(scope, year, months[2]),
-  ]);
-  const rwDamReport = mergeRWDamReports([rwDam1, rwDam2, rwDam3]);
-  const rwBailiffSummary = buildBailiffSummary(rwDamReport);
-  const rwAgreementStats = await fetchRWAgreementStats(scope, year, months[2]);
+  let rwDamReport: RWMonthlyDamReport[] = [];
+  let rwBailiffSummary: RWBailiffSummary[] = [];
+  let rwAgreementStats: RWAgreementStats = { totalActiveInYear: 0, expiredInMonth: 0, expiringNextMonth: 0, currentlyActive: 0 };
+  try {
+    const [rwDam1, rwDam2, rwDam3] = await Promise.all([
+      fetchRWMonthlyDamReport(scope, year, months[0]),
+      fetchRWMonthlyDamReport(scope, year, months[1]),
+      fetchRWMonthlyDamReport(scope, year, months[2]),
+    ]);
+    rwDamReport = mergeRWDamReports([rwDam1, rwDam2, rwDam3]);
+    rwBailiffSummary = buildBailiffSummary(rwDamReport);
+    rwAgreementStats = await fetchRWAgreementStats(scope, year, months[2]);
+  } catch (e) {
+    console.warn('Quarterly: failed to fetch RW data, using empty', e);
+  }
 
   const totalExpectedLogs = monthlyReports.reduce((s, r) => s + r.totalExpectedLogs, 0);
   const totalActualLogs = monthlyReports.reduce((s, r) => s + r.totalActualLogs, 0);

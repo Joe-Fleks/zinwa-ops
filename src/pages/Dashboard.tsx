@@ -180,7 +180,9 @@ export default function Dashboard() {
         console.error('Monthly report generation failed:', monthlyResult.reason);
       }
       if (quarterlyResult.status === 'rejected') {
-        console.error('Quarterly report generation failed:', quarterlyResult.reason);
+        const qErr = quarterlyResult.reason;
+        console.error('Quarterly report generation failed:', qErr);
+        setReportGenError(`Quarterly report: ${qErr?.message || String(qErr)}`);
       }
     } catch (err) {
       console.error('Report trigger error:', err);
@@ -1770,6 +1772,11 @@ export default function Dashboard() {
               <FileText className="w-10 h-10 text-gray-200 mb-3" />
               <p className="text-sm font-medium text-gray-400">No quarterly reports yet</p>
               <p className="text-xs text-gray-300 mt-1">Quarterly reports are generated automatically when all data is submitted for the quarter.</p>
+              {reportGenError && (
+                <div className="mt-4 bg-red-50 border border-red-200 rounded-lg px-3 py-2 max-w-sm">
+                  <p className="text-xs text-red-600">{reportGenError}</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
