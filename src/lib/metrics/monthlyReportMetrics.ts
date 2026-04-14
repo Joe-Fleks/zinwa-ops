@@ -250,10 +250,9 @@ export async function fetchMonthlyReportData(
     fetchAllRows(
       supabase
         .from('cw_sales_targets')
-        .select('station_id, target_volume_m3')
+        .select('station_id, year, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
         .in('station_id', stationIds)
         .eq('year', year)
-        .eq('month', month)
     ),
     queryChemicalBalances({
       stationIds,
@@ -368,9 +367,10 @@ export async function fetchMonthlyReportData(
     });
   }
 
+  const monthKey = MONTH_KEYS[month - 1];
   const targetsMap = new Map<string, number>();
   for (const r of targetsData) {
-    targetsMap.set(r.station_id, Number(r.target_volume_m3) || 0);
+    targetsMap.set(r.station_id, Number((r as any)[monthKey]) || 0);
   }
 
   const salesStations: MonthlySalesStation[] = [];
