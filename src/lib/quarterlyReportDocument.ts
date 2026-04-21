@@ -605,7 +605,7 @@ function buildContent(d: QuarterlyReportData): string {
     parts.push(heading2('9.2 Water Allocation & Sales by Bailiff'));
 
     for (const bailiff of d.rwBailiffSummary) {
-      parts.push(heading2(bailiff.bailiffName));
+      parts.push(heading2(bailiff.bailiff));
       parts.push(tblStart());
       parts.push(trow([
         { text: 'Dam', shade: '2E6FA3' },
