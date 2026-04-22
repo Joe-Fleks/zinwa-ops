@@ -285,10 +285,13 @@ export async function fetchYTDProduction(
     fetchAllRows(
       supabase
         .from('production_logs')
-        .select('station_id, date, cw_volume_m3')
+        .select('id, station_id, date, cw_volume_m3')
         .in('station_id', stationIds)
         .gte('date', ytdStart)
         .lt('date', ytdEnd)
+        .order('date', { ascending: true })
+        .order('station_id', { ascending: true })
+        .order('id', { ascending: true })
     ),
     fetchAllRows(
       supabase
@@ -296,13 +299,19 @@ export async function fetchYTDProduction(
         .select('station_id, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec')
         .in('station_id', stationIds)
         .eq('year', year)
+        .order('station_id', { ascending: true })
     ),
   ]);
 
   const ytdByStation = new Map<string, number>();
   const monthlyProdMap = new Map<number, number>();
+  const seenLogIds = new Set<string>();
 
   for (const log of prodLogs) {
+    if (log.id) {
+      if (seenLogIds.has(log.id)) continue;
+      seenLogIds.add(log.id);
+    }
     const vol = Number(log.cw_volume_m3) || 0;
     ytdByStation.set(log.station_id, (ytdByStation.get(log.station_id) || 0) + vol);
     const mIdx = parseInt((log.date as string).split('-')[1]) - 1;

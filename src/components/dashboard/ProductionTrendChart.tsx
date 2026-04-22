@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Search, ChevronDown } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Search, ChevronDown, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AccessContext } from '../../lib/scopeUtils';
 import {
@@ -70,6 +70,7 @@ export default function ProductionTrendChart({ accessContext }: Props) {
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [showStationDropdown, setShowStationDropdown] = useState(false);
+  const [showYtdFormula, setShowYtdFormula] = useState(false);
   const [periodSearchQuery, setPeriodSearchQuery] = useState('');
   const [stationSearchQuery, setStationSearchQuery] = useState('');
 
@@ -1380,6 +1381,43 @@ export default function ProductionTrendChart({ accessContext }: Props) {
             <div className="text-center py-12 text-gray-500">Loading data...</div>
           ) : scopeMode === 'all-stations' && viewMode === 'ytd' && ytdData && ytdData.stations.length > 0 ? (
             <>
+              <div className="mb-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowYtdFormula((v) => !v)}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-700 hover:text-sky-900"
+                >
+                  <Info className="w-3.5 h-3.5" />
+                  {showYtdFormula ? 'Hide formula' : 'How is this calculated?'}
+                </button>
+              </div>
+              {showYtdFormula && (
+                <div className="mb-3 p-3 rounded-lg border border-sky-200 bg-sky-50 text-[11px] text-slate-700 leading-relaxed">
+                  <div className="font-semibold text-sky-900 mb-1.5 text-[12px]">YTD Calculation Formulas</div>
+                  <div className="space-y-1.5">
+                    <div>
+                      <span className="font-semibold">YTD Actual (per station):</span>
+                      <div className="ml-2 font-mono text-[10.5px]">= SUM(cw_volume_m3) FROM production_logs WHERE date BETWEEN Jan&nbsp;1 AND today, GROUP&nbsp;BY station</div>
+                    </div>
+                    <div>
+                      <span className="font-semibold">YTD Target (per station):</span>
+                      <div className="ml-2 font-mono text-[10.5px]">= Jan + Feb + &hellip; + (prev full months) + (current_day / days_in_current_month) &times; current_month_target</div>
+                      <div className="ml-2 text-[10.5px] text-slate-600">Current month is pro-rated to {new Date().getDate()} / {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()} days elapsed.</div>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Achievement %:</span>
+                      <span className="font-mono text-[10.5px]"> = (YTD Actual &divide; YTD Target) &times; 100</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Totals:</span>
+                      <span className="text-[10.5px]"> = straight sum of per-station values (no additional scaling).</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-sky-200 text-[10.5px] text-slate-600">
+                    Source tables: <span className="font-mono">production_logs</span>, <span className="font-mono">cw_production_targets</span>. Each log is deduplicated by its primary key before summation.
+                  </div>
+                </div>
+              )}
               <div className="space-y-0">
                 {ytdData.stations.map((st, i) => {
                   const rowMax = Math.max(st.ytdProduction, st.ytdTarget, 1);
