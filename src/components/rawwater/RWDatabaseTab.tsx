@@ -574,8 +574,21 @@ export default function RWDatabaseTab({ stationId }: Props) {
       a.water_allocated_ml
     ]);
 
-    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const csvEscape = (val: unknown): string => {
+      if (val === null || val === undefined) return '';
+      const s = String(val);
+      if (/[",\r\n]/.test(s)) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+
+    const csvContent = [
+      headers.map(csvEscape).join(','),
+      ...rows.map(row => row.map(csvEscape).join(',')),
+    ].join('\r\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
