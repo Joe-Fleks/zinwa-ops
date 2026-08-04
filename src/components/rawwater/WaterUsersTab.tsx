@@ -6,7 +6,8 @@ import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetwork } from '../../contexts/NetworkContext';
-import { Plus, Save, CreditCard as Edit3, CheckCircle2, AlertCircle, Users, X } from 'lucide-react';
+import { Plus, Save, CreditCard as Edit3, CheckCircle2, AlertCircle, Users, X, Download } from 'lucide-react';
+import { exportToExcel } from '../../lib/excelExport';
 import { ExcelLikeTable } from '../ExcelLikeTable';
 import { PasteHandler, FieldConfig } from '../../lib/pasteHandlers';
 import TableColumnSearch from '../TableColumnSearch';
@@ -322,6 +323,25 @@ export default function WaterUsersTab({ stationId }: Props) {
         <div className="flex gap-3">
           {mode === 'view' ? (
             <>
+              <button
+                onClick={() => exportToExcel(
+                  users,
+                  [
+                    { header: 'Client / Company Name', field: 'client_company_name' },
+                    { header: 'National ID No.', field: 'national_id_no' },
+                    { header: 'Account No.', field: 'account_no' },
+                    { header: 'Contact 1', field: 'contact_1' },
+                    { header: 'Contact 2', field: 'contact_2' },
+                    { header: 'Email', field: 'email' },
+                  ],
+                  'Water_Users'
+                )}
+                disabled={users.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-800 rounded-lg hover:bg-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Export to Excel
+              </button>
               <button
                 onClick={() => setMode('edit')}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors"
