@@ -6,7 +6,8 @@ import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetwork } from '../../contexts/NetworkContext';
-import { Plus, Save, CreditCard as Edit3, CheckCircle2, AlertCircle, BarChart3 } from 'lucide-react';
+import { Plus, Save, CreditCard as Edit3, CheckCircle2, AlertCircle, BarChart3, Download } from 'lucide-react';
+import { exportToExcel } from '../../lib/excelExport';
 import { ExcelLikeTable } from '../ExcelLikeTable';
 import { PasteHandler, FieldConfig } from '../../lib/pasteHandlers';
 import TableColumnSearch from '../TableColumnSearch';
@@ -417,6 +418,36 @@ export default function DamsTab() {
         <div className="flex gap-3">
           {mode === 'view' ? (
             <>
+              <button
+                onClick={() => exportToExcel(
+                  dams.map(d => ({
+                    ...d,
+                    purposes_str: Array.isArray(d.purposes) ? d.purposes.join(', ') : ''
+                  })),
+                  [
+                    { header: 'Dam Code', field: 'dam_code' },
+                    { header: 'Dam Name', field: 'name' },
+                    { header: 'Location', field: 'location' },
+                    { header: 'Full Capacity (ML)', field: 'full_supply_capacity_ml' },
+                    { header: '10% Yield (ML)', field: 'ten_percent_yield_ml' },
+                    { header: 'River', field: 'river' },
+                    { header: 'Bailiff', field: 'bailiff' },
+                    { header: 'Purposes', field: 'purposes_str' },
+                    { header: 'Coordinates', field: 'coordinates' },
+                    { header: 'Dam Type', field: 'dam_type' },
+                    { header: 'Year Constructed', field: 'year_constructed' },
+                    { header: 'Spillway Type', field: 'spillway_type' },
+                    { header: 'Owner', field: 'owner' },
+                    { header: 'Status', field: 'operational_status' },
+                  ],
+                  'Dams_Register'
+                )}
+                disabled={dams.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-800 rounded-lg hover:bg-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Export to Excel
+              </button>
               <button
                 onClick={() => setShowLevels(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-teal-100 text-teal-800 rounded-lg hover:bg-teal-200 transition-colors"
